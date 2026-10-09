@@ -6,8 +6,8 @@
 |---|---|
 | **Grupo** | _(nomes)_ |
 | **Cliente (papel de PO)** | Sócio do Grupo Saints (grupo de bares/restaurantes, [gruposaints.com.br](https://www.gruposaints.com.br/)) — contato via entrevista, nome não identificado na transcrição |
-| **Versão** | 0.2 — rascunho, baseado na Conversa 1 |
-| **Última atualização** | 13/09/2026 |
+| **Versão** | 0.3 — retomada do projeto, backlog de sprint fechado |
+| **Última atualização** | 09/10/2026 |
 
 > Este documento é a base da **AC2 (entrega de 21/09/2026)** e da **Entrega Parcial 1**, e é atualizado a cada sprint.
 > Requisito que mudar aparece aqui **com o motivo** — mudança silenciosa é escopo fora de controle.
@@ -106,17 +106,39 @@ _(a métrica que comprova que o problema foi resolvido)_
 
 | ID | Requisito | MoSCoW | Sprint | Persona |
 |---|---|---|---|---|
-| RF01 | Upload do export de custo/estoque/compras do Everest | Must | | Persona 1 (Joyce/Renata) |
-| RF02 | Cálculo e exibição do delta custo teórico × custo real, por casa | Must | | Persona 1 / Persona 2 |
-| RF03 | Cadastro e consulta de funcionários ativos por casa (CRUD) | Must | | Persona 2 (Sócio/Diretor) |
-| RF04 | Dashboard consolidado de custo (CMV real vs. teórico por casa) | Must | | Persona 2 |
-| RF05 | Alerta de escala fora do padrão esperado por casa | Should | | Persona 2 |
-| RF06 | Geração automática de DRE consolidada entre casas | Should | | Persona 2 |
-| RF07 | Recomendação de quantidade de compra a partir do histórico de vendas | Could | | _(a definir — ADM/Compras)_ |
+| RF08 | Cadastro e consulta de casas (unidades do grupo) — CRUD | Must | **Sprint 1** | Persona 2 (Sócio/Diretor) |
+| RF01 | Upload do export de custo/estoque/compras do Everest | Must | **Sprint 1** | Persona 1 (Joyce/Renata) |
+| RF02 | Cálculo e exibição do delta custo teórico × custo real, por casa | Must | **Sprint 1** | Persona 1 / Persona 2 |
+| RF04 | Dashboard consolidado de custo (CMV real vs. teórico por casa) | Must | **Sprint 2** | Persona 2 |
+| RF03 | Cadastro e consulta de funcionários ativos por casa (CRUD) | Must | **Adiado — pendente Conversa 2** | Persona 2 (Sócio/Diretor) |
+| RF05 | Alerta de escala fora do padrão esperado por casa | Should | **Adiado — pendente Conversa 2** | Persona 2 |
+| RF06 | Geração automática de DRE consolidada entre casas | Should | **Sprint 2 (se sobrar tempo)** | Persona 2 |
+| RF07 | Recomendação de quantidade de compra a partir do histórico de vendas | Could | **Fora do MVP atual** | _(a definir — ADM/Compras)_ |
+
+> **Nota de retomada (09/10/2026):** RF03 e RF05 continuam como hipótese e ficam
+> fora da Sprint 1 e da Sprint 2 — não dependem só de "ter tempo", dependem da
+> Conversa 2 (Joyce, Renata, Wellington) validar o fluxo operacional e, no caso
+> de RF03, o RH confirmar quais campos são realmente necessários antes de
+> desenhar algo que toca dado pessoal (LGPD). Isso não bloqueia o restante: RF08,
+> RF01, RF02 e RF04 cobrem o Problema 1 (custo/compras), que já foi validado
+> diretamente pelo cliente na Conversa 1 e é prioridade nº1 dele. A Conversa 2
+> deve ser agendada em paralelo à Sprint 1; se acontecer a tempo, RF03 entra
+> como adição ao backlog da Sprint 2.
 
 ### Detalhamento
 
 ```
+RF08 — Cadastro e consulta de casas (unidades do grupo)
+Prioridade: Must
+Descrição: CRUD de "casa" (unidade/restaurante do grupo) — nome, marca, cidade,
+status (ativa/inativa). É a entidade base referenciada por RF01 (upload por
+casa/período), RF02 (delta por casa) e RF04 (dashboard por casa); sem ela não
+há como associar upload, custo ou dashboard a uma unidade específica.
+Origem: não veio de uma fala literal do cliente, mas é inferido diretamente da
+estrutura de todas as RF Must já validadas (ex.: "quero ver o delta... por
+casa") — o grupo tem 14 casas e todo RF01/02/04 fala "por casa". Satisfaz a
+exigência de "1 CRUD completo" do MVP, substituindo o Item placeholder.
+
 RF01 — Upload do export de custo/estoque/compras do Everest
 Prioridade: Must
 Descrição: Usuário (Joyce/Renata) faz upload de um arquivo (Excel/CSV) exportado do
@@ -316,3 +338,4 @@ _(inserir; ver `docs/02-arquitetura.md`)_
 | | 0.1 | Criação | Estrutura inicial |
 | 13/09/2026 | 0.2 | Preenchidas Personas (seção 3), RF01–RF07 e RNF01–RNF06 | Baseado na Conversa 1 (`00-customer-discovery.md`) e na pesquisa técnica de Everest/Colibri/Dionísio (`docs/discovery/`). RF03, RF05 e RF06 marcados como hipótese de solução — pendente validação de fluxo operacional com Joyce, Renata e Wellington (Conversa 2, ainda não realizada) |
 | 17/09/2026 | 0.2 | Corrigido nome do cliente de "Grupo Santos" para **Grupo Saints** em todos os docs; nomes das casas atualizados com base no site institucional ([gruposaints.com.br](https://www.gruposaints.com.br/)) | O nome "Grupo Santos" era erro de transcrição automática do áudio da entrevista (confirmado ao ouvir a resposta do cliente na transcrição, `Entrevista/entrevista_cliente.txt` linha 192); site oficial confirma "Grupo Saints" e lista as marcas: Boteco São Bento, Tartuferia San Paolo, Casa Yū, Tuy Bar Cocina, São Conrado Bar, Toca do Urso, Beer Island Tap House. "Tulipa", citado na entrevista, não aparece no site — sinalizado como pendente de confirmação |
+| 09/10/2026 | 0.3 | Adicionado **RF08** (CRUD de Casa); preenchida coluna Sprint — RF08/RF01/RF02 → Sprint 1, RF04 → Sprint 2, RF06 → Sprint 2 (se sobrar tempo), RF03/RF05 → adiados, RF07 → fora do MVP atual | Retomada do projeto após período sem desenvolvimento de domínio (código ainda tinha só o placeholder `Item`). Conversa 2 (Joyce/Renata/Wellington) ainda não aconteceu; decisão foi priorizar o Problema 1 (custo/compras), já validado na Conversa 1, para não bloquear a Sprint 1 esperando a entrevista. RF08 nasceu da necessidade de uma entidade "casa" que todo RF Must já referenciava implicitamente |

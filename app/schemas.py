@@ -8,45 +8,44 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
-# ---------------------------------------------------------------- Item
-class ItemBase(BaseModel):
-    nome: str = Field(min_length=3, max_length=120, description="Nome do item")
-    descricao: str | None = Field(default=None, max_length=2000)
-    categoria: str = Field(min_length=2, max_length=60)
-    quantidade: int = Field(ge=0, le=1_000_000, default=0)
-    valor: float = Field(ge=0, default=0)
+PERIODO_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"  # "AAAA-MM"
 
 
-class ItemCreate(ItemBase):
+# ------------------------------------------------------------------ Casa
+class CasaBase(BaseModel):
+    nome: str = Field(min_length=3, max_length=120, description="Nome da casa")
+    marca: str = Field(min_length=2, max_length=120)
+    cidade: str = Field(min_length=2, max_length=120)
+    ativa: bool = True
+
+
+class CasaCreate(CasaBase):
     """O que o cliente ENVIA no POST. Não tem `id`: quem gera é o servidor."""
 
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
                 {
-                    "nome": "Ração Premium 15kg",
-                    "descricao": "Ração seca para cães adultos",
-                    "categoria": "alimentacao",
-                    "quantidade": 24,
-                    "valor": 189.90,
+                    "nome": "Boteco São Bento - Itaim",
+                    "marca": "Boteco São Bento",
+                    "cidade": "São Paulo",
+                    "ativa": True,
                 }
             ]
         }
     )
 
 
-class ItemUpdate(BaseModel):
+class CasaUpdate(BaseModel):
     """PATCH: todos os campos opcionais. Só o que veio é alterado."""
 
     nome: str | None = Field(default=None, min_length=3, max_length=120)
-    descricao: str | None = Field(default=None, max_length=2000)
-    categoria: str | None = Field(default=None, min_length=2, max_length=60)
-    quantidade: int | None = Field(default=None, ge=0, le=1_000_000)
-    valor: float | None = Field(default=None, ge=0)
+    marca: str | None = Field(default=None, min_length=2, max_length=120)
+    cidade: str | None = Field(default=None, min_length=2, max_length=120)
+    ativa: bool | None = None
 
 
-class ItemResponse(ItemBase):
+class CasaResponse(CasaBase):
     """O que a API DEVOLVE. from_attributes lê direto do objeto SQLAlchemy."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -56,43 +55,64 @@ class ItemResponse(ItemBase):
     atualizado_em: datetime
 
 
-class ItemPage(BaseModel):
+class CasaPage(BaseModel):
     """Resposta paginada. Nunca devolva uma tabela inteira sem limite."""
 
     total: int
     limit: int
     offset: int
-    items: list[ItemResponse]
+    items: list[CasaResponse]
 
 
-# ------------------------------------------------------------ Arquivos
-class ArquivoResponse(BaseModel):
+# ------------------------------------------------------------ Upload de custo
+class UploadCustoResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    casa_id: int
+    periodo: str
     nome_original: str
     blob_name: str
     content_type: str
     tamanho_bytes: int
     url: str
     criado_em: datetime
+    itens_importados: int = Field(description="Quantas linhas de custo foram extraídas do arquivo")
 
 
-# ------------------------------------------------------------- Métricas
-class MetricaCategoria(BaseModel):
-    categoria: str
-    quantidade_itens: int
-    quantidade_total: int
-    valor_total: float
+class UploadCustoPage(BaseModel):
+    """Resposta paginada. Nunca devolva uma tabela inteira sem limite."""
+
+    total: int
+    limit: int
+    offset: int
+    items: list[UploadCustoResponse]
 
 
-class ResumoDashboard(BaseModel):
-    """Alimenta o dashboard do frontend — o 3º item do MVP mínimo."""
+# --------------------------------------------------------------- Item de custo
+class ItemCustoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
-    total_itens: int
-    valor_total_estoque: float
-    quantidade_total: int
-    por_categoria: list[MetricaCategoria]
+    id: int
+    nome: str
+    custo_teorico: float
+    custo_real: float
+    delta: float = Field(description="custo_real - custo_teorico")
+
+
+# ------------------------------------------------------------------ Delta (RF02)
+class DeltaCasaResponse(BaseModel):
+    """Alimenta o painel de delta — RF02, prioridade nº1 do cliente."""
+
+    casa_id: int
+    casa_nome: str
+    periodo: str
+    custo_teorico_total: float
+    custo_real_total: float
+    delta_total: float = Field(description="custo_real_total - custo_teorico_total")
+    itens: list[ItemCustoResponse] = Field(
+        description="Itens ordenados pelo maior delta em módulo — onde está a maior perda"
+    )
 
 
 # ------------------------------------------------------------ Health/Erro

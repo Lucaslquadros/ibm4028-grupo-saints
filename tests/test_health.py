@@ -23,4 +23,4 @@ def test_openapi_disponivel(client):
     """O contrato da API precisa existir — é dele que o /docs é gerado."""
     resposta = client.get("/openapi.json")
     assert resposta.status_code == 200
-    assert "/api/v1/itens" in resposta.json()["paths"]
+    assert "/api/v1/casas" in resposta.json()["paths"]

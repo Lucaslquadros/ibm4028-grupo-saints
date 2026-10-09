@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from app.config import settings
 from app.database import criar_tabelas
-from app.routers import health, itens, metricas, uploads
+from app.routers import casas, health, metricas, uploads
 
 # Logging estruturado: em produção o Application Insights captura isto sozinho.
 logging.basicConfig(
@@ -57,7 +57,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
-app.include_router(itens.router)
+app.include_router(casas.router)
 app.include_router(uploads.router)
 app.include_router(metricas.router)
 

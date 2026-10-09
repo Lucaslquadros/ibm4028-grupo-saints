@@ -82,11 +82,10 @@ def client_sem_raise(db_session: Session) -> Generator[TestClient, None, None]:
 
 
 @pytest.fixture
-def item_valido() -> dict:
+def casa_valida() -> dict:
     return {
-        "nome": "Ração Premium 15kg",
-        "descricao": "Ração seca para cães adultos",
-        "categoria": "alimentacao",
-        "quantidade": 10,
-        "valor": 189.90,
+        "nome": "Boteco São Bento - Itaim",
+        "marca": "Boteco São Bento",
+        "cidade": "São Paulo",
+        "ativa": True,
     }

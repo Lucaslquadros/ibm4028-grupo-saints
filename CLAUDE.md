@@ -5,9 +5,14 @@ Backend FastAPI para Azure App Service + Azure SQL + Blob Storage.
 
 ## Estado atual
 
-O ambiente está montado e os testes passam. O **domínio ainda é placeholder**: `Item` existe para o esqueleto rodar. Cliente e problema ainda não foram definidos.
+Domínio real em construção desde 09/10/2026 (retomada do projeto) — cliente é o
+Grupo Saints (14 bares/restaurantes), problema prioritário é o delta entre
+custo teórico e custo real de compras/estoque (RF02). Entidades: `Casa`
+(RF08, CRUD), `UploadCusto` (RF01) e `ItemCusto` (RF02). RF03/RF05 (gestão de
+pessoal) seguem adiados até a Conversa 2 com Joyce/Renata/Wellington acontecer.
 
-Antes de propor modelagem de domínio, verifique se `docs/01-requisitos.md` já foi preenchido. Se ainda estiver com os campos em branco, o passo anterior é o discovery — não invente entidade.
+Plano de sprints em `docs/05-sprints.md`. Board: board "IBM4028 - Grupo Saints"
+em [github.com/Lucaslquadros/ibm4028-grupo-saints](https://github.com/Lucaslquadros/ibm4028-grupo-saints).
 
 ## Skills deste repositório
 

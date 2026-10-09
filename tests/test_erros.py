@@ -7,14 +7,14 @@ import logging
 
 from app import crud
 
-BASE = "/api/v1/itens"
+BASE = "/api/v1/casas"
 
 
 def test_erro_nao_tratado_devolve_500_generico(client_sem_raise, monkeypatch):
     def _explode(*args, **kwargs):
         raise RuntimeError("segredo interno: senha=abc123")
 
-    monkeypatch.setattr(crud, "listar_itens", _explode)
+    monkeypatch.setattr(crud, "listar_casas", _explode)
 
     resposta = client_sem_raise.get(BASE)
 
@@ -30,7 +30,7 @@ def test_erro_nao_tratado_registra_stack_trace_no_log(client_sem_raise, monkeypa
     def _explode(*args, **kwargs):
         raise RuntimeError("segredo interno: senha=abc123")
 
-    monkeypatch.setattr(crud, "listar_itens", _explode)
+    monkeypatch.setattr(crud, "listar_casas", _explode)
 
     with caplog.at_level(logging.ERROR, logger="projeto4"):
         client_sem_raise.get(BASE)
