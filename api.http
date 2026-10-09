@@ -1,0 +1,190 @@
+# Requisições prontas — extensão REST Client do VS Code
+#
+# A Aula 04 pede o REST Client instalado. Se ainda não tem:
+#   Ctrl+Shift+X  →  procure "REST Client" (autor: Huachao Mao)  →  Install
+#
+# Com o servidor rodando (`uv run fastapi dev app/main.py`), aparece um
+# "Send Request" acinzentado acima de cada bloco. Clique nele.
+#
+# A resposta abre ao lado, com o STATUS CODE no topo. É nele que você olha.
+
+@host = http://localhost:8000
+@api = {{host}}/api/v1
+
+
+###############################################################################
+# 1. A API está viva?
+###############################################################################
+
+### Raiz
+GET {{host}}/
+Accept: application/json
+
+### Health check — é esta rota que o Azure App Service chama
+# Espere: 200, com "banco": "ok"
+GET {{host}}/health
+
+### O contrato da API em JSON — é daqui que a página /docs é gerada
+GET {{host}}/openapi.json
+
+
+###############################################################################
+# 2. Ler (GET é seguro e idempotente — repita à vontade)
+###############################################################################
+
+### Listar itens
+# Espere: 200 e um objeto {total, limit, offset, items}
+# Rode três vezes seguidas: a resposta é idêntica e nada muda no servidor.
+GET {{api}}/itens
+
+### Paginação
+GET {{api}}/itens?limit=3&offset=0
+
+### Filtro por categoria
+GET {{api}}/itens?categoria=alimentacao
+
+### Busca parcial no nome
+GET {{api}}/itens?busca=Ração
+
+### Detalhar um item
+# Espere: 200
+GET {{api}}/itens/1
+
+
+###############################################################################
+# 3. Criar (POST NÃO é idempotente)
+###############################################################################
+
+### Criar item válido
+# Espere: 201 Created — não 200. E repare no `id`: quem gerou foi o servidor.
+POST {{api}}/itens
+Content-Type: application/json
+
+{
+  "nome": "Areia Sanitária 4kg",
+  "descricao": "Areia aglomerante para gatos",
+  "categoria": "higiene",
+  "quantidade": 30,
+  "valor": 27.90
+}
+
+### Mande o de cima DUAS vezes e depois liste
+# Você terá dois itens iguais com ids diferentes.
+# É exatamente o que acontece quando o usuário clica duas vezes no botão.
+GET {{api}}/itens?busca=Areia
+
+
+###############################################################################
+# 4. Validação — quebre de propósito, um de cada vez
+#    Em nenhum destes casos existe um `if` no código que faça a checagem.
+###############################################################################
+
+### nome com menos de 3 caracteres
+# Espere: 422 — "String should have at least 3 characters"
+POST {{api}}/itens
+Content-Type: application/json
+
+{ "nome": "AB", "categoria": "higiene", "quantidade": 1, "valor": 10 }
+
+### quantidade negativa
+# Espere: 422 — "Input should be greater than or equal to 0"
+POST {{api}}/itens
+Content-Type: application/json
+
+{ "nome": "Teste negativo", "categoria": "higiene", "quantidade": -5, "valor": 10 }
+
+### campo obrigatório ausente (sem `categoria`)
+# Espere: 422 — "Field required", apontando o campo
+POST {{api}}/itens
+Content-Type: application/json
+
+{ "nome": "Sem categoria", "quantidade": 1, "valor": 10 }
+
+### tipo errado: valor como texto
+# Espere: 422
+POST {{api}}/itens
+Content-Type: application/json
+
+{ "nome": "Valor errado", "categoria": "higiene", "quantidade": 1, "valor": "caro" }
+
+
+###############################################################################
+# 5. Não encontrado
+###############################################################################
+
+### id que não existe
+# Espere: 404 — e não 200 com null. Devolver null obriga o front a adivinhar.
+GET {{api}}/itens/99999
+
+### id que nem é número
+# Espere: 422. Você não escreveu nada para tratar isto:
+# `item_id: int` na assinatura já barrou "abc" antes de entrar na função.
+GET {{api}}/itens/abc
+
+
+###############################################################################
+# 6. Atualizar e remover
+###############################################################################
+
+### PATCH — só o campo enviado muda
+# Espere: 200, com `quantidade` alterada e `nome` intacto
+PATCH {{api}}/itens/1
+Content-Type: application/json
+
+{ "quantidade": 99 }
+
+### DELETE
+# Espere: 204 No Content — apagou, não há o que devolver (corpo vazio)
+DELETE {{api}}/itens/1
+
+### DELETE de novo, no mesmo id
+# Espere: 404. O recurso já não existe.
+# O ESTADO FINAL é o mesmo das duas vezes — é isso que idempotência garante.
+DELETE {{api}}/itens/1
+
+
+###############################################################################
+# 7. Upload de arquivo
+###############################################################################
+
+### Enviar um CSV
+# Espere: 201. Repare no `blob_name` da resposta: NÃO é "vendas.csv".
+# O servidor gerou um nome novo — reusar o nome do cliente permitiria
+# sobrescrever arquivo alheio e abriria path traversal.
+POST {{api}}/arquivos
+Content-Type: multipart/form-data; boundary=----limite
+
+------limite
+Content-Disposition: form-data; name="arquivo"; filename="vendas.csv"
+Content-Type: text/csv
+
+produto,quantidade
+Ração Premium,10
+Shampoo Neutro,4
+------limite--
+
+### Tipo não permitido
+# Espere: 415 Unsupported Media Type
+POST {{api}}/arquivos
+Content-Type: multipart/form-data; boundary=----limite
+
+------limite
+Content-Disposition: form-data; name="arquivo"; filename="virus.exe"
+Content-Type: application/x-msdownload
+
+MZ
+------limite--
+
+### Listar arquivos enviados
+GET {{api}}/arquivos
+
+
+###############################################################################
+# 8. Dashboard
+###############################################################################
+
+### Resumo agregado
+# A soma é feita com GROUP BY no banco, não em Python.
+# Trazer a tabela inteira para somar funciona com 15 linhas
+# e derruba a instância com 500 mil.
+GET {{api}}/metricas/resumo

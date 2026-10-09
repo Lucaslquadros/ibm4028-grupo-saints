@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Permissão explícita e mínima. O default do GitHub é amplo demais.
+permissions:
+  contents: read
+
+# Um push novo na mesma branch cancela o run anterior — economiza minuto de CI.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualidade:
+    name: Lint e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # Ações pinadas por versão. Nunca @latest nem @main.
+      - uses: actions/checkout@v4
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Instalar Python 3.12
+        run: uv python install 3.12
+
+      - name: Sincronizar dependências
+        run: uv sync --all-groups --frozen
+
+      - name: Ruff (lint)
+        run: uv run ruff check . --output-format=github
+
+      - name: Ruff (formatação)
+        run: uv run ruff format --check .
+
+      - name: Testes
+        run: uv run pytest --cov=app --cov-report=term-missing --cov-report=xml
+
+      - name: Publicar cobertura
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage.xml
+          retention-days: 7
+
+  docker:
+    name: Build da imagem
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [qualidade]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Só constrói e valida — o push para o ACR acontece no workflow de deploy.
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: projeto4-api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Container sobe e responde no /health
+        run: |
+          docker run -d --name api -p 8000:8000 \
+            -e DATABASE_URL="sqlite:////tmp/ci.db" \
+            projeto4-api:${{ github.sha }}
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health; then
+              echo "\nOK" && exit 0
+            fi
+            sleep 2
+          done
+          echo "A aplicação não respondeu no /health"
+          docker logs api
+          exit 1

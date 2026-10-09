@@ -1,0 +1,24 @@
+# Sem isto, o contexto de build sobe centenas de MB e o cache nunca acerta.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+.git/
+.github/
+.claude/
+
+.env
+*.db
+uploads_local/
+
+docs/
+tests/
+frontend/node_modules/
+
+*.md
+!README.md

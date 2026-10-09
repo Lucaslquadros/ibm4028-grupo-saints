@@ -1,0 +1,43 @@
+# Segredos — NUNCA versionar. Versione apenas .env.example
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Testes e ferramentas
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Banco local e uploads locais
+*.db
+*.sqlite3
+uploads_local/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.vite/
+
+# Editores e SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Pasta temporária de instalação (apagar depois de rodar _setup\instalar.ps1)
+_setup/
+
+# Azure
+.azure/
+*.PublishSettings
+*.pubxml

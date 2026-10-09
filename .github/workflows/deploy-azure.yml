@@ -1,0 +1,86 @@
+name: Deploy — Azure App Service
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # permite disparar manualmente pela aba Actions
+
+permissions:
+  contents: read
+  id-token: write # necessário para o login OIDC no Azure
+
+# Dois merges seguidos não podem deployar por cima um do outro.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  AZURE_WEBAPP_NAME: app-projeto4-TROCAR # <- nome do seu App Service
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  testes:
+    name: Testes (portão do deploy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync --all-groups --frozen
+      - run: uv run ruff check .
+      - run: uv run pytest -q
+
+  deploy:
+    name: Publicar no App Service
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [testes] # deploy NUNCA roda sem os testes verdes
+
+    # Aprovação manual configurada em Settings > Environments > production.
+    environment:
+      name: production
+      url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+
+      # O App Service (Oryx) instala a partir de requirements.txt, não do uv.lock.
+      - name: Gerar requirements.txt
+        run: uv export --no-dev --no-hashes --format requirements-txt > requirements.txt
+
+      # OIDC: nenhum segredo de longa duração guardado no GitHub.
+      # Configure AZURE_CLIENT_ID / TENANT_ID / SUBSCRIPTION_ID como variables.
+      - name: Login no Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: .
+
+      # Deploy sem verificação é deploy que você descobre quebrado pelo cliente.
+      - name: Verificar /health
+        run: |
+          URL="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health"
+          for i in $(seq 1 30); do
+            if curl -fsS "$URL" | tee /tmp/health.json | grep -q '"status":"ok"'; then
+              echo "Deploy verificado."
+              exit 0
+            fi
+            echo "tentativa $i..."
+            sleep 10
+          done
+          echo "A aplicação não ficou saudável após o deploy."
+          cat /tmp/health.json 2>/dev/null || true
+          exit 1

@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel de teste — Projeto 4 (IBM4028)</title>
+<!--
+  PAINEL DE TESTE — descartável.
+
+  Existe para você VER a API funcionando no navegador antes de existir React.
+  É um arquivo só, sem build, sem npm. Abra direto com duplo clique.
+
+  Não é o frontend do projeto. O React entra depois; este arquivo pode ser
+  apagado sem dó. O que ele prova:
+    1. a API responde e o CORS está configurado (senão o navegador bloqueia)
+    2. os status codes estão certos — todos aparecem no log embaixo
+    3. o endpoint de métricas alimenta um dashboard de verdade
+-->
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-0:      #f6f5f2;
+    --surface-1:      #fcfcfb;
+    --surface-2:      #f4f3f0;
+    --border:         #e3e2dd;
+    --text-primary:   #262620;  /* não preto puro: preto puro sobre claro cansa a vista */
+    --text-secondary: #52514e;
+    --text-muted:     #83817b;
+    --series-1:       #2a78d6;  /* slot categórico 1 — validado light e dark */
+    --series-1-ink:   #ffffff;
+    --series-1-wash:  rgba(42, 120, 214, .10);
+    --ok:             #1a7f4b;
+    --ok-wash:        rgba(26, 127, 75, .12);
+    --erro:           #b3261e;
+    --erro-wash:      rgba(179, 38, 30, .10);
+    --aviso:          #8a5a00;
+    --shadow-sm:      0 1px 2px rgba(20, 19, 15, .05), 0 1px 1px rgba(20, 19, 15, .03);
+    --shadow-md:      0 8px 24px rgba(20, 19, 15, .07), 0 2px 6px rgba(20, 19, 15, .04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-0:      #141413;
+      --surface-1:      #1a1a19;
+      --surface-2:      #232322;
+      --border:         #383835;
+      --text-primary:   #efeee8;  /* não branco puro: mesmo motivo, invertido */
+      --text-secondary: #c3c2b7;
+      --text-muted:     #97968c;
+      --series-1:       #3987e5;
+      --series-1-ink:   #ffffff;
+      --series-1-wash:  rgba(57, 135, 229, .16);
+      --ok:             #5cc98c;
+      --ok-wash:        rgba(92, 201, 140, .14);
+      --erro:           #f2867f;
+      --erro-wash:      rgba(242, 134, 127, .14);
+      --aviso:          #e0a63c;
+      --shadow-sm:      0 1px 2px rgba(0, 0, 0, .35), 0 1px 1px rgba(0, 0, 0, .25);
+      --shadow-md:      0 8px 24px rgba(0, 0, 0, .45), 0 2px 6px rgba(0, 0, 0, .3);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  .viz-root {
+    /* color e background moram aqui, não em body: as variáveis --text-primary /
+       --surface-0 são definidas neste elemento, e var() só resolve para
+       declarações no mesmo elemento ou em descendentes — em body elas ficam
+       inválidas e o texto cai no preto padrão do navegador. */
+    min-height: 100vh;
+    color: var(--text-primary);
+    background:
+      radial-gradient(720px 320px at 12% -10%, var(--series-1-wash), transparent 60%),
+      var(--surface-0);
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 40px; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; border-radius: 4px; }
+
+  /* ---- Cabeçalho ---- */
+  .topbar {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px 24px;
+    background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .mark {
+    width: 34px; height: 34px; border-radius: 9px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(155deg, var(--series-1), color-mix(in srgb, var(--series-1) 60%, #6b3fd6));
+    color: #fff; font-weight: 700; font-size: 15px; letter-spacing: -0.02em;
+    box-shadow: var(--shadow-sm);
+  }
+  h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--text-muted); font-size: 12.5px; margin: 2px 0 0; }
+  .sub code { font-size: 11.5px; }
+
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 500;
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .status-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); flex: none; }
+  .status-pill.on { color: var(--ok); background: var(--ok-wash); border-color: transparent; }
+  .status-pill.on .dot { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-wash); animation: pulso 2s ease-in-out infinite; }
+  .status-pill.off { color: var(--erro); background: var(--erro-wash); border-color: transparent; }
+  .status-pill.off .dot { background: var(--erro); }
+  @keyframes pulso { 0%, 100% { box-shadow: 0 0 0 3px var(--ok-wash); } 50% { box-shadow: 0 0 0 6px transparent; } }
+
+  code {
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 5px; font-size: 12px;
+  }
+
+  /* ---- Layout: conteúdo principal + barra lateral ---- */
+  .layout { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
+  @media (min-width: 960px) {
+    .layout { grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; }
+    .lateral { position: sticky; top: 88px; display: flex; flex-direction: column; gap: 16px; }
+  }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .card:last-child { margin-bottom: 0; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  h2 {
+    font-size: 12.5px; font-weight: 600; margin: 0; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: .04em;
+    display: flex; align-items: center; gap: 7px;
+  }
+  h2 svg { width: 15px; height: 15px; color: var(--text-muted); flex: none; }
+
+  /* ---- KPI row: stat tiles. O número É o gráfico. ---- */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tile {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px 18px; box-shadow: var(--shadow-sm);
+    display: flex; flex-direction: column; gap: 10px;
+    min-width: 0;   /* deixa o grid item encolher — sem isto o valor hero vaza pro vizinho */
+  }
+  .tile .icone {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--series-1-wash); color: var(--series-1);
+  }
+  .tile .icone svg { width: 16px; height: 16px; }
+  .tile.hero { grid-column: 1 / -1; }   /* linha inteira: o hero precisa de espaço pro valor grande */
+  .tile.hero .icone { background: var(--series-1); color: var(--series-1-ink); }
+  .tile .rotulo { font-size: 12px; color: var(--text-secondary); }
+  .tile .valor {
+    font-size: 26px; font-weight: 600; letter-spacing: -0.02em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tile.hero .valor { font-size: 40px; line-height: 1.1; }   /* exatamente um hero por view */
+  .tile .nota { font-size: 12px; color: var(--text-muted); margin-top: -4px; }
+
+  /* ---- Barras: categorias são nominais → UMA cor para todas ---- */
+  .barras { display: flex; flex-direction: column; gap: 2px; }  /* 2px = surface gap */
+  .linha { display: grid; grid-template-columns: 130px 1fr auto; align-items: center; gap: 12px; padding: 4px 0; border-radius: 6px; }
+  .linha:hover { background: var(--surface-2); }
+  .linha:hover .barra { filter: brightness(1.08); }
+  .cat { font-size: 13px; color: var(--text-secondary); text-align: right;
+         overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trilho { height: 24px; display: flex; align-items: center; }
+  .barra {
+    height: 20px;                        /* <= 24px, nunca preenche a faixa */
+    background: var(--series-1);
+    border-radius: 0 4px 4px 0;          /* ponta arredondada, quadrada na linha de base */
+    min-width: 2px;
+    transition: width .35s ease;
+  }
+  .val { font-size: 13px; color: var(--text-primary); font-variant-numeric: tabular-nums; min-width: 96px; }
+
+  /* ---- Tabela: o mesmo dado em texto, sempre disponível ---- */
+  .card--tabela { padding: 0; overflow: hidden; }
+  .card--tabela .card-head { padding: 18px 18px 14px; margin-bottom: 0; }
+  .tabela-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 520px; }
+  thead th { position: sticky; top: 0; background: var(--surface-1); }
+  th, td { text-align: left; padding: 10px 18px; border-bottom: 1px solid var(--border); }
+  th { color: var(--text-muted); font-weight: 500; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr { transition: background .1s ease; }
+  tbody tr:hover { background: var(--surface-2); }
+  tbody tr:last-child td { border-bottom: none; }
+  .nome-item { font-weight: 500; }
+
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 3px 9px; border-radius: 999px; font-size: 12px;
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--text-secondary);
+  }
+
+  /* ---- Formulário ---- */
+  form { display: flex; flex-direction: column; gap: 12px; }
+  label { font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 5px; }
+  input, select {
+    width: 100%; padding: 9px 11px; font-size: 14px; font-family: inherit;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface-0); color: var(--text-primary);
+    transition: border-color .12s ease, box-shadow .12s ease;
+  }
+  input:hover, select:hover { border-color: color-mix(in srgb, var(--border) 40%, var(--text-muted)); }
+  input:focus, select:focus {
+    outline: none; border-color: var(--series-1);
+    box-shadow: 0 0 0 3px var(--series-1-wash);
+  }
+  .campo-linha { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  button {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 16px; font-size: 13.5px; font-family: inherit; font-weight: 500;
+    border: 1px solid transparent; border-radius: 8px; cursor: pointer;
+    background: var(--series-1); color: var(--series-1-ink);
+    transition: transform .1s ease, box-shadow .1s ease, filter .1s ease, opacity .1s ease;
+    box-shadow: var(--shadow-sm);
+  }
+  button svg { width: 15px; height: 15px; flex: none; }
+  button:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+  button:active { transform: translateY(0); }
+  button:disabled { opacity: .6; cursor: default; transform: none; filter: none; box-shadow: var(--shadow-sm); }
+  button.sec { background: var(--surface-1); border-color: var(--border); color: var(--text-primary); box-shadow: none; }
+  button.sec:hover { background: var(--surface-2); box-shadow: none; }
+  button.full { width: 100%; }
+  button.icone {
+    padding: 7px; background: transparent; border-color: var(--border); color: var(--text-muted); box-shadow: none;
+  }
+  button.icone:hover { background: var(--erro-wash); border-color: transparent; color: var(--erro); transform: none; box-shadow: none; }
+  .acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ---- Log: onde os status codes aparecem ---- */
+  .log { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px;
+         max-height: 280px; overflow-y: auto; }
+  .ev { display: grid; grid-template-columns: auto 52px 1fr; gap: 10px;
+        padding: 7px 0; border-bottom: 1px solid var(--border); align-items: baseline; }
+  .ev:last-child { border-bottom: none; }
+  .code {
+    font-weight: 700; font-size: 11px; padding: 2px 6px; border-radius: 5px;
+    background: var(--surface-2); color: var(--text-secondary); text-align: center; min-width: 30px;
+  }
+  .code.c2 { background: var(--ok-wash); color: var(--ok); }
+  .code.c4, .code.c5 { background: var(--erro-wash); color: var(--erro); }
+  .metodo { color: var(--text-secondary); font-weight: 600; font-size: 11px; }
+  .ev .msg { color: var(--text-secondary); word-break: break-word; }
+  .vazio { color: var(--text-muted); font-size: 13px; padding: 20px 4px; text-align: center; }
+  .card--tabela .vazio { padding: 28px 18px; }
+
+  .alerta {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 14px 16px; border-radius: 12px;
+    background: var(--erro-wash); border: 1px solid transparent; font-size: 13px; color: var(--text-primary);
+  }
+  .alerta svg { width: 18px; height: 18px; flex: none; color: var(--erro); margin-top: 1px; }
+  .alerta code { background: color-mix(in srgb, var(--erro-wash) 60%, var(--surface-1)); }
+</style>
+</head>
+<body>
+<div class="viz-root"><div class="wrap" style="padding-left:0;padding-right:0;">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark">P4</div>
+      <div>
+        <h1>Painel de teste — Projeto 4</h1>
+        <p class="sub">Consome <code id="base-url">http://localhost:8000</code></p>
+      </div>
+    </div>
+    <span class="status-pill" id="status-pill"><span class="dot"></span><span id="status-text">Conectando…</span></span>
+  </div>
+
+  <div class="wrap" style="padding-top:0;">
+
+  <div id="offline" class="card" hidden>
+    <div class="alerta">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+      <div>
+        <strong>Não consegui falar com a API.</strong><br>
+        Suba o servidor primeiro: <code>uv run fastapi dev app/main.py</code><br>
+        Se o servidor está de pé e mesmo assim falhou, é CORS — confira
+        <code>CORS_ORIGINS</code> no <code>.env</code>.
+      </div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="principal">
+
+      <!-- KPIs: três números. Não vira gráfico de barra de um item só. -->
+      <section class="kpis" id="kpis"></section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V10M12 19V5M20 19v-7"/></svg>
+            Valor em estoque por categoria
+          </h2>
+        </div>
+        <div id="grafico" class="barras"></div>
+        <p class="vazio" id="gvazio" hidden>Sem dados. Rode <code>uv run python scripts/popular_dados.py</code>.</p>
+      </section>
+
+      <section class="card card--tabela">
+        <div class="card-head">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
+            Itens
+          </h2>
+          <div class="acoes">
+            <button class="sec" onclick="carregar()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+              Recarregar
+            </button>
+            <button class="sec" onclick="testar404()">Buscar id inexistente → 404</button>
+            <button class="sec" onclick="testar422()">Enviar dado inválido → 422</button>
+          </div>
+        </div>
+        <div class="tabela-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th><th>Categoria</th>
+                <th class="num">Qtd</th><th class="num">Valor</th><th class="num">Total</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="tabela"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+
+    <div class="lateral">
+
+      <section class="card">
+        <div class="card-head">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Criar item
+          </h2>
+        </div>
+        <form onsubmit="criar(event)">
+          <div>
+            <label for="f-nome">Nome (mín. 3)</label>
+            <input id="f-nome" value="Areia Sanitária 4kg" required>
+          </div>
+          <div class="campo-linha">
+            <div>
+              <label for="f-cat">Categoria</label>
+              <select id="f-cat">
+                <option>alimentacao</option><option>higiene</option>
+                <option>saude</option><option>acessorios</option>
+              </select>
+            </div>
+            <div>
+              <label for="f-qtd">Quantidade</label>
+              <input id="f-qtd" type="number" value="12" min="0">
+            </div>
+          </div>
+          <div>
+            <label for="f-val">Valor unitário</label>
+            <input id="f-val" type="number" step="0.01" value="27.90" min="0">
+          </div>
+          <button type="submit" class="full" id="btn-criar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Criar item
+          </button>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9h8M8 13h5M21 15a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2Z"/></svg>
+            Log de requisições
+          </h2>
+        </div>
+        <div class="log" id="log"><p class="vazio">Nenhuma requisição ainda.</p></div>
+      </section>
+
+    </div>
+  </div>
+
+  </div>
+</div></div>
+
+<script>
+const BASE = location.protocol === "file:" || location.port !== "8000"
+  ? "http://localhost:8000" : location.origin;
+document.getElementById("base-url").textContent = BASE;
+
+const brl = n => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const num = n => n.toLocaleString("pt-BR");
+
+const ICONE_ITENS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg>`;
+const ICONE_ESTOQUE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7Z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>`;
+const ICONE_VALOR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5a2.5 2.5 0 0 1 2.5-1.5h.5a2 2 0 1 1 0 4h-1a2 2 0 1 0 0 4h.5a2.5 2.5 0 0 0 2.5-1.5"/></svg>`;
+const ICONE_LIXO = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m1 0-.8 12.1a2 2 0 0 1-2 1.9H8.8a2 2 0 0 1-2-1.9L6 7"/></svg>`;
+
+// ------------------------------------------------------------- status
+function marcarStatus(online) {
+  const pill = document.getElementById("status-pill");
+  const texto = document.getElementById("status-text");
+  pill.classList.remove("on", "off");
+  pill.classList.add(online ? "on" : "off");
+  texto.textContent = online ? "API online" : "API offline";
+}
+
+// ---------------------------------------------------------------- log
+function registrar(metodo, status, msg) {
+  const log = document.getElementById("log");
+  if (log.querySelector(".vazio")) log.innerHTML = "";
+  const classe = status >= 500 ? "c5" : status >= 400 ? "c4" : "c2";
+  const ev = document.createElement("div");
+  ev.className = "ev";
+  ev.innerHTML = `<span class="code ${classe}"></span><span class="metodo"></span><span class="msg"></span>`;
+  ev.children[0].textContent = status || "—";
+  ev.children[1].textContent = metodo;
+  ev.children[2].textContent = msg;
+  log.prepend(ev);
+}
+
+async function chamar(metodo, caminho, corpo) {
+  const opcoes = { method: metodo, headers: {} };
+  if (corpo !== undefined) {
+    opcoes.headers["Content-Type"] = "application/json";
+    opcoes.body = JSON.stringify(corpo);
+  }
+  let r;
+  try {
+    r = await fetch(BASE + caminho, opcoes);
+  } catch (e) {
+    document.getElementById("offline").hidden = false;
+    marcarStatus(false);
+    registrar(metodo, 0, caminho + " — sem resposta (servidor no ar? CORS?)");
+    throw e;
+  }
+  document.getElementById("offline").hidden = true;
+  marcarStatus(true);
+
+  const dado = r.status === 204 ? null : await r.json().catch(() => null);
+  let detalhe = caminho;
+  if (!r.ok) {
+    const d = dado?.detail;
+    detalhe += " — " + (typeof d === "string" ? d
+      : Array.isArray(d) ? d.map(x => `${x.loc?.at(-1)}: ${x.msg}`).join(" · ")
+      : "erro");
+  }
+  registrar(metodo, r.status, detalhe);
+  return { status: r.status, dado };
+}
+
+// ------------------------------------------------------------ render
+function pintarKpis(m) {
+  document.getElementById("kpis").innerHTML = `
+    <div class="tile hero">
+      <div class="icone">${ICONE_VALOR}</div>
+      <div class="rotulo">Valor em estoque</div>
+      <div class="valor">${brl(m.valor_total_estoque)}</div>
+      <div class="nota">soma de quantidade × valor</div>
+    </div>
+    <div class="tile">
+      <div class="icone">${ICONE_ITENS}</div>
+      <div class="rotulo">Itens cadastrados</div>
+      <div class="valor">${num(m.total_itens)}</div>
+      <div class="nota">${m.por_categoria.length} categoria(s)</div>
+    </div>
+    <div class="tile">
+      <div class="icone">${ICONE_ESTOQUE}</div>
+      <div class="rotulo">Unidades em estoque</div>
+      <div class="valor">${num(m.quantidade_total)}</div>
+      <div class="nota">soma das quantidades</div>
+    </div>`;
+}
+
+function pintarGrafico(categorias) {
+  const alvo = document.getElementById("grafico");
+  const vazio = document.getElementById("gvazio");
+  alvo.innerHTML = "";
+  vazio.hidden = categorias.length > 0;
+  if (!categorias.length) return;
+
+  const maior = Math.max(...categorias.map(c => c.valor_total)) || 1;
+  for (const c of categorias) {
+    const linha = document.createElement("div");
+    linha.className = "linha";
+    // Categorias são nominais: uma cor para todas. Escurecer a maior seria
+    // codificar duas vezes a mesma informação que o comprimento já mostra.
+    linha.innerHTML = `
+      <span class="cat" title="${c.categoria}"></span>
+      <span class="trilho"><span class="barra" style="width:${(c.valor_total / maior * 100).toFixed(1)}%"></span></span>
+      <span class="val"></span>`;
+    linha.children[0].textContent = c.categoria;
+    linha.children[2].textContent = brl(c.valor_total);
+    linha.title = `${c.categoria}: ${brl(c.valor_total)} · `
+                + `${c.quantidade_itens} item(ns) · ${c.quantidade_total} unidades`;
+    alvo.appendChild(linha);
+  }
+}
+
+function pintarTabela(itens) {
+  const corpo = document.getElementById("tabela");
+  corpo.innerHTML = "";
+  if (!itens.length) {
+    corpo.innerHTML = `<tr><td colspan="6" class="vazio">Nenhum item. Rode o script de dados de exemplo.</td></tr>`;
+    return;
+  }
+  for (const i of itens) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="nome-item"></td><td><span class="badge"></span></td>
+                    <td class="num"></td><td class="num"></td><td class="num"></td>
+                    <td class="num"><button class="icone" title="Excluir ${i.nome}" aria-label="Excluir ${i.nome}">${ICONE_LIXO}</button></td>`;
+    tr.children[0].textContent = i.nome;
+    tr.children[1].querySelector(".badge").textContent = i.categoria;
+    tr.children[2].textContent = num(i.quantidade);
+    tr.children[3].textContent = brl(i.valor);
+    tr.children[4].textContent = brl(i.quantidade * i.valor);
+    tr.querySelector("button").onclick = () => excluir(i.id);
+    corpo.appendChild(tr);
+  }
+}
+
+// ------------------------------------------------------------- ações
+async function carregar() {
+  const [lista, metricas] = await Promise.all([
+    chamar("GET", "/api/v1/itens?limit=200"),
+    chamar("GET", "/api/v1/metricas/resumo"),
+  ]);
+  pintarTabela(lista.dado.items);
+  pintarKpis(metricas.dado);
+  pintarGrafico(metricas.dado.por_categoria);
+}
+
+async function criar(evento) {
+  evento.preventDefault();
+  const btn = document.getElementById("btn-criar");
+  btn.disabled = true;
+  try {
+    await chamar("POST", "/api/v1/itens", {
+      nome: document.getElementById("f-nome").value,
+      categoria: document.getElementById("f-cat").value,
+      quantidade: Number(document.getElementById("f-qtd").value),
+      valor: Number(document.getElementById("f-val").value),
+    });
+    await carregar();
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function excluir(id) {
+  await chamar("DELETE", `/api/v1/itens/${id}`);  // 204, sem corpo
+  carregar();
+}
+
+// Botões didáticos: provocam o erro de propósito.
+const testar404 = () => chamar("GET", "/api/v1/itens/99999");
+const testar422 = () => chamar("POST", "/api/v1/itens",
+  { nome: "AB", categoria: "higiene", quantidade: -1, valor: 10 });
+
+carregar().catch(() => {});
+</script>
+</body>
+</html>
