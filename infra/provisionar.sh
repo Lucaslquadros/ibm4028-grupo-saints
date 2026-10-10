@@ -9,8 +9,9 @@ set -euo pipefail
 
 # ----------------------------------------------------------------- ajuste
 GRUPO="rg-projeto4"
-REGIAO="brazilsouth"                  # se bloqueado (RequestDisallowedByAzure),
-                                       # tente centralus / eastus / westus2
+REGIAO="centralus"                    # brazilsouth bloqueado nesta assinatura
+                                       # (RequestDisallowedByAzure) — se centralus
+                                       # também falhar, tente eastus / westus2
 SUFIXO="TROCAR"                       # precisa ser único globalmente (iniciais+números)
 PLANO="plan-projeto4"
 APP="app-projeto4-${SUFIXO}"
@@ -29,10 +30,14 @@ az login
 az account show --output table
 
 # --------------------------------------------------------- grupo e plano
-az group create -n "$GRUPO" -l "$REGIAO"
+# Idempotente: um resource group não "move" de região depois de criado — se
+# já existir (em QUALQUER região), reusa; só cria do zero se realmente faltar.
+az group show -n "$GRUPO" &>/dev/null || az group create -n "$GRUPO" -l "$REGIAO"
 
 # F1 é grátis: 60 min de CPU/dia, sem Always On. B1 (~US$13/mês) para produção.
-az appservice plan create -g "$GRUPO" -n "$PLANO" --is-linux --sku F1
+# -l "$REGIAO" é OBRIGATÓRIO aqui: sem ele, o plano herda a região do resource
+# group (que pode ser outra, ex. brazilsouth bloqueada) em vez da região liberada.
+az appservice plan create -g "$GRUPO" -n "$PLANO" --is-linux --sku F1 -l "$REGIAO"
 
 az webapp create -g "$GRUPO" -p "$PLANO" -n "$APP" --runtime "PYTHON:3.12"
 
