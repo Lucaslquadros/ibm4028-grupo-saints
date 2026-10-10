@@ -36,6 +36,11 @@
   direto, e Git Bash não tem esse problema.
 - Escolha um `SUFIXO` único (ex.: suas iniciais + 3-4 números) e abra
   `infra/provisionar.sh` para preencher `SUFIXO="TROCAR"`.
+- **Nunca cole no chat a saída de um comando que tenha expandido um segredo**
+  (senha, connection string). `az ... set` nunca ecoa valor (sempre `null`),
+  então é sempre seguro colar. Já `az ... list`, ou um comando que falhou e o
+  bash reimprime a linha expandida no erro, pode vazar segredo — aconteceu
+  duas vezes rodando este guia. Se isso acontecer, troque a senha depois.
 
 ---
 
@@ -52,16 +57,30 @@ export SQL_PASSWORD='DEFINA-UMA-SENHA-FORTE-AQUI'   # nunca no script, nunca com
 bash infra/provisionar.sh
 ```
 
-> **Atenção 1 (herdada da AC1) — região pode ser bloqueada.** O script usa
-> `brazilsouth`. Se algum `az ... create` falhar com `RequestDisallowedByAzure`
-> ou "best available regions", troque `REGIAO` para `centralus`, `eastus` ou
-> `westus2` e rode de novo a partir do recurso que falhou — não precisa
-> recomeçar do zero, `az group create` é idempotente.
+> **Atenção 1 (herdada da AC1, confirmada de novo aqui) — região pode ser
+> bloqueada.** `brazilsouth` e `eastus` vieram `RequestDisallowedByAzure` nesta
+> assinatura. `centralus` foi liberado por política, mas o **plano F1 (grátis)
+> deu "No available instances"** — erro diferente, de capacidade do tier
+> compartilhado, não de política. Solução que funcionou: `centralus` + `B1`
+> em vez de F1 (`az appservice plan create ... --sku B1 -l centralus`, ~US$13/mês,
+> cobrado por hora). O `infra/provisionar.sh` já está assim. Resource group não
+> muda de região depois de criado — se já existir noutra região, não recrie,
+> só force a região em cada recurso de dentro com `-l`.
+>
+> **Atenção 1b — Git Bash "corrige" argumento que começa com `/`.** Qualquer
+> argumento tipo `/health` passado pro `az` (programa nativo do Windows) pode
+> ser convertido sozinho para um caminho de arquivo (`C:/Program Files/Git/health`)
+> — o MSYS escaneia o argumento inteiro, não só confere se ele começa com `/`.
+> Aconteceu no `--health-check-path` e persistiu silenciosamente mesmo dentro
+> de `--generic-configurations "healthCheckPath=/health"`. Fix: prefixar o
+> comando com `MSYS_NO_PATHCONV=1`. Depois de qualquer comando com `/algumacoisa`
+> na linha, **confirme com um `show`/`list`** — o comando pode "funcionar" sem
+> erro e salvar o caminho errado mesmo assim.
 
-O script, nesta ordem, cria: grupo de recursos → plano App Service (F1) →
-Web App → Azure SQL Server + banco + firewall → Storage Account + container →
-App Settings → startup command + health check → **Static Web App** (nova
-seção, ver abaixo).
+O script, nesta ordem, cria: grupo de recursos → plano App Service (B1, ver
+Atenção 1) → Web App → Azure SQL Server + banco + firewall → Storage Account +
+container → App Settings → startup command + health check → **Static Web App**
+(nova seção, ver abaixo).
 
 ### O passo do Static Web App dispara um login separado
 
@@ -108,6 +127,8 @@ AC1 mais reforçam — "o workflow ficou verde e o site deu 503" é sempre
 sintoma de ter pulado o deploy manual antes do automatizado.
 
 ```bash
+APP=app-projeto4-saints2026   # já criado — ver seção 2
+
 uv export --no-dev --no-hashes --format requirements-txt > requirements.txt
 
 zip -r deploy.zip app requirements.txt -x "*.pyc" "__pycache__/*"
