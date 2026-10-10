@@ -131,7 +131,9 @@ APP=app-projeto4-saints2026   # já criado — ver seção 2
 
 uv export --no-dev --no-hashes --format requirements-txt > requirements.txt
 
-zip -r deploy.zip app requirements.txt -x "*.pyc" "__pycache__/*"
+# zipfile do Python em vez de `zip -r`: Git Bash nem sempre tem o binário zip
+# instalado, e o uv/python já está garantido (é o mesmo que roda a API).
+uv run python -m zipfile -c deploy.zip app requirements.txt
 
 az webapp deploy -g rg-projeto4 -n "$APP" --src-path deploy.zip --type zip
 ```
