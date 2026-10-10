@@ -9,9 +9,10 @@ set -euo pipefail
 
 # ----------------------------------------------------------------- ajuste
 GRUPO="rg-projeto4"
-REGIAO="centralus"                    # brazilsouth bloqueado nesta assinatura
-                                       # (RequestDisallowedByAzure) — se centralus
-                                       # também falhar, tente eastus / westus2
+REGIAO="eastus"                       # brazilsouth: RequestDisallowedByAzure
+                                       # centralus: F1 sem capacidade disponível
+                                       # (erro comum do tier grátis) — se eastus
+                                       # também falhar, tente westus2 / eastus2
 SUFIXO="TROCAR"                       # precisa ser único globalmente (iniciais+números)
 PLANO="plan-projeto4"
 APP="app-projeto4-${SUFIXO}"
