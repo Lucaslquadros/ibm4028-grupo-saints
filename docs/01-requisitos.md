@@ -286,7 +286,8 @@ MVP mínimo exigido pela disciplina: **1 CRUD completo + 1 upload + 1 dashboard*
 | Azure SQL Database | Banco relacional | |
 | Azure Blob Storage | Arquivos (CSV, PDF, imagem) | Binário no object storage, ponteiro no banco |
 | React | Frontend + dashboard | |
-| Docker + ACR | Containerização | |
+| Azure Static Web Apps | Hospedagem do frontend | CDN e certificado grátis, build/deploy próprio via GitHub Actions, separado do backend |
+| Docker + ACR | Containerização | Opcional nesta fase — deploy do backend é por código (Oryx/buildpack), ver `docs/06-guia-deploy-azure.md` |
 | GitHub Actions | CI/CD | |
 
 ### Extras valorizados

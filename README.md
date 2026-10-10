@@ -61,20 +61,23 @@ O grupo inteiro deve usar **o mesmo** caminho. Misturar os dois gera divergênci
 │   ├── config.py           Settings (pydantic-settings) — nenhum segredo no código
 │   ├── database.py         Engine, SessionLocal, Base, get_db
 │   ├── deps.py             Aliases Annotated: DbSession, AppSettings, Paginacao
-│   ├── models.py           Tabelas (SQLAlchemy)  — como o dado é GUARDADO
+│   ├── models.py           Tabelas (SQLAlchemy)  — Casa, UploadCusto, ItemCusto
 │   ├── schemas.py          Contratos (Pydantic)  — o que ENTRA e SAI
 │   ├── crud.py             Operações de banco
-│   ├── routers/            health · itens · uploads · metricas
+│   ├── routers/            health · casas · uploads · metricas
 │   └── services/           storage (Blob Storage / disco local)
-├── tests/                  pytest — 28 testes
+├── frontend/               index.html placeholder — React entra na Sprint 2
+├── tests/                  pytest — 33 testes
 ├── docs/
 │   ├── 00-customer-discovery.md   Registro das conversas (Mom Test)
-│   ├── 01-requisitos.md           ← Entrega Parcial 1
+│   ├── 01-requisitos.md           Documento de requisitos (RF/RNF, vivo)
 │   ├── 02-arquitetura.md          Diagrama e decisões
-│   └── 03-skills.md               Skills instaladas e a instalar
+│   ├── 03-skills.md               Skills instaladas e a instalar
+│   ├── 05-sprints.md              Plano de sprints até o MVP
+│   └── 06-guia-deploy-azure.md    Passo a passo de deploy, com os comandos
 ├── .claude/skills/         5 skills da disciplina
 ├── .github/workflows/      ci.yml · deploy-azure.yml
-├── infra/                  Provisionamento (Bicep / az cli)
+├── infra/provisionar.sh    App Service + Azure SQL + Storage + Static Web App
 ├── Dockerfile              Multi-stage, não-root, healthcheck
 └── .env.example            Copie para .env
 ```
@@ -84,16 +87,16 @@ O grupo inteiro deve usar **o mesmo** caminho. Misturar os dois gera divergênci
 | Método | Rota | Status esperado |
 |---|---|---|
 | `GET` | `/health` | 200 |
-| `GET` | `/api/v1/itens` | 200 — paginado `{total, limit, offset, items}` |
-| `GET` | `/api/v1/itens/{id}` | 200 · 404 se não existe · 422 se o id não é número |
-| `POST` | `/api/v1/itens` | **201** · 422 se inválido |
-| `PATCH` | `/api/v1/itens/{id}` | 200 · 404 |
-| `DELETE` | `/api/v1/itens/{id}` | **204** · 404 |
-| `POST` | `/api/v1/arquivos` | 201 · 415 tipo · 413 tamanho |
-| `GET` | `/api/v1/arquivos` | 200 |
-| `GET` | `/api/v1/metricas/resumo` | 200 — alimenta o dashboard |
+| `GET` | `/api/v1/casas` | 200 — paginado `{total, limit, offset, items}` |
+| `GET` | `/api/v1/casas/{id}` | 200 · 404 se não existe · 422 se o id não é número |
+| `POST` | `/api/v1/casas` | **201** · 422 se inválido |
+| `PATCH` | `/api/v1/casas/{id}` | 200 · 404 |
+| `DELETE` | `/api/v1/casas/{id}` | **204** · 404 |
+| `POST` | `/api/v1/uploads-custo` | 201 · 404 casa · 415 tipo · 413 tamanho · 422 coluna faltando |
+| `GET` | `/api/v1/uploads-custo` | 200 — paginado |
+| `GET` | `/api/v1/metricas/delta?casa_id=&periodo=` | 200 — delta custo teórico × real · 404 sem dado |
 
-O recurso `Item` cobre os três itens do MVP mínimo da disciplina: **1 CRUD completo, 1 upload, 1 dashboard**.
+`Casa` cobre o CRUD do MVP mínimo da disciplina; `uploads-custo` o upload; `metricas/delta` alimenta o dashboard (RF04, Sprint 2).
 
 ## Comandos
 
@@ -113,17 +116,12 @@ docker run -p 8000:8000 --env-file .env projeto4-api
 
 ---
 
-## Trocar o domínio placeholder
+## Domínio
 
-`Item` existe só para o esqueleto rodar. Quando o cliente estiver definido:
-
-1. Preencha `docs/01-requisitos.md` (use a skill `requisitos-ibm4028`)
-2. Renomeie `Item` → sua entidade em `models.py`, `schemas.py`, `crud.py`, `routers/itens.py`, `tests/`
-3. Renomeie o arquivo `routers/itens.py` e ajuste o `prefix` do `APIRouter`
-4. Atualize o `include_router` em `main.py`
-5. Rode `uv run pytest` — os testes falham exatamente onde falta ajustar
-
-A estrutura, os status codes, a paginação e o padrão de teste **não mudam**. Só o nome do recurso.
+Cliente: Grupo Saints (14 bares/restaurantes). Problema prioritário: delta
+entre custo teórico e custo real de compras/estoque. Entidades reais —
+`Casa`, `UploadCusto`, `ItemCusto` — substituíram o placeholder `Item` na
+retomada de 09/10/2026. Detalhes em `docs/01-requisitos.md` e `docs/05-sprints.md`.
 
 ---
 
@@ -144,16 +142,20 @@ Ver `.env.example`.
 
 ## Deploy
 
-Passo a passo completo na skill `azure-deploy-checklist` (`.claude/skills/`). Resumo:
+Guia completo, com os comandos exatos para este repositório (App Service +
+Azure SQL + Blob Storage + Static Web App + OIDC): `docs/06-guia-deploy-azure.md`.
+Resumo:
 
 1. `pytest` verde localmente
-2. Provisionar App Service + Azure SQL + Storage
+2. Provisionar App Service + Azure SQL + Storage + Static Web App (`infra/provisionar.sh`)
 3. Configurar App Settings **antes** do primeiro deploy (incluindo `SCM_DO_BUILD_DURING_DEPLOYMENT=true`)
 4. Configurar startup command e health check path
 5. Deploy manual funcionando
 6. Só então o workflow `.github/workflows/deploy-azure.yml` (autenticação OIDC — sem publish profile)
 
 Antes do primeiro deploy, troque `AZURE_WEBAPP_NAME` no workflow e configure as variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` no repositório.
+
+Branch padrão do repositório: `main` (os workflows disparam em push nesse branch).
 
 ## Skills
 

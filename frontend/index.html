@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grupo Saints — Painel de Custo (IBM4028)</title>
+<style>
+  body {
+    font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+    max-width: 640px;
+    margin: 10vh auto;
+    padding: 0 24px;
+    color: #262620;
+    background: #f6f5f2;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e8e6e1; background: #1c1b18; }
+    a { color: #7db8ff; }
+  }
+  code { background: rgba(0,0,0,.08); padding: 2px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <h1>Grupo Saints — Painel de Custo</h1>
+  <p>
+    Esta é a página placeholder do Azure Static Web App, criada na Sprint 1
+    só para validar o deploy do frontend de ponta a ponta. O dashboard real
+    (RF04 — delta de custo teórico × real, consolidado por casa) entra na
+    Sprint 2, nesta mesma URL.
+  </p>
+  <p>
+    Enquanto isso, a API já está no ar e pode ser testada direto:
+  </p>
+  <ul>
+    <li><a href="/docs" id="link-docs">/docs</a> — Swagger da API</li>
+    <li><a href="/health" id="link-health">/health</a> — health check</li>
+  </ul>
+  <script>
+    // A URL da API é definida em tempo de build (VITE_API_URL), igual ao
+    // guia de deploy da AC1 — troque aqui manualmente até o React entrar.
+    const API_URL = "http://localhost:8000";
+    document.getElementById("link-docs").href = API_URL + "/docs";
+    document.getElementById("link-health").href = API_URL + "/health";
+  </script>
+</body>
+</html>

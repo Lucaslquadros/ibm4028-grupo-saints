@@ -44,7 +44,7 @@ backend e colocar a aplicação no ar pela primeira vez.
 | CRUD de Casa | RF08 | Must | Cobre a exigência "1 CRUD completo" do MVP |
 | Upload do export Everest (CSV) por casa/período | RF01 | Must | Cobre a exigência "1 upload" do MVP |
 | Cálculo do delta custo teórico × real por casa | RF02 | Must | Endpoint que alimenta o dashboard da Sprint 2 |
-| Primeiro deploy no Azure (App Service + SQL + Blob) | — | Must | Troca `AZURE_WEBAPP_NAME`, provisiona recursos mínimos, `/health` respondendo em produção |
+| Primeiro deploy no Azure (App Service + SQL + Blob + Static Web App) | — | Must | Troca `AZURE_WEBAPP_NAME`, provisiona todos os recursos (incluindo o frontend), `/health` respondendo em produção. Passo a passo: `docs/06-guia-deploy-azure.md` |
 
 **Em paralelo (não é issue de dev):** agendar e realizar a Conversa 2 com Joyce,
 Renata e Wellington.

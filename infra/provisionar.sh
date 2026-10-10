@@ -9,14 +9,18 @@ set -euo pipefail
 
 # ----------------------------------------------------------------- ajuste
 GRUPO="rg-projeto4"
-REGIAO="brazilsouth"
-SUFIXO="TROCAR"                       # precisa ser único globalmente
+REGIAO="brazilsouth"                  # se bloqueado (RequestDisallowedByAzure),
+                                       # tente centralus / eastus / westus2
+SUFIXO="TROCAR"                       # precisa ser único globalmente (iniciais+números)
 PLANO="plan-projeto4"
 APP="app-projeto4-${SUFIXO}"
 STORAGE="stprojeto4${SUFIXO}"         # só minúsculas e números, 3-24 chars
 SQL_SERVER="sql-projeto4-${SUFIXO}"
 SQL_DB="projeto4"
 SQL_USER="adminprojeto4"
+SWA="swa-projeto4-${SUFIXO}"
+GITHUB_REPO="Lucaslquadros/ibm4028-grupo-saints"
+GITHUB_BRANCH="main"
 # Senha NÃO fica aqui. Exporte antes:  export SQL_PASSWORD='...'
 : "${SQL_PASSWORD:?defina SQL_PASSWORD no ambiente antes de rodar}"
 
@@ -66,7 +70,7 @@ az webapp config appsettings set -g "$GRUPO" -n "$APP" --settings \
   DATABASE_URL="$DB_URL" \
   AZURE_STORAGE_CONNECTION_STRING="$STORAGE_CS" \
   AZURE_STORAGE_CONTAINER=uploads \
-  CORS_ORIGINS='["https://TROCAR-pelo-dominio-do-front"]' \
+  CORS_ORIGINS="[\"https://${SWA}.azurestaticapps.net\"]" \
   SCM_DO_BUILD_DURING_DEPLOYMENT=true
 
 # Sem startup command o App Service não sabe subir FastAPI → 503.
@@ -79,6 +83,24 @@ az webapp update -g "$GRUPO" -n "$APP" --https-only true
 echo
 echo "Pronto: https://${APP}.azurewebsites.net"
 echo "Confira o health:  curl https://${APP}.azurewebsites.net/health"
+
+# --------------------------------------------------- Static Web App (frontend)
+# Free tier, sem custo. --login-with-github abre um device login (código +
+# link) e, ao autorizar, a Azure CLI injeta sozinha um workflow
+# .github/workflows/azure-static-web-apps-<nome>.yml direto no repositório
+# (um commit automático) e dispara o primeiro build.
+#
+# App Service Plan free (F1) não tem relação com o tier do Static Web App —
+# são recursos e cobranças independentes.
+az staticwebapp create \
+  -n "$SWA" -g "$GRUPO" -l "$REGIAO" \
+  -s "https://github.com/${GITHUB_REPO}" -b "$GITHUB_BRANCH" \
+  --app-location "frontend" --output-location "" \
+  --login-with-github
+
+echo
+echo "git pull depois do comando acima — a Azure CLI commitou o workflow."
+echo "Frontend (depois do 1º build): https://${SWA}.azurestaticapps.net"
 echo
 echo "Próximo passo: configurar o alerta de orçamento em Cost Management."
 echo "Crédito de estudante acaba silenciosamente."

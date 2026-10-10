@@ -7,8 +7,8 @@
 ```
 ┌──────────────────┐        ┌───────────────────────┐        ┌────────────────────┐
 │    Frontend      │        │  Backend (FastAPI)    │        │  Dados e Storage   │
-│  React / browser │ HTTP   │  Azure App Service    │ HTTP   │  Azure SQL         │
-│                  │ JSON   │                       │ TDS    │  Blob Storage      │
+│  Azure Static    │ HTTP   │  Azure App Service    │ HTTP   │  Azure SQL         │
+│  Web App (React) │ JSON   │                       │ TDS    │  Blob Storage      │
 │ • interface      ├───────►│ • rotas / endpoints   ├───────►│                    │
 │ • consome a API  │        │ • validação (Pydantic)│        │ • banco relacional │
 │ • dashboard      │◄───────┤ • regras de negócio   │◄───────┤ • arquivos         │
@@ -22,6 +22,8 @@
                             │ tracing • alertas     │
                             └───────────────────────┘
 ```
+
+Deploy do backend e do Static Web App: `docs/06-guia-deploy-azure.md`.
 
 ## Camadas do backend
 
@@ -57,6 +59,8 @@ O estado viaja junto (token no header, id na URL) ou vai para o banco / cache. A
 | 6 | Versionamento `/api/v1/` desde o dia 1 | Adicionar depois | Evoluir sem quebrar cliente já existente |
 | 7 | Paginação obrigatória em listagem | Retornar tudo | Funciona com 50 linhas, derruba a instância com 500 mil |
 | 8 | OIDC no GitHub Actions | Publish profile | Nenhum segredo de longa duração guardado no GitHub |
+| 9 | Azure Static Web Apps para o frontend | Servir estático pelo próprio FastAPI | Padrão de mercado para SPA + API separada; build/deploy próprio via GitHub Actions, CDN e certificado grátis incluídos |
+| 10 | Branch padrão `main` | `master` (como o repo nasceu) | Convenção atual do GitHub/mercado; os workflows `ci.yml` e `deploy-azure.yml` já assumiam `main` — renomear corrigiu um bug real (nada disparava) |
 
 > Nova decisão relevante entra aqui, com a alternativa descartada e o motivo.
 > Decisão sem motivo escrito vira discussão de novo daqui a três sprints.
