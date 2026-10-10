@@ -9,10 +9,10 @@ set -euo pipefail
 
 # ----------------------------------------------------------------- ajuste
 GRUPO="rg-projeto4"
-REGIAO="eastus"                       # brazilsouth: RequestDisallowedByAzure
-                                       # centralus: F1 sem capacidade disponível
-                                       # (erro comum do tier grátis) — se eastus
-                                       # também falhar, tente westus2 / eastus2
+REGIAO="centralus"                    # brazilsouth e eastus: bloqueados por
+                                       # política da assinatura (RequestDisallowedByAzure)
+                                       # centralus: liberado, mas F1 sem capacidade —
+                                       # por isso o plano abaixo usa B1, não F1
 SUFIXO="TROCAR"                       # precisa ser único globalmente (iniciais+números)
 PLANO="plan-projeto4"
 APP="app-projeto4-${SUFIXO}"
@@ -35,10 +35,14 @@ az account show --output table
 # já existir (em QUALQUER região), reusa; só cria do zero se realmente faltar.
 az group show -n "$GRUPO" &>/dev/null || az group create -n "$GRUPO" -l "$REGIAO"
 
-# F1 é grátis: 60 min de CPU/dia, sem Always On. B1 (~US$13/mês) para produção.
+# F1 (grátis) ficou sem capacidade disponível em centralus — erro comum do
+# tier compartilhado, não exclusivo deste projeto. B1 (~US$13/mês, cobrado por
+# hora, ~US$0,018/h) resolveu de primeira. Se quiser tentar voltar para F1
+# depois (capacidade libera e volta com o tempo):
+#   az appservice plan update -g "$GRUPO" -n "$PLANO" --sku F1
 # -l "$REGIAO" é OBRIGATÓRIO aqui: sem ele, o plano herda a região do resource
 # group (que pode ser outra, ex. brazilsouth bloqueada) em vez da região liberada.
-az appservice plan create -g "$GRUPO" -n "$PLANO" --is-linux --sku F1 -l "$REGIAO"
+az appservice plan create -g "$GRUPO" -n "$PLANO" --is-linux --sku B1 -l "$REGIAO"
 
 az webapp create -g "$GRUPO" -p "$PLANO" -n "$APP" --runtime "PYTHON:3.12"
 
