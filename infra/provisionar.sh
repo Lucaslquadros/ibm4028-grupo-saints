@@ -13,7 +13,7 @@ REGIAO="centralus"                    # brazilsouth e eastus: bloqueados por
                                        # política da assinatura (RequestDisallowedByAzure)
                                        # centralus: liberado, mas F1 sem capacidade —
                                        # por isso o plano abaixo usa B1, não F1
-SUFIXO="TROCAR"                       # precisa ser único globalmente (iniciais+números)
+SUFIXO="saints4028"                   # Grupo Saints + IBM4028, único globalmente
 PLANO="plan-projeto4"
 APP="app-projeto4-${SUFIXO}"
 STORAGE="stprojeto4${SUFIXO}"         # só minúsculas e números, 3-24 chars
