@@ -46,7 +46,7 @@ uv sync --all-groups
 uv run fastapi dev app/main.py
 uv run pytest
 uv run ruff check . --fix && uv run ruff format .
-uv export --no-dev --no-hashes --format requirements-txt > requirements.txt
+NO_COLOR=1 uv export --no-dev --no-hashes --format requirements-txt --extra azuresql > requirements.txt
 ```
 
 ## Antes de dar uma tarefa por concluída

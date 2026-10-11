@@ -129,7 +129,10 @@ sintoma de ter pulado o deploy manual antes do automatizado.
 ```bash
 APP=app-projeto4-saints2026   # já criado — ver seção 2
 
-uv export --no-dev --no-hashes --format requirements-txt > requirements.txt
+# NO_COLOR evita que o uv grave sequências ANSI de progresso dentro do
+# arquivo (ver Atenção 2b); --extra azuresql traz o pyodbc, que é opcional
+# no pyproject.toml e por padrão NÃO entra no export.
+NO_COLOR=1 uv export --no-dev --no-hashes --format requirements-txt --extra azuresql > requirements.txt
 
 # zipfile do Python em vez de `zip -r`: Git Bash nem sempre tem o binário zip
 # instalado, e o uv/python já está garantido (é o mesmo que roda a API).
@@ -148,6 +151,28 @@ az webapp deploy -g rg-projeto4 -n "$APP" --src-path deploy.zip --type zip
 >   --set properties.allow=true
 > ```
 
+> **Atenção 2b — `requirements.txt` sem `pyodbc` ou corrompido quebra o
+> Oryx silenciosamente.** Dois bugs reais encontrados em produção:
+> 1. `pyodbc` é `[project.optional-dependencies] azuresql` no `pyproject.toml`
+>    (o SQLite local não precisa dele), então um `uv export` sem `--extra
+>    azuresql` gera um `requirements.txt` válido mas incompleto. O Oryx builda
+>    "com sucesso" e o gunicorn só quebra no boot: `ModuleNotFoundError: No
+>    module named 'pyodbc'`.
+> 2. Em alguns terminais o `uv export` manda a linha de progresso
+>    (`Resolved N packages...`, com códigos ANSI de cor) para o mesmo stream
+>    que é redirecionado para o arquivo, virando a primeira linha do
+>    `requirements.txt`. O `pip`/`uv pip install` do Oryx não reconhece essa
+>    linha e falha o deploy inteiro (`Kudu Status 400` ou erro de parse). Use
+>    `NO_COLOR=1` (já no comando acima) e, se desconfiar, confira com
+>    `head -3 requirements.txt` antes de gerar o zip.
+>
+> Se o zip foi montado no Windows com `Compress-Archive` em vez do
+> `python -m zipfile` do comando acima: `Compress-Archive` grava os
+> caminhos com `\` (backslash). No Linux isso não forma uma pasta —
+> `app\main.py` vira um nome de arquivo literal — e o gunicorn quebra com
+> `ModuleNotFoundError: No module named 'app'`. É exatamente por isso que o
+> comando usa `python -m zipfile`, não `Compress-Archive`.
+
 Confirme:
 
 ```bash
@@ -165,6 +190,17 @@ az webapp log tail -g rg-projeto4 -n "$APP"
 > temporário: `az appservice plan update -g rg-projeto4 -n plan-projeto4 --sku B1`
 > (cobrado por hora, ~US$0,018/h). Volte para F1 depois:
 > `az appservice plan update -g rg-projeto4 -n plan-projeto4 --sku F1`.
+
+> **Atenção 4 — `/health` fica em 503 mesmo com build e deploy OK, log mostra
+> "Worker failed to boot" sem traceback de import.** Causa real encontrada em
+> produção: o startup command usa `-w 2` (dois workers do gunicorn), e os dois
+> chamam `criar_tabelas()` → `Base.metadata.create_all()` ao mesmo tempo no
+> cold start. O `checkfirst` do SQLAlchemy não é atômico entre processos: o
+> perdedor da corrida recebe `pyodbc.ProgrammingError` com SQLSTATE `42S01`
+> ("already exists") do Azure SQL, o worker crasha, e o gunicorn inteiro
+> para (não só aquele worker). `app/database.py` já trata esse erro
+> especificamente — se voltar a acontecer depois de uma mudança no schema,
+> comece olhando ali antes de suspeitar de infra.
 
 ---
 
