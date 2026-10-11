@@ -71,6 +71,33 @@ az storage container create --account-name "$STORAGE" -n uploads
 STORAGE_CS=$(az storage account show-connection-string \
   -g "$GRUPO" -n "$STORAGE" --query connectionString -o tsv)
 
+# --------------------------------------------------- Static Web App (frontend)
+# Criado ANTES do App Settings do backend porque o CORS_ORIGINS abaixo
+# depende do hostname real. Free tier, sem custo. --login-with-github abre um
+# device login (código + link) e, ao autorizar, a Azure CLI injeta sozinha um
+# workflow .github/workflows/azure-static-web-apps-<nome>.yml direto no
+# repositório (um commit automático) e dispara o primeiro build.
+#
+# App Service Plan free (F1) não tem relação com o tier do Static Web App —
+# são recursos e cobranças independentes.
+az staticwebapp create \
+  -n "$SWA" -g "$GRUPO" -l "$REGIAO" \
+  -s "https://github.com/${GITHUB_REPO}" -b "$GITHUB_BRANCH" \
+  --app-location "frontend" --output-location "" \
+  --login-with-github
+
+# Atenção: o hostname do Static Web App NÃO é previsível a partir do nome do
+# recurso (`$SWA`) — a Azure gera algo como "zealous-river-0b6019910.6.
+# azurestaticapps.net", não "swa-projeto4-saints2026.azurestaticapps.net".
+# Usar o nome do recurso direto no CORS_ORIGINS é um bug: o navegador do
+# frontend real recebe "Disallowed CORS origin" porque a origin configurada
+# nunca existiu. Sempre leia o hostname de volta da API.
+SWA_HOSTNAME=$(az staticwebapp show -n "$SWA" -g "$GRUPO" --query defaultHostname -o tsv)
+
+echo
+echo "git pull depois do comando acima — a Azure CLI commitou o workflow."
+echo "Frontend (depois do 1º build): https://${SWA_HOSTNAME}"
+
 # ------------------------------------------------------------ App Settings
 DB_URL="mssql+pyodbc://${SQL_USER}:${SQL_PASSWORD}@${SQL_SERVER}.database.windows.net:1433/${SQL_DB}?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=no"
 
@@ -80,7 +107,7 @@ az webapp config appsettings set -g "$GRUPO" -n "$APP" --settings \
   DATABASE_URL="$DB_URL" \
   AZURE_STORAGE_CONNECTION_STRING="$STORAGE_CS" \
   AZURE_STORAGE_CONTAINER=uploads \
-  CORS_ORIGINS="[\"https://${SWA}.azurestaticapps.net\"]" \
+  CORS_ORIGINS="[\"https://${SWA_HOSTNAME}\"]" \
   SCM_DO_BUILD_DURING_DEPLOYMENT=true
 
 # Sem startup command o App Service não sabe subir FastAPI → 503.
@@ -93,24 +120,6 @@ az webapp update -g "$GRUPO" -n "$APP" --https-only true
 echo
 echo "Pronto: https://${APP}.azurewebsites.net"
 echo "Confira o health:  curl https://${APP}.azurewebsites.net/health"
-
-# --------------------------------------------------- Static Web App (frontend)
-# Free tier, sem custo. --login-with-github abre um device login (código +
-# link) e, ao autorizar, a Azure CLI injeta sozinha um workflow
-# .github/workflows/azure-static-web-apps-<nome>.yml direto no repositório
-# (um commit automático) e dispara o primeiro build.
-#
-# App Service Plan free (F1) não tem relação com o tier do Static Web App —
-# são recursos e cobranças independentes.
-az staticwebapp create \
-  -n "$SWA" -g "$GRUPO" -l "$REGIAO" \
-  -s "https://github.com/${GITHUB_REPO}" -b "$GITHUB_BRANCH" \
-  --app-location "frontend" --output-location "" \
-  --login-with-github
-
-echo
-echo "git pull depois do comando acima — a Azure CLI commitou o workflow."
-echo "Frontend (depois do 1º build): https://${SWA}.azurestaticapps.net"
 echo
 echo "Próximo passo: configurar o alerta de orçamento em Cost Management."
 echo "Crédito de estudante acaba silenciosamente."
