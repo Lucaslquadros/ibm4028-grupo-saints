@@ -41,3 +41,4 @@ _setup/
 .azure/
 *.PublishSettings
 *.pubxml
+deploy.zip

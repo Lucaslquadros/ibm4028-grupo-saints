@@ -62,10 +62,16 @@ O App Service não adivinha o entrypoint de FastAPI. Sem startup command, sobe a
 O App Service instala a partir de `requirements.txt`, não de `uv.lock`. Gere e versione:
 
 ```bash
-uv export --no-dev --no-hashes --format requirements-txt > requirements.txt
+NO_COLOR=1 uv export --no-dev --no-hashes --format requirements-txt --extra azuresql > requirements.txt
 ```
 
 Regenere sempre que mexer nas dependências. `requirements.txt` desatualizado = deploy verde com app quebrada.
+
+`--extra azuresql` é obrigatório: `pyodbc` é dependência opcional no `pyproject.toml`
+(SQLite local não precisa dele) e some silenciosamente sem essa flag — o build
+passa, o gunicorn quebra no boot com `ModuleNotFoundError: No module named 'pyodbc'`.
+`NO_COLOR=1` evita que o `uv` grave códigos ANSI de progresso como primeira linha
+do arquivo, o que quebra o parse do `pip`/`uv pip install` no Oryx.
 
 ### Health check
 
@@ -165,6 +171,8 @@ az webapp log deployment show -g rg-projeto4 -n <app>
 | Timeout no banco | Firewall do Azure SQL sem o IP / sem "Allow Azure services" |
 | CORS no navegador | `CORS_ORIGINS` sem o domínio real do front |
 | Funciona local, 500 no Azure | Caminho de arquivo local; no App Service só `/tmp` é gravável |
+| "Worker failed to boot" sem traceback de import, build e deploy OK | `-w 2+` workers rodando `create_all()` ao mesmo tempo no cold start; um recebe "already exists" (42S01) e derruba o gunicorn inteiro |
+| `ModuleNotFoundError: No module named 'app'` com build OK | Zip montado com `Compress-Archive` (Windows) em vez de `python -m zipfile` — grava `\` em vez de `/`, então não existe pasta no Linux |
 
 Log de deploy verde não prova nada sobre a aplicação. Sempre confirme no `/health`.
 
