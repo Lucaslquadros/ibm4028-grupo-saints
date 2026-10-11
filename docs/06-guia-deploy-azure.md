@@ -291,19 +291,32 @@ gh run watch --repo Lucaslquadros/ibm4028-grupo-saints
 
 ## 6. Depois que as duas URLs existirem
 
-Com `https://app-projeto4-<sufixo>.azurewebsites.net` (backend) e
-`https://swa-projeto4-<sufixo>.azurestaticapps.net` (frontend) no ar:
+> **Atenção 5 — o hostname do Static Web App NÃO é `https://${SWA}.azurestaticapps.net`.**
+> A Azure gera um nome aleatório tipo `zealous-river-0b6019910.6.azurestaticapps.net`,
+> não o nome do recurso que você escolheu. `infra/provisionar.sh` já lê o valor real
+> via `az staticwebapp show --query defaultHostname` antes de montar `CORS_ORIGINS`
+> — se você setou isso manualmente ou rodou fora de ordem, confira com o mesmo
+> comando antes de testar CORS, senão o preflight cai em "Disallowed CORS origin"
+> mesmo com tudo "configurado".
 
-1. Confirme que `CORS_ORIGINS` no App Settings já aponta para a URL real do
-   Static Web App (o script já preenche isso, mas confira: `az webapp config
-   appsettings list -g rg-projeto4 -n "$APP" --query "[?name=='CORS_ORIGINS']"`)
-2. Teste CORS de verdade, simulando o navegador:
+Com `https://app-projeto4-<sufixo>.azurewebsites.net` (backend) e o hostname real
+do Static Web App (frontend) no ar:
+
+1. Confirme que `CORS_ORIGINS` no App Settings aponta para o hostname **real**
+   (não o nome do recurso):
+   ```bash
+   az staticwebapp show -n "$SWA" -g rg-projeto4 --query defaultHostname -o tsv
+   az webapp config appsettings list -g rg-projeto4 -n "$APP" --query "[?name=='CORS_ORIGINS']"
+   ```
+2. Teste CORS de verdade, simulando o navegador, com o hostname real:
    ```bash
    curl -i -X OPTIONS https://app-projeto4-<sufixo>.azurewebsites.net/api/v1/casas \
-     -H "Origin: https://swa-projeto4-<sufixo>.azurestaticapps.net" \
+     -H "Origin: https://<hostname-real-do-swa>.azurestaticapps.net" \
      -H "Access-Control-Request-Method: GET"
    ```
-   Espere `200` com `Access-Control-Allow-Origin` no header.
+   Espere `200` com `Access-Control-Allow-Origin` no header. Se acabou de trocar
+   `CORS_ORIGINS` ou reiniciar o App Service, dê um tempo (até ~1-2 min) antes de
+   testar — a propagação da nova configuração para o container não é instantânea.
 
 ---
 
@@ -321,20 +334,23 @@ evita descobrir isso tarde.
 
 ## Checklist desta sprint
 
-- [ ] Branch `main` confirmado como default (feito)
-- [ ] `SUFIXO` escolhido e preenchido em `infra/provisionar.sh`
-- [ ] Resource group, App Service, Azure SQL, Storage criados
-- [ ] App Settings aplicadas, incluindo `CORS_ORIGINS` com a URL do Static Web App
-- [ ] Startup command + health check configurados
-- [ ] SCM Basic Auth ativado (Atenção 2)
-- [ ] Deploy manual confirmado (`/health` responde 200 em produção)
-- [ ] Static Web App criado, primeiro build publicado
+- [x] Branch `main` confirmado como default (feito)
+- [x] `SUFIXO` escolhido e preenchido em `infra/provisionar.sh` (`saints2026`)
+- [x] Resource group, App Service, Azure SQL, Storage criados
+- [x] App Settings aplicadas, incluindo `CORS_ORIGINS` com o hostname **real** do
+      Static Web App (não o nome do recurso — ver Atenção 5)
+- [x] Startup command + health check configurados
+- [x] SCM Basic Auth ativado (Atenção 2)
+- [x] Deploy manual confirmado (`/health` responde 200 em produção)
+- [x] Static Web App criado, primeiro build publicado (11/10/2026)
 - [ ] OIDC configurado (App registration + federated credential + role assignment)
 - [ ] 3 variáveis (`AZURE_CLIENT_ID`/`TENANT_ID`/`SUBSCRIPTION_ID`) no GitHub
 - [ ] `AZURE_WEBAPP_NAME` real no workflow (sem `TROCAR`)
 - [ ] Environment `production` com required reviewer configurado
-- [ ] Push em `main` disparou o deploy automático e passou
-- [ ] CORS testado com `curl -X OPTIONS`, não só "parece funcionar"
+- [ ] Push em `main` disparou o deploy automático e passou — hoje falha porque
+      falta o OIDC acima (`azure/login` sem `client-id`/`tenant-id`)
+- [x] CORS testado com `curl -X OPTIONS` — `200` com `Access-Control-Allow-Origin`
+      confirmado em produção (11/10/2026)
 - [ ] Alerta de orçamento ativo no portal
 - [ ] Nenhum segredo commitado (`git log --all -p -- '*.env'` conferido)
 
