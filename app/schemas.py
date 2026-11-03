@@ -5,6 +5,7 @@ Se o código dentro da função rodou, o dado já está válido. Não escreva `i
 """
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -65,19 +66,30 @@ class CasaPage(BaseModel):
 
 
 # ------------------------------------------------------------ Upload de custo
+TipoUpload = Literal["cardapio", "compras"]
+
+
 class UploadCustoResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     casa_id: int
     periodo: str
+    tipo: TipoUpload = Field(
+        description="cardapio = engenharia de cardápio (CMV teórico); "
+        "compras = DRE gerencial de compras (CMV real)"
+    )
     nome_original: str
     blob_name: str
     content_type: str
     tamanho_bytes: int
     url: str
     criado_em: datetime
-    itens_importados: int = Field(description="Quantas linhas de custo foram extraídas do arquivo")
+    linhas_importadas: int = Field(description="Quantas linhas foram extraídas do arquivo")
+    substituiu_anterior: bool = Field(
+        default=False,
+        description="True quando já havia um upload da mesma casa/período/tipo e ele foi trocado",
+    )
 
 
 class UploadCustoPage(BaseModel):
@@ -89,30 +101,53 @@ class UploadCustoPage(BaseModel):
     items: list[UploadCustoResponse]
 
 
-# --------------------------------------------------------------- Item de custo
-class ItemCustoResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+# ------------------------------------------------------- Fechamento de CMV
+class LinhaFechamento(BaseModel):
+    """Uma linha do fechamento: um grupo (ALIMENTOS, BEBIDAS) ou o TOTAL.
 
-    id: int
-    nome: str
-    custo_teorico: float
-    custo_real: float
-    delta: float = Field(description="custo_real - custo_teorico")
+    Campos ficam `null` quando o relatório correspondente do mês ainda não foi
+    enviado — ex.: só o cardápio subiu, então não há custo real ainda.
+    """
+
+    grupo: str
+    venda_liquida: float | None = Field(description="Venda líquida do grupo (cardápio)")
+    custo_teorico: float | None = Field(description="Vendas × ficha técnica (cardápio)")
+    custo_real: float | None = Field(description="Custo de compras pós-inventário (DRE)")
+    cmv_teorico_pct: float | None
+    cmv_real_pct: float | None
+    ajuste: float | None = Field(description="custo_real − custo_teorico, em R$")
+    ajuste_pp: float | None = Field(description="cmv_real_pct − cmv_teorico_pct, em pontos")
 
 
-# ------------------------------------------------------------------ Delta (RF02)
-class DeltaCasaResponse(BaseModel):
-    """Alimenta o painel de delta — RF02, prioridade nº1 do cliente."""
+class FechamentoResponse(BaseModel):
+    """O painel de fechamento do mês — o relatório que hoje leva ~2 dias à mão."""
 
     casa_id: int
     casa_nome: str
     periodo: str
-    custo_teorico_total: float
-    custo_real_total: float
-    delta_total: float = Field(description="custo_real_total - custo_teorico_total")
-    itens: list[ItemCustoResponse] = Field(
-        description="Itens ordenados pelo maior delta em módulo — onde está a maior perda"
-    )
+    tem_cardapio: bool
+    tem_compras: bool
+    total: LinhaFechamento
+    grupos: list[LinhaFechamento]
+
+
+class PontoEvolucao(BaseModel):
+    periodo: str
+    cmv_teorico_pct: float | None
+    cmv_real_pct: float | None
+    ajuste_pp: float | None
+
+
+class ItemCardapioResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    nome: str
+    grupo: str
+    subgrupo: str | None
+    quantidade: float | None
+    venda_liquida: float | None
+    custo: float
+    cmv_pct: float | None = Field(description="custo ÷ venda líquida, em %")
 
 
 # ------------------------------------------------------------ Health/Erro
