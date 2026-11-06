@@ -42,10 +42,64 @@ quantidade, venda líquida, custo). É isso que permite cruzar os dois com um
 
 ## A regra do cálculo
 
-- Entram só os grupos do **CMV direto**: `ALIMENTOS` e `BEBIDAS`. A DRE tem também utensílios e material de consumo (custo indireto, sem baixa), e o cardápio tem serviços (couvert, sem custo de mercadoria).
+- Entram só os grupos do **CMV direto** — e quais são eles é **deduzido do dado**, não configurado (ver abaixo).
 - **CMV % = custo ÷ venda líquida do grupo no cardápio**, com o **mesmo denominador** para teórico e real. Assim a diferença em pontos percentuais é só diferença de custo.
 - Sem cardápio no mês, o CMV real usa a receita líquida da DRE.
 - **Ajuste = real − teórico**, em R$ e em pontos percentuais.
+
+### Quais grupos formam o CMV direto
+
+Até 05/11/2026 isto era uma constante no código: `GRUPOS_CMV = ("ALIMENTOS",
+"BEBIDAS")`. Funcionava para o cliente e inviabilizava qualquer afirmação de que
+o sistema serve a outro negócio — uma farmácia não vende "bebidas".
+
+A regra que substituiu a lista não precisa de configuração nenhuma
+(`crud.grupos_comparaveis`): **comparável é o grupo que os dois lados do
+fechamento reportam.** É exatamente o que separa custo de mercadoria do resto:
+
+| Aparece em | Exemplos | Por que fica fora |
+|---|---|---|
+| Só na DRE de compras | UTENSILIOS, MATERIAL DE CONSUMO, PRODUTOS REVENDA | Custo indireto, sem baixa de estoque — não há teórico para comparar |
+| Só no cardápio | SERVICOS (couvert), OUTRAS VENDAS | Receita sem custo de mercadoria — não há real para comparar |
+| Nos dois | ALIMENTOS, BEBIDAS | É o CMV direto |
+
+Na base real do cliente a dedução devolve exatamente `ALIMENTOS` e `BEBIDAS` —
+os mesmos números de antes, sem cravar o domínio no código.
+
+O conjunto é **por casa**, não por mês: 23 dos 24 meses de histórico têm só o
+cardápio, e exigir os dois relatórios no mesmo mês esvaziaria a série. Os meses
+incompletos herdam o conjunto aprendido nos meses completos da mesma casa.
+
+**Limite declarado:** uma casa que nunca enviou cardápio não tem como saber que
+"material de consumo" não é mercadoria — nada no arquivo diz isso. Nesse caso o
+sistema soma todos os grupos com custo, em vez de aplicar uma taxonomia de
+restaurante que não tem como conhecer. Basta um cardápio, de qualquer mês, para
+a dedução passar a funcionar.
+
+## O terceiro formato: planilha genérica
+
+Os dois tradutores acima são do Everest. O terceiro (`ler_planilha`) lê uma
+**tabela comum**, que qualquer ERP exporta — é o que sustenta a tese de que
+adaptar o sistema a outra origem é escrever um tradutor, não mexer na regra:
+
+| grupo | subgrupo | item | quantidade | venda_liquida | custo |
+|---|---|---|---|---|---|
+| MEDICAMENTOS | GENERICOS | DIPIRONA 500MG | 820 | 14760 | 5904 |
+| PERFUMARIA | HIGIENE | SABONETE 90G | 1900 | 9500 | 4750 |
+
+- Só `grupo` e `custo` são obrigatórios: um relatório de compras não tem venda.
+- As colunas são localizadas **por nome**, em qualquer ordem, e colunas desconhecidas são ignoradas. Aceita sinônimos (`categoria`, `produto`, `receita`, `faturamento`…).
+- A hierarquia é **calculada**: o arquivo traz linhas planas e o tradutor soma subgrupo, grupo e total.
+- O **formato é detectado**, não declarado: `leitores.ler` tenta o leitor do Everest e cai no genérico se não reconhecer. O usuário só diz se o arquivo é o lado teórico (`cardapio`) ou o real (`compras`).
+
+Para ver isso rodando num negócio que não é restaurante:
+
+```bash
+uv run python scripts/popular_demo_generico.py --api http://localhost:8000
+```
+
+Cria a unidade `Drogaria Central - Centro (DEMO)` com 6 meses nos dois lados.
+**Dado fictício e rotulado como tal.** Testes em `tests/test_generalizacao.py`.
 
 ## Como importar dados reais localmente
 
@@ -71,7 +125,11 @@ uv run python scripts/importar_exports.py \
 
 ## Pendências e próximos passos
 
-- **CMV de compras dos mesmos meses do cardápio** (jul–set/26, SB Vila), pedido à Marcela. A DRE recebida em 23/10 não diz de qual casa e mês é.
-- **Relatório de inventário e perdas**, para decompor o ajuste em contagem + perdas + não explicado (Should).
-- Conferir os números com a apresentação de fechamento de set/26 da equipe (o gabarito).
+Atualizado em 06/11/2026: o cliente parou de responder depois da Conversa 2, e
+tudo que depende dele está **bloqueado**, não em andamento.
+
+- ⛔ **CMV de compras dos mesmos meses do cardápio** (jul–ago/26, SB Vila), pedido à Marcela em 03/11. Sem resposta.
+- ⛔ **Proveniência da DRE recebida em 23/10:** o arquivo **não diz de qual casa nem de qual mês é** — só traz o timestamp do export no nome. O rótulo `2026-09` é uma atribuição de quem rodou o importador, apoiada em evidência circunstancial (exportada em 23/10, logo set/26 é o último mês fechado; a receita da DRE fica a ~1,6% da venda do cardápio do mês). **Não é prova.** Ver `01-requisitos.md` 1.9.
+- ⛔ Conferir os números com a apresentação de fechamento de set/26 da equipe (o gabarito nunca chegou).
+- **Relatório de inventário e perdas**, para decompor o ajuste em contagem + perdas + não explicado (Should) — depende de arquivo que não temos.
 - **Fora do MVP:** alertas durante o mês (divergência de estoque, oscilação de preço, pendências por WhatsApp), recebimento de mercadoria, eventos e buffet, integração via API do Everest.

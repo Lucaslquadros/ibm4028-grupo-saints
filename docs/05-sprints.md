@@ -8,7 +8,26 @@
 
 ---
 
-## Diagnóstico no momento da retomada (09/10/2026)
+## Onde o projeto chegou (06/11/2026)
+
+O diagnóstico de 09/10 abaixo é **histórico** — está preservado de propósito,
+para mostrar de onde partimos. O estado atual é este:
+
+| Frente | Estado |
+|---|---|
+| Deploy | **No ar.** Backend, Azure SQL, Blob e Static Web App em produção. URLs no `README.md`; `/health` responde 200 |
+| CI/CD | **Funcionando.** `deploy-azure.yml` com OIDC, testes como portão e verificação de `/health` depois do deploy |
+| Domínio | `Casa`, `UploadCusto`, `LinhaCusto`. Os exports reais do Everest são lidos pelos tradutores em `app/services/leitores.py` |
+| Dado real | 24 meses de CMV teórico + set/26 com teórico e real, do Boteco São Bento - Vila Madalena. Ajuste de set/26: **−3,68 pp** |
+| Frontend | React no Static Web Apps: Casas, Upload, Fechamento |
+| Testes | 69, verdes |
+| Discovery | Conversa 2 (Marcela) feita em 03/11. **Cliente parou de responder depois disso** — virou caso de estudo, ver `01-requisitos.md` 1.7 |
+| Generalização | Tradutor agnóstico de ERP + dedução de grupos de CMV. Ver `01-requisitos.md` 1.8 |
+| Não entregue | Autenticação (RNF03) e observabilidade. A API é pública |
+
+---
+
+## Diagnóstico no momento da retomada (09/10/2026) — histórico
 
 | Frente | Estado |
 |---|---|
