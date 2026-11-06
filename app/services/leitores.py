@@ -335,4 +335,175 @@ def _decompor_linha_dre(linha: tuple) -> tuple[str | None, str | None, float | N
     return codigo, descricao, valor
 
 
-LEITORES = {"cardapio": ler_cardapio, "compras": ler_compras}
+# ------------------------------------------- planilha genérica (qualquer ERP)
+# Nomes aceitos para cada coluna. A planilha é localizada por nome de coluna,
+# nunca por posição: a ordem das colunas não importa e sobram colunas extras.
+COLUNAS_PLANILHA = {
+    "grupo": ("GRUPO", "CATEGORIA"),
+    "subgrupo": ("SUBGRUPO", "SUBCATEGORIA"),
+    "item": ("ITEM", "PRODUTO", "DESCRICAO"),
+    "quantidade": ("QUANTIDADE", "QTD", "Q VENDA"),
+    "venda_liquida": ("VENDA LIQUIDA", "VENDA", "RECEITA", "FATURAMENTO"),
+    "custo": ("CUSTO", "CUSTO TOTAL"),
+}
+OBRIGATORIAS_PLANILHA = ("grupo", "custo")
+
+
+def ler_planilha(conteudo: bytes, periodo: str) -> Extracao:
+    """Planilha tabular genérica → qualquer lado do fechamento.
+
+    Existe para sustentar a afirmação de que o sistema não está preso ao
+    Everest. `ler_cardapio` e `ler_compras` decodificam dois relatórios de
+    impressão específicos; este lê uma **tabela comum**, que qualquer ERP
+    consegue exportar (ou que o usuário monta à mão):
+
+        grupo      | subgrupo | item        | quantidade | venda_liquida | custo
+        ALIMENTOS  | PETISCOS | BOLINHO     |         10 |        600.00 | 200.00
+        BEBIDAS    | CHOPP    | CHOPP 300ML |        100 |       2000.00 | 400.00
+
+    Só `grupo` e `custo` são obrigatórios — um relatório de compras não tem
+    venda, e um relatório sem detalhe de item traz só o nível de grupo.
+
+    A hierarquia é **calculada**, não lida: o arquivo traz as linhas planas e
+    aqui somamos subgrupo, grupo e total. É o que permite a mesma planilha
+    alimentar o fechamento sem o usuário ter que replicar os totais do Everest.
+
+    Este leitor é agnóstico ao lado do fechamento: quem diz se é teórico ou
+    real é o campo `tipo` do upload, não o formato do arquivo.
+    """
+    livro = _abrir(conteudo)
+    try:
+        linhas = [tuple(r) for r in _escolher_aba(livro, periodo).iter_rows(values_only=True)]
+    finally:
+        livro.close()
+
+    cabecalho_idx, colunas = _achar_cabecalho_planilha(linhas)
+
+    # Somas acumuladas: a planilha é plana, a hierarquia nasce daqui.
+    por_grupo: dict[str, list[float | None]] = {}
+    por_subgrupo: dict[tuple[str, str], list[float | None]] = {}
+    itens: list[Linha] = []
+
+    for linha in linhas[cabecalho_idx + 1 :]:
+        grupo = _celula_texto(linha, colunas.get("grupo"))
+        custo = _celula_numero(linha, colunas.get("custo"))
+        if not grupo or custo is None:
+            continue  # linha em branco ou rodapé
+
+        subgrupo = _celula_texto(linha, colunas.get("subgrupo"))
+        item = _celula_texto(linha, colunas.get("item"))
+        quantidade = _celula_numero(linha, colunas.get("quantidade"))
+        venda = _celula_numero(linha, colunas.get("venda_liquida"))
+
+        _acumular(por_grupo, grupo, custo, venda)
+        if subgrupo:
+            _acumular(por_subgrupo, (grupo, subgrupo), custo, venda)
+        if item:
+            itens.append(
+                Linha(
+                    nivel="item",
+                    grupo=grupo,
+                    subgrupo=subgrupo,
+                    nome=item,
+                    custo=custo,
+                    quantidade=quantidade,
+                    venda_liquida=venda,
+                )
+            )
+
+    if not por_grupo:
+        raise ErroLeitura(
+            "A planilha tem as colunas certas, mas nenhuma linha com grupo e custo preenchidos."
+        )
+
+    extracao = Extracao()
+    custo_total = sum(soma[0] or 0.0 for soma in por_grupo.values())
+    vendas = [soma[1] for soma in por_grupo.values() if soma[1] is not None]
+    extracao.linhas.append(
+        Linha(
+            nivel="total",
+            grupo="TOTAL",
+            nome="TOTAL",
+            custo=custo_total,
+            venda_liquida=sum(vendas) if vendas else None,
+        )
+    )
+    for grupo, (custo, venda) in por_grupo.items():
+        extracao.linhas.append(
+            Linha(nivel="grupo", grupo=grupo, nome=grupo, custo=custo or 0.0, venda_liquida=venda)
+        )
+    for (grupo, subgrupo), (custo, venda) in por_subgrupo.items():
+        extracao.linhas.append(
+            Linha(
+                nivel="subgrupo",
+                grupo=grupo,
+                subgrupo=subgrupo,
+                nome=subgrupo,
+                custo=custo or 0.0,
+                venda_liquida=venda,
+            )
+        )
+    extracao.linhas.extend(itens)
+    return extracao
+
+
+def _acumular(destino: dict, chave, custo: float, venda: float | None) -> None:
+    soma = destino.setdefault(chave, [0.0, None])
+    soma[0] = (soma[0] or 0.0) + custo
+    if venda is not None:
+        soma[1] = (soma[1] or 0.0) + venda
+
+
+def _celula_texto(linha: tuple, idx: int | None) -> str | None:
+    return None if idx is None else _texto(linha, idx)
+
+
+def _celula_numero(linha: tuple, idx: int | None) -> float | None:
+    if idx is None or idx >= len(linha):
+        return None
+    return _numero(linha[idx])
+
+
+def _achar_cabecalho_planilha(linhas: list[tuple]) -> tuple[int, dict[str, int]]:
+    for idx, linha in enumerate(linhas[:30]):
+        titulos = {_normalizar(v): i for i, v in enumerate(linha) if v is not None}
+        achadas = {
+            chave: next((titulos[a] for a in aceitos if a in titulos), None)
+            for chave, aceitos in COLUNAS_PLANILHA.items()
+        }
+        if all(achadas[c] is not None for c in OBRIGATORIAS_PLANILHA):
+            return idx, {chave: i for chave, i in achadas.items() if i is not None}
+    raise ErroLeitura(
+        "Não reconheci este arquivo como planilha genérica: a primeira linha precisa "
+        "ter ao menos as colunas 'grupo' e 'custo'."
+    )
+
+
+# -------------------------------------------------------------- despacho
+# Para cada lado do fechamento, os formatos aceitos **em ordem de tentativa**.
+# O leitor específico do Everest vem primeiro; a planilha genérica é o fallback.
+# Assim o usuário não precisa declarar o formato do arquivo — só dizer se o que
+# ele está enviando é o lado teórico (cardapio) ou o real (compras).
+LEITORES: dict[str, tuple] = {
+    "cardapio": (ler_cardapio, ler_planilha),
+    "compras": (ler_compras, ler_planilha),
+}
+
+
+def ler(tipo: str, conteudo: bytes, periodo: str) -> Extracao:
+    """Traduz o arquivo tentando cada formato conhecido para aquele lado.
+
+    Se nenhum reconhece, a mensagem do leitor **específico** é a que vai para o
+    usuário: ela diz qual relatório do Everest era esperado, que é a informação
+    útil em 99% dos casos. A da planilha genérica entra como alternativa.
+    """
+    erro_especifico: ErroLeitura | None = None
+    for leitor in LEITORES[tipo]:
+        try:
+            return leitor(conteudo, periodo)
+        except ErroLeitura as exc:
+            if erro_especifico is None:
+                erro_especifico = exc
+    raise ErroLeitura(
+        f"{erro_especifico} Como alternativa, envie uma planilha com as colunas 'grupo' e 'custo'."
+    )
