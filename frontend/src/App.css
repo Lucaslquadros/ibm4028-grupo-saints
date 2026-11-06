@@ -439,3 +439,103 @@ input:focus, select:focus, .busca:focus {
 .legenda-item i.grafico-real { background: var(--amber); }
 
 :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+/* ------------------------------------------- RF07: quanto comprar */
+/* Slider da margem de segurança, ao lado do valor corrente. */
+.campo-margem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.campo-margem input[type="range"] {
+  flex: 1;
+  accent-color: var(--amber);
+}
+.campo-margem output {
+  min-width: 42px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--amber-strong);
+}
+
+/* O método e o limite do cálculo ficam num bloco próprio, acima da tabela:
+   número de compra sem a ressalva de que ignora o estoque atual é número que
+   faz alguém comprar errado. */
+.bloco-previsao {
+  padding: 22px 24px;
+  margin-bottom: 18px;
+}
+.previsao-cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.previsao-base {
+  color: var(--ink-soft);
+  font-size: 12.5px;
+}
+.previsao-metodo {
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.previsao-aviso {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--amber-strong);
+  background: rgba(var(--amber-rgb), 0.09);
+  border-left: 3px solid var(--amber);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 14px;
+}
+/* Dado de entrada suspeito é mais grave que o aviso de método: se o mês-base
+   está incompleto, TODA a tabela abaixo está subestimada. */
+.aviso-dado {
+  background: rgba(var(--bad-rgb), 0.1);
+  border-color: rgba(var(--bad-rgb), 0.32);
+  color: var(--bad);
+  line-height: 1.5;
+}
+
+.celula-fraca {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  margin-top: 2px;
+}
+.num-destaque {
+  font-weight: 700;
+  color: var(--amber-strong);
+}
+
+/* Faísca: mostra a FORMA da série (subindo, caindo, serrilhada). Sem eixo e sem
+   número de propósito — o valor exato já está nas colunas ao lado. */
+.celula-faisca { white-space: nowrap; }
+.faisca {
+  width: 96px;
+  height: 26px;
+  display: block;
+}
+.faisca-linha {
+  stroke: var(--amber);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.faisca-ponta { fill: var(--amber-strong); }
+.faisca-vazia { color: var(--ink-soft); }
+
+.selo-conf {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: help;
+}
+.selo-conf-alta { background: rgba(var(--good-rgb), 0.16); color: var(--good); }
+.selo-conf-media { background: rgba(var(--amber-rgb), 0.16); color: var(--amber-strong); }
+.selo-conf-baixa { background: rgba(var(--bad-rgb), 0.14); color: var(--bad); }

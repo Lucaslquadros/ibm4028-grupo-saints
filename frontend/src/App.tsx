@@ -3,14 +3,19 @@ import type { Casa } from "./api";
 import { Casas } from "./screens/Casas";
 import { Upload } from "./screens/Upload";
 import { Fechamento } from "./screens/Fechamento";
+import { Recomendacao } from "./screens/Recomendacao";
 import "./App.css";
 
-type Tela = "casas" | "upload" | "fechamento";
+type Tela = "casas" | "upload" | "fechamento" | "recomendacao";
 
+// A ordem é o fluxo real de uso: cadastra a casa, sobe o export, confere o
+// fechamento e decide a compra do mês seguinte. "Quanto comprar" vem por último
+// porque depende do histórico que os passos anteriores carregaram.
 const TELAS: { id: Tela; rotulo: string }[] = [
   { id: "casas", rotulo: "Casas" },
   { id: "upload", rotulo: "Upload" },
   { id: "fechamento", rotulo: "Fechamento" },
+  { id: "recomendacao", rotulo: "Quanto comprar" },
 ];
 
 export default function App() {
@@ -56,6 +61,15 @@ export default function App() {
         )}
         {tela === "fechamento" && (
           <Fechamento
+            casas={casas}
+            casaId={casaId}
+            setCasaId={setCasaId}
+            periodo={periodo}
+            setPeriodo={setPeriodo}
+          />
+        )}
+        {tela === "recomendacao" && (
+          <Recomendacao
             casas={casas}
             casaId={casaId}
             setCasaId={setCasaId}

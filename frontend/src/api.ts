@@ -87,6 +87,41 @@ export interface ItemCardapio {
   cmv_pct: number | null;
 }
 
+export interface PontoHistorico {
+  periodo: string;
+  quantidade: number;
+}
+
+export interface PrevisaoItem {
+  nome: string;
+  grupo: string;
+  subgrupo: string | null;
+  meses_com_dado: number;
+  media_recente: number;
+  tendencia_pct: number | null;
+  indice_sazonal: number | null;
+  demanda_prevista: number;
+  sugestao_compra: number;
+  confianca: "alta" | "media" | "baixa";
+  motivo_confianca: string;
+  historico: PontoHistorico[];
+}
+
+export interface RecomendacaoCompra {
+  casa_id: number;
+  casa_nome: string;
+  periodo_base: string;
+  periodo_alvo: string;
+  margem_seguranca_pct: number;
+  /** Como o número foi calculado. A tela exibe — não é detalhe interno. */
+  metodo: string;
+  /** Limite do cálculo. Precisa aparecer JUNTO do número, não escondido. */
+  aviso: string;
+  /** Presente só quando o próprio dado de entrada é suspeito. */
+  alerta_dado: string | null;
+  itens: PrevisaoItem[];
+}
+
 export const api = {
   listarCasas: (params: { ativa?: boolean; busca?: string } = {}) => {
     const q = new URLSearchParams();
@@ -129,5 +164,16 @@ export const api = {
   topItens: (casaId: number, periodo: string, ordem: "custo" | "cmv" = "custo") =>
     pedido<ItemCardapio[]>(
       `/api/v1/metricas/top-itens?casa_id=${casaId}&periodo=${periodo}&ordem=${ordem}`,
+    ),
+
+  recomendacaoCompra: (
+    casaId: number,
+    periodo: string,
+    margemPct = 10,
+    limit = 10,
+  ) =>
+    pedido<RecomendacaoCompra>(
+      `/api/v1/metricas/recomendacao-compra?casa_id=${casaId}&periodo=${periodo}` +
+        `&margem_seguranca_pct=${margemPct}&limit=${limit}`,
     ),
 };
