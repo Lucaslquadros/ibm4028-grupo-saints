@@ -95,11 +95,23 @@ adaptar o sistema a outra origem é escrever um tradutor, não mexer na regra:
 Para ver isso rodando num negócio que não é restaurante:
 
 ```bash
+# todos os ramos de exemplos/ (farmácia, padaria, pizzaria, distribuidora)
 uv run python scripts/popular_demo_generico.py --api http://localhost:8000
+
+# só um deles
+uv run python scripts/popular_demo_generico.py --empresa padaria-sao-jose
+
+# só gerar os .xlsx, sem tocar a API
+uv run python scripts/popular_demo_generico.py --apenas-planilhas pasta/
 ```
 
-Cria a unidade `Drogaria Central - Centro (DEMO)` com 6 meses nos dois lados.
-**Dado fictício e rotulado como tal.** Testes em `tests/test_generalizacao.py`.
+Cria quatro unidades com 6 meses nos dois lados, a partir dos CSVs de
+`exemplos/`. Acrescentar um ramo é acrescentar dois CSVs e uma entrada no
+manifesto — **sem tocar Python**.
+
+**Dado fictício e rotulado "(DEMO)".** As quatro estão em produção; o fechamento
+de cada uma, com os grupos que o sistema deduziu, está em `01-requisitos.md` 1.8.
+Testes em `tests/test_generalizacao.py`.
 
 ## Como importar dados reais localmente
 

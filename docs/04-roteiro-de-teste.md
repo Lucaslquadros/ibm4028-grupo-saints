@@ -134,9 +134,9 @@ cp .env.example .env.development
 npm run dev
 ```
 
-As três telas são as do MVP — **Casas** (RF08), **Upload** (RF01) e
-**Fechamento** (RF02/RF04). O percurso que prova o sistema inteiro está em
-`docs/08-roteiro-demo.md`.
+As quatro telas são as do MVP — **Casas** (RF08), **Upload** (RF01),
+**Fechamento** (RF02/RF04) e **Quanto comprar** (RF07). O percurso que prova o
+sistema inteiro está em `docs/08-roteiro-demo.md`.
 
 A aplicação também prova uma coisa invisível: **o CORS está configurado**. Se
 não estivesse, o navegador bloquearia toda chamada e as telas ficariam vazias,

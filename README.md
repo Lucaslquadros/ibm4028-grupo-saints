@@ -19,7 +19,7 @@ reais num único mês.
 | **Aplicação** | https://zealous-river-0b6019910.6.azurestaticapps.net |
 | **API** | https://app-projeto4-saints2026.azurewebsites.net |
 | **Documentação da API** | https://app-projeto4-saints2026.azurewebsites.net/docs |
-| **Health check** | https://app-projeto4-saints2026.azurewebsites.net/health |
+| **Health check** | https://app-projeto4-saints2026.azurewebsites.net/health — informa o SHA publicado |
 
 Azure App Service + Azure SQL + Blob Storage + Static Web Apps, com deploy
 automático por GitHub Actions (OIDC, sem segredo de longa duração).
@@ -88,11 +88,12 @@ O grupo inteiro deve usar **o mesmo** caminho. Misturar os dois gera divergênci
 │   └── services/
 │       ├── leitores.py     Tradutores → LinhaCusto (Everest ×2 + planilha genérica)
 │       └── storage.py      Blob Storage / disco local
-├── frontend/               React + Vite — Casas, Upload, Fechamento
-├── tests/                  pytest — 69 testes
+├── frontend/               React + Vite — Casas, Upload, Fechamento, Quanto comprar
+├── tests/                  pytest — 107 testes
+├── exemplos/               CSV de 4 empresas fictícias (farmácia, padaria, pizzaria, atacado)
 ├── scripts/
 │   ├── importar_exports.py      Importa os exports reais (direto no banco)
-│   └── popular_demo_generico.py Unidade de demo de outro ramo, pela API
+│   └── popular_demo_generico.py Carrega as unidades de demo, pela API
 ├── docs/
 │   ├── 00-customer-discovery.md   Registro das conversas (Mom Test)
 │   ├── 01-requisitos.md           Documento de requisitos (RF/RNF, vivo)
@@ -235,8 +236,10 @@ Cinco skills da disciplina em `.claude/skills/`, versionadas com o código. Ver 
 | DevOps | out | CI/CD por GitHub Actions com OIDC | Entregue |
 | Exports reais + fechamento | 03/11 | Tradutores do Everest e cálculo de CMV | Entregue |
 | Frontend | 05/11 | React no Static Web Apps (RF04) | Entregue |
-| Generalização | 06/11 | Tradutor agnóstico de ERP + dedução de grupos | Entregue |
-| Qualidade | — | Autenticação (RNF03) e observabilidade | **Não entregue** |
+| Generalização | 06/11 | Tradutor agnóstico de ERP + dedução de grupos, 4 ramos em produção | Entregue |
+| RF07 | 06/11 | Recomendação de compra: endpoint + tela | Entregue |
+| Infra nível 1 | 06/11 | Always On, logs, soft delete; CI/CD publicando de fato | Entregue |
+| Qualidade | — | Autenticação (RNF03) e Application Insights | **Não entregue** |
 | MVP | até 09/11 | 1 CRUD + 1 upload + 1 dashboard, no ar | Entregue |
 
 ## Para a apresentação

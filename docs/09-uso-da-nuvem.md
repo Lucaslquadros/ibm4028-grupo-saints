@@ -11,9 +11,15 @@ Os dados desta auditoria vieram da subscription real (`az ... show`), não da
 intenção do projeto. Onde a configuração contradiz o que o código ou o
 documento de requisitos afirma, isso está dito.
 
+> **Como ler este documento.** A seção 2 descreve o estado em que a auditoria
+> **encontrou** cada recurso, preservado de propósito — é o diagnóstico. O que
+> já foi corrigido está marcado com ✅ e consolidado na **seção 1b**.
+
 ---
 
-## 1. O achado principal
+## 1. O achado principal — e o que ele rendeu
+
+**Estado em que a auditoria encontrou a configuração:**
 
 ```
 appLogs: Off   |   httpLogs: false   |   detailedErrors: false
@@ -22,16 +28,48 @@ Application Insights: nenhum componente na subscription
 
 A regra 9 do projeto é "stack trace vai para o log, nunca para a resposta HTTP",
 e `app/main.py` a cumpre: o handler de exceção registra `logger.exception(...)` e
-devolve um 500 genérico. **Só que não existe destino de log configurado** — os
-stack traces vão para o nada.
+devolve um 500 genérico. **Só que não existia destino de log configurado** — os
+stack traces iam para o nada.
 
-A consequência não é teórica. O 500 do `GET /api/v1/uploads-custo`
+A consequência não era teórica. O 500 do `GET /api/v1/uploads-custo`
 (incompatibilidade de `GROUP BY` com o Azure SQL) rodou em produção sem ninguém
 perceber, e foi diagnosticado **lendo código**, não lendo log, porque não havia
 log para ler.
 
-É o exemplo mais limpo de recurso mal usado no projeto: não falta serviço, falta
-configuração — e ligar o log do App Service é um comando, com custo zero.
+**Corrigido em 06/11/2026** (`infra/ajustes-nivel-1.sh`). Minutos depois, o log
+já entregava a causa exata, com a mensagem literal do SQL Server:
+
+```
+ERROR [projeto4] Erro não tratado em GET /api/v1/uploads-custo
+pyodbc.ProgrammingError: ('42000', "[ODBC Driver 18 for SQL Server][SQL Server]
+Column 'uploads_custo.casa_id' is invalid in the select list because it is not
+contained in either an aggregate function or the GROUP BY clause")
+```
+
+É o exemplo mais limpo de recurso mal usado no projeto: não faltava serviço,
+faltava configuração — e ligar o log do App Service é um comando, com custo zero.
+Vale levar esse trecho para a apresentação: ele prova a regra 9 funcionando
+(stack trace no log, 500 genérico para o cliente) e explica por que
+`tests/test_dialeto_sql.py` existe.
+
+## 1b. Estado atual da configuração (06/11/2026)
+
+A auditoria da seção 2 descreve o que foi **encontrado**. Isto é o que está
+valendo agora:
+
+| Ajuste | Antes | Depois |
+|---|---|---|
+| Always On | `false` | **`true`** — fim do cold start de 30–60s |
+| Log de aplicação | `Off` | **`Information`** |
+| Log de HTTP + erro detalhado | `false` | **`true`** |
+| Soft delete no Blob (blob e container) | desligado | **14 dias** |
+| `httpsOnly` | já era `true` | confirmado — `http://` devolve 301 |
+| Credencial federada OIDC | só formato por nome | **+ formato de subject imutável** (ver `06-guia-deploy-azure.md`, Atenção 4b) |
+| Verificação pós-deploy | só `"status":"ok"` | **compara o SHA publicado** (Atenção 6) |
+
+Com isso, **o deploy automático passou a funcionar pela primeira vez** — até
+06/11/2026 todas as publicações tinham sido manuais, e a falha do pipeline
+passava despercebida porque ninguém abria o run.
 
 ---
 
@@ -43,9 +81,9 @@ configuração — e ligar o log do App Service é um comando, com custo zero.
 
 | Bem usado | Mal usado |
 |---|---|
-| `/health` registrado como *health check path* — é o que o App Service usa para decidir reiniciar a instância | `alwaysOn: false`, num plano que **suporta** Always On. A instância dorme em ~20 min e a primeira requisição leva 30–60s |
+| `/health` registrado como *health check path* — é o que o App Service usa para decidir reiniciar a instância | ✅ *(corrigido)* `alwaysOn: false`, num plano que **suporta** Always On. A instância dormia em ~20 min e a primeira requisição levava 30–60s |
 | `gunicorn -w 2 -k uvicorn.workers.UvicornWorker` — servidor de produção, não `fastapi dev` | _(ver nota de correção abaixo sobre `httpsOnly`)_ |
-| Deploy por código (Oryx) com `SCM_DO_BUILD_DURING_DEPLOYMENT`, coerente com o stack escolhido | Todos os logs desligados (ver seção 1) |
+| Deploy por código (Oryx) com `SCM_DO_BUILD_DURING_DEPLOYMENT`, coerente com o stack escolhido | ✅ *(corrigido)* Todos os logs desligados — ver seção 1 |
 | | Sem identidade gerenciada: o acesso a Blob e SQL usa segredo em App Setting |
 | | `criar_tabelas()` no startup em vez de migração versionada — DDL implícito a cada boot, e ainda pesa no cold start |
 
@@ -86,7 +124,7 @@ configuração — e ligar o log do App Service é um comando, com custo zero.
 
 | Bem usado | Mal usado |
 |---|---|
-| Container **privado**: `allowBlobPublicAccess: false`, `publicAccess: null`. As planilhas do cliente não são baixáveis publicamente | **`soft delete` desligado.** Substituir um upload apaga o original do cliente para sempre, sem recuperação |
+| Container **privado**: `allowBlobPublicAccess: false`, `publicAccess: null`. As planilhas do cliente não são baixáveis publicamente | ✅ *(corrigido — 14 dias)* **`soft delete` desligado.** Substituir um upload apagava o original do cliente para sempre |
 | Nome de blob gerado com `uuid4`, nunca o nome enviado pelo cliente — regra 10 do projeto, e defesa contra path traversal e colisão | Sem versionamento e sem regra de ciclo de vida (tudo permanece em Hot indefinidamente) |
 | Binário no object storage, ponteiro no banco — o padrão cloud, em vez de BLOB em tabela | Autenticação por connection string (shared key) em vez de identidade gerenciada |
 | Blob antigo é removido quando o upload é substituído | **A URL guardada em `UploadCusto.url` não serve para nada**: é a URL nua do blob e devolve 401 sem SAS. Na prática o Blob é hoje *somente escrita* |
@@ -132,10 +170,11 @@ usamos" é pergunta fácil de fazer e desconfortável de responder.
 Ordenada por **risco removido ÷ esforço**, não por elegância. A regra prática:
 não comece o nível seguinte antes de fechar o anterior.
 
-### Nível 1 — minutos, custo zero, risco alto removido
+### Nível 1 — ✅ **aplicado em 06/11/2026**
 
-São comandos `az`, nenhum exige mexer em código. Eram quatro na primeira versão;
-o quarto (`httpsOnly`) saiu por já estar aplicado.
+São comandos `az`, nenhum exige mexer em código — `infra/ajustes-nivel-1.sh`
+executa os três e confere cada propriedade no fim. Eram quatro na primeira
+versão; o quarto (`httpsOnly`) saiu por já estar aplicado.
 
 | # | Ajuste | Por que primeiro |
 |---|---|---|
@@ -148,8 +187,8 @@ o quarto (`httpsOnly`) saiu por já estar aplicado.
 
 | # | Ajuste | Por que | O que destrava |
 |---|---|---|---|
-| 5 | **Endpoint de download com SAS de curta duração** | Hoje o Blob é somente escrita. Além de consertar isso, demonstra *least privilege* — credencial com escopo de um blob e validade de minutos | **Pré-requisito** de RF09 e RF10 (ver `10-anexos-de-imagem.md`): imagem precisa ser exibida, não só guardada |
-| 6 | **Application Insights** | A única forma de ver requisição, falha, latência e dependência ao longo do tempo. Está como "extra valorizado" não marcado no documento de requisitos e cobre a fase de Qualidade, que não foi entregue | Diagnóstico de qualquer coisa futura |
+| 5 | ⬜ **Endpoint de download com SAS de curta duração** | Hoje o Blob é somente escrita. Além de consertar isso, demonstra *least privilege* — credencial com escopo de um blob e validade de minutos | **Pré-requisito** de RF09 e RF10 (ver `10-anexos-de-imagem.md`): imagem precisa ser exibida, não só guardada |
+| 6 | ⬜ **Application Insights** | A única forma de ver requisição, falha, latência e dependência ao longo do tempo. Está como "extra valorizado" não marcado no documento de requisitos e cobre a fase de Qualidade, que não foi entregue | Diagnóstico de qualquer coisa futura |
 
 ### Nível 3 — postura de segurança
 

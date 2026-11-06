@@ -19,21 +19,27 @@ CI/CD, não para rodar a aplicação.
 | # | Verificação | Como |
 |---|---|---|
 | 1 | A API está acordada | Abra https://app-projeto4-saints2026.azurewebsites.net/health — tem que responder `{"status":"ok", ..., "banco":"ok"}` **na hora** |
-| 2 | O frontend carrega | Abra https://zealous-river-0b6019910.6.azurestaticapps.net |
-| 3 | O fechamento calcula | Abra [o fechamento de set/26](https://app-projeto4-saints2026.azurewebsites.net/api/v1/metricas/fechamento?casa_id=2&periodo=2026-09) e confirme `ajuste_pp: -3.68` |
-| 4 | Há crédito no Azure | Portal → Cost Management. Se o crédito acabar, tudo cai |
+| 2 | É o código mais recente | No mesmo `/health`, confira que `commit` bate com o último commit da `main` (`git rev-parse HEAD`) |
+| 3 | O frontend carrega, com 4 abas | Abra https://zealous-river-0b6019910.6.azurestaticapps.net — Casas, Upload, Fechamento e **Quanto comprar** |
+| 4 | As 5 unidades estão lá | Aba Casas: a piloto real + 4 de demonstração, com "(DEMO)" no nome |
+| 5 | O fechamento calcula | Abra [o fechamento de set/26](https://app-projeto4-saints2026.azurewebsites.net/api/v1/metricas/fechamento?casa_id=2&periodo=2026-09) e confirme `ajuste_pp: -3.68` |
+| 6 | Há crédito no Azure | Portal → Cost Management. Se o crédito acabar, tudo cai |
 
 Deixe as abas **já abertas** na ordem do roteiro, numa janela só. Trocar de aba
 na frente de alguém é melhor que digitar URL.
 
-> **Se o passo 1 demorar 30–60 segundos:** o Always On do App Service está
-> desligado e a instância dormiu. Era o estado até 06/11/2026 e é o que fazia a
-> aplicação parecer quebrada. Confira com
+> **Se o passo 1 demorar 30–60 segundos**, o Always On caiu. Ele foi **ligado
+> em 06/11/2026** justamente porque a instância dormia em ~20 min e a primeira
+> requisição levava um minuto — era o que fazia a aplicação parecer quebrada.
+> Confira com
 > `az webapp config show -g rg-projeto4 -n app-projeto4-saints2026 --query alwaysOn`.
+>
+> **Se o passo 2 mostrar um commit diferente**, o deploy publicou mas o processo
+> não trocou: `az webapp restart -g rg-projeto4 -n app-projeto4-saints2026`.
 
 ---
 
-## O roteiro (12–15 min)
+## O roteiro (15–18 min)
 
 ### 1. O problema, antes de qualquer tela (2 min)
 
@@ -53,8 +59,10 @@ empresa, totais no meio dos itens e hierarquia por indentação.
 
 https://zealous-river-0b6019910.6.azurestaticapps.net
 
-- **Casas** → o CRUD do RF08. Mostre a casa piloto, o Boteco São Bento - Vila Madalena.
-- **Fechamento** → escolha a casa, período **09/2026**, Calcular.
+Quatro abas, na ordem do fluxo real: **Casas → Upload → Fechamento → Quanto comprar**.
+
+- **Casas** → o CRUD do RF08. Mostre a casa piloto, o Boteco São Bento - Vila Madalena, e diga que as outras quatro são de demonstração (o nome carrega "(DEMO)").
+- **Fechamento** → escolha a casa piloto, período **09/2026**, Calcular.
 
 Pare no número e deixe ele respirar:
 
@@ -102,14 +110,30 @@ dizendo qual coluna falta** — não um stack trace. Vale mostrar de propósito.
 > uma validação que não houve, usamos a base real dele para provar uma
 > afirmação verificável: **o cálculo não depende do ERP dele nem do ramo dele.**"
 
-Ainda em **Fechamento**, troque a casa para **Drogaria Central - Centro (DEMO)**:
+Ainda em **Fechamento**, troque a casa — são **quatro ramos diferentes**, e o
+seletor é a demonstração inteira. Não precisa mostrar os quatro: mostre dois
+bem distantes e mencione os outros.
 
-- Outro ramo. Categorias **MEDICAMENTOS** e **PERFUMARIA** — nenhuma linha de código conhece esses nomes.
+| Unidade | CMV teórico | CMV real | Grupos que o sistema **deduziu** |
+|---|---|---|---|
+| Drogaria Central (DEMO) | 47,79% | 52,09% | MEDICAMENTOS, PERFUMARIA |
+| Padaria Sao Jose (DEMO) | 38,45% | 41,91% | CONFEITARIA, FRIOS, PANIFICACAO |
+| Pizzaria Bella (DEMO) | 32,39% | 35,30% | BEBIDAS, PIZZAS, SOBREMESAS |
+| Distribuidora Horizonte (DEMO) | 75,94% | 82,78% | CERVEJAS, DESTILADOS, NAO ALCOOLICOS |
+
+O par mais convincente é **Pizzaria (32%) × Distribuidora (76%)**: margem de
+restaurante contra margem de atacado, no mesmo cálculo, sem nenhuma
+configuração.
+
+Três coisas para dizer enquanto troca o seletor:
+
+- **Nenhuma linha de código conhece essas categorias.** Elas são deduzidas: comparável é o grupo que os dois lados do fechamento reportam.
 - O dado entrou por **planilha genérica**, não por relatório do Everest.
-- **EMBALAGENS** existe só no lado das compras e o sistema o exclui do CMV sozinho — como faz com UTENSILIOS na DRE do restaurante.
+- Em cada ramo há um grupo de custo indireto que o sistema **excluiu sozinho** — EMBALAGENS na farmácia, MATERIAL DE LIMPEZA na padaria, DESCARTAVEIS na pizzaria, LOGISTICA na distribuidora. É o mesmo mecanismo que exclui UTENSILIOS da DRE do restaurante.
 
-Diga que o dado é fictício **antes** de alguém perguntar. O nome da unidade
-carrega "(DEMO)" exatamente para isso.
+Diga que o dado é fictício **antes** de alguém perguntar. O nome carrega
+"(DEMO)" exatamente para isso — e o fechamento da casa piloto real continua
+intacto ao lado, o que foi conferido de propósito.
 
 Se o avaliador abrir o código, o argumento se sustenta em dois lugares:
 
@@ -117,6 +141,26 @@ Se o avaliador abrir o código, o argumento se sustenta em dois lugares:
 |---|---|
 | `app/services/leitores.py` | Três tradutores, uma `LinhaCusto` só. Adaptar a um ERP novo = escrever um tradutor |
 | `app/crud.py`, `grupos_comparaveis` | Antes era `GRUPOS_CMV = ("ALIMENTOS", "BEBIDAS")` cravado. Agora é deduzido: comparável é o grupo que os **dois** lados reportam — e na base real devolve exatamente ALIMENTOS e BEBIDAS |
+
+### 4b. Quanto comprar — o passo que sai do relatório (2 min)
+
+Aba **Quanto comprar**. Mesma casa, período **09/2026**, Calcular.
+
+É o ponto em que o sistema deixa de descrever o passado. O cliente decidia
+compra "pelo senso do chefe" — essa é a fala que originou o RF07.
+
+O que mostrar, e nesta ordem, porque a ordem é o argumento:
+
+1. **A tarja vermelha no topo.** O sistema avisa que o próprio dado de entrada é suspeito: *"o volume vendido em 2026-09 foi 39% abaixo da mediana dos outros meses, em todos os itens ao mesmo tempo"*. Queda uniforme em todo o catálogo quase nunca é mercado — costuma ser relatório incompleto. **O sistema não corrige, avisa.**
+2. **O bloco de método**, que diz literalmente "não é machine learning". É média móvel com tendência e sazonalidade, auditável de propósito: quem decide compra tem o direito de conferir o número.
+3. **O aviso de estoque zero.** A sugestão é um **teto**, não uma ordem de compra — o sistema lê relatórios, nunca uma contagem, então não sabe o que está na prateleira.
+4. **A coluna "Efeito do mês".** Procure uma linha onde a sugestão é bem maior que a média: é sazonalidade, e a coluna mostra quanto. Sem ela a tabela ficaria inexplicável justamente onde alguém desconfiaria.
+5. **O selo de confiança**, com o motivo ao passar o mouse: *"24 meses, mas a venda oscila muito (variação 41%)"*.
+
+> Se perguntarem "por que não um modelo de machine learning?": porque com 24
+> meses de histórico mensal e no máximo duas observações por mês do ano, um
+> modelo treinado não teria dado para aprender nada além disto — e teria a
+> desvantagem de ninguém poder auditar o número que orienta a compra.
 
 ### 5. A arquitetura (2 min)
 
@@ -144,7 +188,9 @@ Dois pontos que rendem pergunta, com a resposta pronta:
 Diga antes de ser perguntado. É o que separa um trabalho honesto de um
 demonstrado só até onde funciona.
 
-- **A API é pública.** Autenticação era RNF03 da Sprint 2 e não foi entregue.
+- **A API é pública.** Autenticação era RNF03 da Sprint 2 e não foi entregue. É a lacuna mais séria do trabalho.
+- **Sem Application Insights.** Os logs do App Service foram ligados em 06/11 (antes disso nem existiam), mas observabilidade de verdade — requisição, latência, falha ao longo do tempo — ficou como nível 2 da fila em `docs/09-uso-da-nuvem.md`.
+- **RF09 (nota fiscal fotografada) está especificado e não construído**, em `docs/10-anexos-de-imagem.md`.
 - **A DRE real não diz de qual casa nem de qual mês é.** O rótulo set/26 foi atribuído por nós, com base em evidência circunstancial. É a limitação mais importante do trabalho e está escrita em `docs/01-requisitos.md` 1.9.
 - **Um mês de CMV real.** 24 meses de teórico, 1 de real: a série de ajuste tem um ponto.
 - **Uma casa real.** O consolidado entre casas é exercitado com a unidade de demonstração.
@@ -154,8 +200,15 @@ demonstrado só até onde funciona.
 Só se houver tempo e interesse. É aqui que o terminal pode aparecer.
 
 - Aba **Actions** do repositório → `deploy-azure.yml` verde.
-- O deploy **não roda sem os testes passarem** (`needs: [testes]`) e **verifica `/health` depois de publicar** — deploy sem verificação é deploy que você descobre quebrado pelo cliente.
+- O deploy **não roda sem os testes passarem** (`needs: [testes]`).
 - Autenticação por **OIDC**: nenhum segredo de longa duração guardado no GitHub.
+- **A verificação compara o SHA publicado com o que o `/health` informa.** Abra o log do último deploy: aparecem várias tentativas com `"status":"ok"` **antes** de o commit certo entrar no ar. Uma verificação que olhasse só o status daria sucesso na primeira — e deu, em 06/11/2026, com o código anterior rodando. Health check genérico prova que a aplicação está de pé, não que está de pé com o código que subiu.
+
+> Se sobrar interesse, esta é a melhor história de engenharia do trabalho:
+> auditando a própria configuração, descobrimos que **o deploy automático nunca
+> havia funcionado** (subject OIDC com nome em vez de ID) e que a verificação
+> pós-deploy era decorativa. As duas estão corrigidas e documentadas em
+> `docs/06-guia-deploy-azure.md`, Atenção 4b e 6.
 
 ---
 
@@ -168,6 +221,10 @@ Só se houver tempo e interesse. É aqui que o terminal pode aparecer.
 | "Isso funciona para quem não usa Everest?" | Sim, por planilha genérica — é a unidade de demonstração. Integração automática por API está fora do escopo |
 | "Por que só uma casa?" | Foi a única com export real cedido. O cliente parou de responder antes de mandar as outras |
 | "Os testes rodam contra o Azure SQL?" | Não, rodam em SQLite, por velocidade. Essa diferença já causou um 500 só em produção; hoje há teste que compila as queries no dialeto do SQL Server (`tests/test_dialeto_sql.py`) |
+| "Como vocês sabem que é o código novo que está no ar?" | O `/health` informa o SHA do commit publicado, e o workflow só dá sucesso se ele bater com o que acabou de subir |
+| "Esses outros negócios são clientes?" | Não, são dado fictício para provar que o cálculo não depende do ramo. Está rotulado "(DEMO)" no nome da unidade |
+| "Por que a sugestão de compra é maior que a média de venda?" | Sazonalidade — a coluna "Efeito do mês" mostra quanto aquele mês costuma fugir da média anual para aquele item |
+| "Vocês usaram Redis? Cache?" | Não, e de propósito: 10–15 usuários, uso concentrado no fechamento. A recusa está escrita em `docs/09-uso-da-nuvem.md` com o motivo |
 | "Cadê a autenticação?" | Não foi entregue. Estava na Sprint 2 e ficou para trás |
 
 ## Se algo quebrar na hora

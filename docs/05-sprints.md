@@ -16,14 +16,15 @@ para mostrar de onde partimos. O estado atual é este:
 | Frente | Estado |
 |---|---|
 | Deploy | **No ar.** Backend, Azure SQL, Blob e Static Web App em produção. URLs no `README.md`; `/health` responde 200 |
-| CI/CD | **Funcionando.** `deploy-azure.yml` com OIDC, testes como portão e verificação de `/health` depois do deploy |
+| CI/CD | **Funcionando de verdade desde 06/11/2026.** Até aquela data o deploy automático **nunca havia publicado** — a credencial federada usava subject OIDC por nome e o GitHub passou a emitir subject imutável; todas as publicações anteriores foram manuais e a falha passava despercebida. Hoje: OIDC corrigido, testes como portão, e a verificação **compara o SHA publicado** com o que o `/health` informa |
 | Domínio | `Casa`, `UploadCusto`, `LinhaCusto`. Os exports reais do Everest são lidos pelos tradutores em `app/services/leitores.py` |
 | Dado real | 24 meses de CMV teórico + set/26 com teórico e real, do Boteco São Bento - Vila Madalena. Ajuste de set/26: **−3,68 pp** |
-| Frontend | React no Static Web Apps: Casas, Upload, Fechamento |
-| Testes | 69, verdes |
+| Frontend | React no Static Web Apps: Casas, Upload, Fechamento e **Quanto comprar** (RF07) |
+| Testes | **107**, verdes; CI verde em todos os PRs |
 | Discovery | Conversa 2 (Marcela) feita em 03/11. **Cliente parou de responder depois disso** — virou caso de estudo, ver `01-requisitos.md` 1.7 |
-| Generalização | Tradutor agnóstico de ERP + dedução de grupos de CMV. Ver `01-requisitos.md` 1.8 |
-| Não entregue | Autenticação (RNF03) e observabilidade. A API é pública |
+| Generalização | Tradutor agnóstico de ERP + dedução de grupos de CMV, **demonstrada em produção com 4 ramos** (farmácia, padaria, pizzaria, atacado de bebidas). Ver `01-requisitos.md` 1.8 |
+| Infraestrutura | Nível 1 da fila de `09-uso-da-nuvem.md` aplicado: Always On, logs, soft delete no Blob |
+| Não entregue | **Autenticação (RNF03)** — a API é pública. **Application Insights** — os logs existem, a série histórica não. **RF09** (nota fiscal fotografada) especificado e não construído |
 
 ---
 
