@@ -6,7 +6,7 @@
 |---|---|
 | **Grupo** | _(nomes)_ |
 | **Cliente (papel de PO)** | Grupo Saints (grupo de bares/restaurantes, [gruposaints.com.br](https://www.gruposaints.com.br/)). **Desde 06/11/2026 o cliente é caso de estudo, não PO ativo** — ver 1.7 |
-| **Versão** | 0.9 — RF09 é Must; RF10 retirado; auditoria de uso da nuvem |
+| **Versão** | 1.0 — tudo que está no ar, conferido contra produção |
 | **Última atualização** | 06/11/2026 |
 
 ## Ambiente em produção
@@ -16,7 +16,11 @@
 | Aplicação (frontend) | https://zealous-river-0b6019910.6.azurestaticapps.net |
 | API | https://app-projeto4-saints2026.azurewebsites.net |
 | Documentação da API | https://app-projeto4-saints2026.azurewebsites.net/docs |
-| Health check | https://app-projeto4-saints2026.azurewebsites.net/health |
+| Health check | https://app-projeto4-saints2026.azurewebsites.net/health — informa o **SHA do commit** publicado |
+
+**Telas no ar:** Casas · Upload · Fechamento · Quanto comprar.
+**Unidades em produção:** a casa piloto real (Boteco São Bento - Vila Madalena)
+e quatro de demonstração, de ramos distintos, com "(DEMO)" no nome.
 
 > Este documento é a base da **AC2 (entrega de 21/09/2026)** e da **Entrega Parcial 1**, e é atualizado a cada sprint.
 > Requisito que mudar aparece aqui **com o motivo** — mudança silenciosa é escopo fora de controle.
@@ -153,9 +157,24 @@ Duas coisas tiveram que mudar no código para a tese parar de ser slide:
 | Dois tradutores, os dois de relatórios do Everest | Terceiro tradutor (`leitores.ler_planilha`) lê tabela comum que qualquer ERP exporta; o formato é **detectado**, o usuário só declara o lado do fechamento | `tests/test_generalizacao.py` |
 | `GRUPOS_CMV = ("ALIMENTOS", "BEBIDAS")` cravado no código | `crud.grupos_comparaveis` deduz: comparável é o grupo que os **dois** lados reportam | Na base real devolve exatamente ALIMENTOS e BEBIDAS — mesmo resultado, sem cravar o domínio |
 
-A demonstração usa uma **farmácia** (`scripts/popular_demo_generico.py`): outro
-ramo, outras categorias, planilha genérica em vez de Everest, e um grupo de
-custo indireto (EMBALAGENS) que a dedução exclui sozinha do CMV.
+A demonstração está **em produção**, com **quatro ramos** carregados por
+`scripts/popular_demo_generico.py` a partir de `exemplos/`:
+
+| Unidade (DEMO) | Ramo | CMV teórico | CMV real | Grupos deduzidos | Indireto excluído |
+|---|---|---|---|---|---|
+| Drogaria Central | Farmácia | 47,79% | 52,09% | MEDICAMENTOS, PERFUMARIA | EMBALAGENS |
+| Padaria Sao Jose | Padaria | 38,45% | 41,91% | CONFEITARIA, FRIOS, PANIFICACAO | MATERIAL DE LIMPEZA |
+| Pizzaria Bella | Pizzaria | 32,39% | 35,30% | BEBIDAS, PIZZAS, SOBREMESAS | DESCARTAVEIS |
+| Distribuidora Horizonte | Atacado de bebidas | 75,94% | 82,78% | CERVEJAS, DESTILADOS, NAO ALCOOLICOS | LOGISTICA |
+
+Quatro taxonomias, **nenhuma conhecida pelo código**, e em cada uma o custo
+indireto é excluído do CMV pela própria dedução. O par Pizzaria (32%) ×
+Distribuidora (76%) é o mais eloquente: margem de restaurante contra margem de
+atacado, no mesmo cálculo, sem configuração.
+
+Dado fictício e rotulado como tal. O fechamento da casa piloto real foi
+conferido **depois** da carga e segue idêntico — dado fictício ao lado de dado
+real não pode mexer nele.
 
 ### 1.9 Limitações conhecidas
 
@@ -168,7 +187,8 @@ Declaradas aqui para não serem descobertas numa pergunta de banca.
 | Um mês de CMV real | 24 meses de teórico, 1 mês de real. A série de ajuste tem um ponto só |
 | **Set/26 é o mês mais fraco da série** | A venda do cardápio em set/26 (o mês do fechamento que apresentamos) foi **75% da média** dos 24 meses, e abaixo do mínimo histórico anterior. Pode ser mês fraco real ou export tirado antes do fechamento — nada no arquivo diz. Consequências: **(a)** o CMV % não é afetado, porque é razão, e de fato 24,44% está em linha com todos os meses; **(b)** a receita da DRE equivale a ~94% da venda do cardápio desse setembro fraco, e a só ~71% da venda de um mês típico — ou seja, ela é compatível com setembro e **incompatível** com um mês normal, o que é evidência *a favor* de que os dois arquivos cobrem o mesmo período; **(c)** a previsão de demanda fica subestimada, e por isso `recomendacao-compra` emite `alerta_dado` quando detecta queda uniforme de volume em todo o catálogo |
 | Dedução de grupos precisa dos dois lados | Uma casa que nunca enviou cardápio não tem como saber que "material de consumo" não é mercadoria; o sistema então soma todos os grupos com custo, em vez de aplicar uma taxonomia que não conhece (`tests/test_fechamento.py`) |
-| Sem autenticação | A API é pública. Era RNF03 da Sprint 2 e não foi entregue |
+| Sem autenticação | A API é pública. Era RNF03 da Sprint 2 e **não foi entregue** — é a lacuna mais séria do trabalho |
+| Observabilidade pela metade | Os logs do App Service foram ligados em 06/11/2026 (antes disso a regra 9 não tinha destino), mas **Application Insights não existe**: não há série histórica de requisição, latência e falha. Nível 2 da fila em `09-uso-da-nuvem.md` |
 | **Item é identificado por string de nome** | `LinhaCusto.nome` é a chave de fato do item, lida direto do export (`BOLINHO SB COSTELA 6 UN`, `COSTELA DO PECADO SB`). Se o nome mudar entre meses — e ERP permite editar cadastro —, a série temporal daquele produto **se parte em dois itens, em silêncio**: 12 meses viram 7 de um e 5 de outro, e `top-itens` e a recomendação de compra (RF07) passam a errar sem nenhum erro aparecer. Não há proteção hoje. Resolver exige um cadastro canônico com aliases, o que **duplicaria a chave de agregação** de três consultas já conferidas contra produção — por isso está registrado como risco, e não implementado às pressas. Não depende de foto (ver a retirada do RF10 em `10-anexos-de-imagem.md`) |
 
 > **Nota de confidencialidade.** Este repositório é **público**. Os arquivos do
@@ -266,7 +286,7 @@ Declaradas aqui para não serem descobertas numa pergunta de banca.
 | RF03 | Cadastro e consulta de funcionários ativos por casa (CRUD) | Must | **Adiado — pendente Conversa 2** | Persona 2 (Sócio/Diretor) |
 | RF05 | Alerta de escala fora do padrão esperado por casa | Should | **Adiado — pendente Conversa 2** | Persona 2 |
 | RF06 | Geração automática de DRE consolidada entre casas | **Won't** | **Fora de escopo desde 06/11** | Persona 2 (caso de origem) |
-| RF07 | Recomendação de quantidade de compra a partir do histórico de vendas | **Must** | **Entregue 06/11** | Persona 3 (dono de pequeno negócio) |
+| RF07 | Recomendação de quantidade de compra a partir do histórico de vendas | **Must** | **Entregue 06/11** — endpoint + tela "Quanto comprar" | Persona 3 (dono de pequeno negócio) |
 | RF09 | Anexo de nota fiscal fotografada ao custo do período | **Must** | **Planejado — `10-anexos-de-imagem.md`** | Persona 3 |
 | ~~RF10~~ | ~~Cadastro de produto com foto como âncora de identidade~~ | — | **Retirado em 06/11** — a foto não fazia o trabalho de identidade e o recurso duplicaria a agregação. Motivo em `10-anexos-de-imagem.md` | — |
 
@@ -438,7 +458,7 @@ Repriorizado em 06/11/2026, junto com o reposicionamento para pequeno negócio
 
 | Nível | Requisitos | Estado |
 |---|---|---|
-| **Must** — o MVP | RF08 (CRUD de unidade) · RF01 (upload do export) · RF02 (CMV teórico × real) · RF04 (dashboard) · RF07 (recomendação de compra) · **RF09 (anexo de nota fiscal)** | RF08/01/02/04/07 entregues; **RF09 planejado, não implementado** |
+| **Must** — o MVP | RF08 (CRUD de unidade) · RF01 (upload do export) · RF02 (CMV teórico × real) · RF04 (dashboard) · RF07 (recomendação de compra) · RF09 (anexo de nota fiscal) | **RF08/01/02/04/07 no ar**, com tela; **RF09 planejado, não implementado** |
 | **Should** | RNF03 autenticação · registro de perda com foto · decomposição do ajuste em contagem + perdas + não explicado · **tratamento da deriva de nome de item** (ver 1.9) | Nenhum entregue |
 | **Could** | Alerta de variação de custo unitário por item · curva ABC de concentração de custo · OCR de nota fiscal | Nenhum iniciado |
 | **Won't** (documentado) | RF03 (funcionários) · RF05 (alerta de escala) · **RF06 (DRE consolidada entre casas)** · integração via API do Everest | Fora de escopo, com motivo |
@@ -536,6 +556,7 @@ _(inserir; ver `docs/02-arquitetura.md`)_
 | 09/10/2026 | 0.3 | Adicionado **RF08** (CRUD de Casa); preenchida coluna Sprint — RF08/RF01/RF02 → Sprint 1, RF04 → Sprint 2, RF06 → Sprint 2 (se sobrar tempo), RF03/RF05 → adiados, RF07 → fora do MVP atual | Retomada do projeto após período sem desenvolvimento de domínio (código ainda tinha só o placeholder `Item`). Conversa 2 (Joyce/Renata/Wellington) ainda não aconteceu; decisão foi priorizar o Problema 1 (custo/compras), já validado na Conversa 1, para não bloquear a Sprint 1 esperando a entrevista. RF08 nasceu da necessidade de uma entidade "casa" que todo RF Must já referenciava implicitamente |
 | 03/11/2026 | 0.4 | RF01 passa a aceitar os **exports reais do Everest** em .xlsx, em dois tipos (`cardapio` = CMV teórico, `compras` = CMV real); RF02/RF04 passam a ser o **fechamento de CMV** (teórico × real × ajuste por grupo, evolução mensal, top itens). Detalhes em `07-fechamento-cmv.md` | Conversa 2 (Marcela, operação/custos) e análise dos exports reais: teórico e real vêm de relatórios separados (não existe o CSV com as duas colunas que o RF01 supunha), o CMV real já é pós-inventário, e a dor validada diretamente é o relatório de fechamento manual (~2 dias por casa). MVP focado numa casa piloto (Boteco São Bento - Vila Madalena) |
 | 05/11/2026 | 0.5 | **RF04 entregue**: frontend React (Casas, Upload, Fechamento) publicado no Static Web Apps, consumindo a API de fechamento em produção. RF01/RF02/RF08 confirmados rodando ponta a ponta em produção (Azure SQL + Blob Storage) | Fechamento do MVP Must para a apresentação de 09/11. Falta só o CMV de compras real de jul–set/26 (pedido à Marcela em 03/11) para a demo com dado real completo |
+| 06/11/2026 | 1.0 | Documento sincronizado com o que está efetivamente em produção: quatro unidades de demonstração carregadas (1.8), RF07 com tela além do endpoint, `/health` informando o SHA publicado, e a observabilidade registrada como lacuna em 1.9 ao lado da autenticação | Fechamento da entrega. A versão anterior descrevia intenção em alguns pontos e produção em outros; agora cada afirmação foi conferida contra o ambiente no ar — inclusive que o dado real do cliente seguiu intacto depois da carga de dado fictício |
 | 06/11/2026 | 0.9 | **RF09 sobe para Must** (aposta de produto declarada, não requisito validado). **RF10 retirado** no mesmo dia em que foi criado: a foto não fazia o trabalho de identidade — o mapeamento de aliases fazia — e o recurso obrigaria a manter dois caminhos de agregação para sempre, para não quebrar números já conferidos contra produção. O problema que ele atacava (deriva de nome de item) virou **risco registrado em 1.9**, desacoplado de qualquer funcionalidade de foto | Com o prazo curto e sem cliente respondendo, a estratégia passou a priorizar flexibilidade: esperar validação é paralisia, então RF09 é apostado de propósito e isso está dito em vez de disfarçado. A retirada do RF10 veio de uma pergunta do próprio grupo — "por que a foto como âncora de identidade, isso não dificulta outras funcionalidades?" — e a resposta era sim: dificultava |
 | 06/11/2026 | 0.8 | Adicionados **RF09** (anexo de nota fiscal fotografada) e **RF10** (cadastro de produto com foto como âncora de identidade), os dois como **Should** e **especificados sem implementar** em `10-anexos-de-imagem.md`. Criada a auditoria `09-uso-da-nuvem.md`, com a fila de ajustes de nuvem ordenada por valor. Seção 8 (extras valorizados) passa a registrar **recusa com motivo** de Redis e API Management | Decisão de priorizar funcionalidades que justifiquem o Blob Storage com **imagem**, em vez de aprofundar estatística no RF07 — o projeto é de conceito de nuvem, e Blob guardando só planilha subaproveita o recurso. A auditoria da configuração real achou quatro distâncias entre o que este documento afirmava e o que estava no ar, a pior delas sendo **nenhum log habilitado** apesar da regra 9. RF09 e RF10 entram como Should, não Must, porque nenhuma das duas foi validada com usuário e a Persona 3 segue não entrevistada |
 | 06/11/2026 | 0.7 | **Reposicionamento para pequeno negócio.** Nova **Persona 3** (dono de pequeno negócio) como alvo do produto, com as Personas 1 e 2 rebaixadas a caso de origem. **RF07 sobe de Could para Must e é entregue** (`/api/v1/metricas/recomendacao-compra`). **RF06 vira Won't.** Seção 7 (MoSCoW), que estava vazia desde a criação do documento, preenchida com motivo para cada Won't. Nova limitação registrada em 1.9: set/26 é o mês mais fraco da série | Sem PO ativo, manter como alvo um grupo de 14 casas com escritório central era descrever um cliente que não existe mais para o projeto. O alvo passou a ser quem tem a mesma dor **sem** a estrutura: a Joyce gasta 5 dias por mês montando planilha, o dono da padaria não tem Joyce. Isso reordenou a prioridade — RF06 (DRE de 14 casas) deixou de fazer sentido e RF07 ("quanto comprar", que o cliente decide "pelo senso") virou o requisito que transforma o produto de relatório em apoio à decisão. A Persona 3 é declaradamente **não entrevistada**, e validá-la é o primeiro passo de qualquer continuação |
