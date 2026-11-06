@@ -71,18 +71,46 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: .
 
+      # Grava o SHA publicado num App Setting. Duas funções, as duas necessárias:
+      #   1. dá ao /health um identificador de build, para a verificação abaixo
+      #      poder distinguir código novo de código antigo;
+      #   2. mudar App Setting REINICIA a aplicação — e foi justamente a falta do
+      #      restart que, em 06/11/2026, deixou o código antigo servindo depois de
+      #      um deploy que o workflow considerou bem-sucedido.
+      - name: Registrar o commit publicado (e reiniciar a aplicação)
+        run: |
+          az webapp config appsettings set \
+            --resource-group rg-projeto4 \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --settings GIT_COMMIT=${{ github.sha }} \
+            --output none
+
       # Deploy sem verificação é deploy que você descobre quebrado pelo cliente.
-      - name: Verificar /health
+      # E verificação que só olha "a aplicação respondeu" é pior: dá sucesso com
+      # a versão anterior no ar. Aqui exigimos que o /health informe o SHA DESTE
+      # commit — é a única forma de afirmar "o que está rodando é o que subiu".
+      - name: Verificar /health e o commit em produção
         run: |
           URL="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health"
-          for i in $(seq 1 30); do
-            if curl -fsS "$URL" | tee /tmp/health.json | grep -q '"status":"ok"'; then
-              echo "Deploy verificado."
-              exit 0
+          ESPERADO="${{ github.sha }}"
+          for i in $(seq 1 40); do
+            if curl -fsS "$URL" -o /tmp/health.json 2>/dev/null; then
+              if grep -q "\"commit\":\"$ESPERADO\"" /tmp/health.json \
+                 && grep -q '"status":"ok"' /tmp/health.json; then
+                echo "Deploy verificado: $ESPERADO está no ar e saudável."
+                cat /tmp/health.json
+                exit 0
+              fi
+              echo "tentativa $i: de pé, mas ainda não é o commit esperado"
+              cat /tmp/health.json
+            else
+              echo "tentativa $i: sem resposta (reiniciando)"
             fi
-            echo "tentativa $i..."
             sleep 10
           done
-          echo "A aplicação não ficou saudável após o deploy."
-          cat /tmp/health.json 2>/dev/null || true
+          echo "::error::A aplicação não passou a servir o commit $ESPERADO."
+          echo "Último /health:"
+          cat /tmp/health.json 2>/dev/null || echo "(sem resposta)"
+          echo "Se o /health responde mas o commit é outro, o processo não trocou:"
+          echo "  az webapp restart -g rg-projeto4 -n ${{ env.AZURE_WEBAPP_NAME }}"
           exit 1

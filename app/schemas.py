@@ -206,6 +206,11 @@ class HealthResponse(BaseModel):
     versao: str
     ambiente: str
     banco: str
+    commit: str = Field(
+        description="SHA do commit publicado, ou 'desconhecido' fora do deploy "
+        "automatizado. É o que o workflow compara para saber se o código que "
+        "está rodando é o que acabou de ser publicado"
+    )
 
 
 class ErroResponse(BaseModel):

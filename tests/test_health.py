@@ -19,6 +19,20 @@ def test_health_ok(client):
     assert corpo["banco"] == "ok"
 
 
+def test_health_expoe_o_commit_publicado(client):
+    """O workflow de deploy compara este campo com o SHA que acabou de publicar.
+
+    Sem ele, a verificação pós-deploy só provava que a aplicação respondia — e
+    em 06/11/2026 ela respondia com o código ANTIGO, enquanto o workflow dava
+    sucesso. Fora do deploy automatizado o valor é 'desconhecido', nunca ausente:
+    campo que às vezes não existe quebra quem consome.
+    """
+    corpo = client.get("/health").json()
+
+    assert "commit" in corpo
+    assert corpo["commit"] == "desconhecido"
+
+
 def test_openapi_disponivel(client):
     """O contrato da API precisa existir — é dele que o /docs é gerado."""
     resposta = client.get("/openapi.json")

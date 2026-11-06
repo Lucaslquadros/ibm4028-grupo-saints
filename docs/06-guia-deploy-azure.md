@@ -244,6 +244,57 @@ echo "AZURE_SUBSCRIPTION_ID=$SUBSCRIPTION_ID"
 > em vez de `ref:refs/heads/main` — cobre o gate do `environment: production`
 > do workflow independente do branch de origem.
 
+> ### Atenção 4b — o subject com NOME do repositório não casa mais (custou um deploy)
+>
+> **Sintoma:** o job de deploy falha no `azure/login@v2`, sem mensagem útil no
+> passo, e o erro real aparece só nas anotações do run:
+>
+> ```
+> AADSTS700213: No matching federated identity record found for presented
+> assertion subject 'repo:Lucaslquadros@159265468/ibm4028-grupo-saints@1412405001:environment:production'
+> ```
+>
+> **Causa:** o GitHub passou a emitir **subject imutável** por padrão — com o
+> **ID** do dono e o **ID** do repositório, em vez dos nomes. Os `@<número>` no
+> meio do subject não são erro de formatação, são os IDs. Confirme com:
+>
+> ```bash
+> gh api repos/<OWNER>/<REPO>/actions/oidc/customization/sub
+> # {"use_default":true,"use_immutable_subject":true,
+> #  "sub_claim_prefix":"repo:<OWNER>@<OWNER_ID>/<REPO>@<REPO_ID>"}
+> ```
+>
+> Um federated credential criado com `repo:OWNER/REPO:...` **nunca** vai casar,
+> e nenhum ajuste no workflow resolve — o problema está no Azure.
+>
+> **Correção:** crie a credencial usando o `sub_claim_prefix` que a API devolveu.
+>
+> ```bash
+> # pegue os IDs reais — não digite à mão
+> PREFIX=$(gh api repos/<OWNER>/<REPO>/actions/oidc/customization/sub --jq .sub_claim_prefix)
+>
+> az identity federated-credential create \
+>   --name gh-production-env-immutable \
+>   --identity-name id-gh-ibm4028 -g rg-projeto4 \
+>   --issuer "https://token.actions.githubusercontent.com" \
+>   --subject "${PREFIX}:environment:production" \
+>   --audiences "api://AzureADTokenExchange"
+> ```
+>
+> Repita com `:ref:refs/heads/main` se o workflow também rodar fora do
+> environment. **Não apague as credenciais antigas**: são inofensivas e servem
+> de rede se o GitHub voltar ao formato por nome.
+>
+> **Por que não desligar o subject imutável:** ele é mais seguro. Subject por
+> nome quebra (ou pior, passa a casar com outro repositório) se o repo for
+> renomeado ou transferido. O formato imutável é o certo; o Azure é que precisa
+> acompanhar.
+>
+> Isto é novo em relação à AC1 e **ao próprio deploy anterior deste projeto**:
+> em 06/11/2026 descobrimos que o deploy automático nunca tinha funcionado — as
+> publicações até então foram todas manuais, e a falha do pipeline passou
+> despercebida porque ninguém olhava o run.
+
 Configure as três variáveis no repositório (não são secrets — são públicas,
 não dão acesso sozinhas sem o federated credential):
 
@@ -286,6 +337,43 @@ Acompanhe em **Actions**, ou:
 ```bash
 gh run watch --repo Lucaslquadros/ibm4028-grupo-saints
 ```
+
+> ### Atenção 6 — "deploy verificado" que não verifica nada
+>
+> **Sintoma:** o workflow fica verde, o `/health` responde 200, e **produção
+> continua servindo o código anterior**. Aconteceu em 06/11/2026: o deployment
+> chegou ao App Service e ficou marcado como ativo, mas o processo em execução
+> não trocou — e o endpoint que o deploy ia consertar seguia devolvendo 500.
+>
+> **Causa raiz:** a verificação pós-deploy olhava só `"status":"ok"` no
+> `/health`, e esse campo responde **igual em qualquer versão do código**. Um
+> health check genérico prova que a aplicação está de pé; não prova que está de
+> pé com o código que você acabou de publicar.
+>
+> **Correção (já aplicada neste repositório):** o `/health` passou a devolver o
+> campo `commit`, alimentado pelo App Setting `GIT_COMMIT`, que o próprio
+> workflow grava **depois** de publicar. A verificação exige que o SHA no ar seja
+> o do commit em deploy.
+>
+> ```yaml
+> - name: Registrar o commit publicado (e reiniciar a aplicação)
+>   run: |
+>     az webapp config appsettings set -g rg-projeto4 \
+>       --name ${{ env.AZURE_WEBAPP_NAME }} \
+>       --settings GIT_COMMIT=${{ github.sha }} --output none
+> ```
+>
+> Esse passo resolve **dois** problemas de uma vez: dá ao `/health` o
+> identificador de build, e mudar App Setting **reinicia a aplicação** — que era
+> exatamente o restart faltando. Antes disso, o contorno manual era:
+>
+> ```bash
+> az webapp restart -g rg-projeto4 -n app-projeto4-saints2026
+> ```
+>
+> **A lição que vale fora deste projeto:** verificação pós-deploy precisa checar
+> algo que **só existe na versão nova**. Se a checagem passaria com o código
+> antigo no ar, ela não é verificação — é decoração.
 
 ---
 
