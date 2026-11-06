@@ -1,0 +1,271 @@
+:root {
+  --cor-fundo: #0f1115;
+  --cor-superficie: #171a21;
+  --cor-borda: #2a2e38;
+  --cor-texto: #e8eaed;
+  --cor-texto-fraco: #9aa0ac;
+  --cor-marca: #4f8cff;
+  --cor-ok: #3ddc84;
+  --cor-ruim: #ff6b6b;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --cor-fundo: #f5f6f8;
+    --cor-superficie: #ffffff;
+    --cor-borda: #e1e4e9;
+    --cor-texto: #1c1e21;
+    --cor-texto-fraco: #5b6270;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.app-cabecalho h1 {
+  font-size: 1.3rem;
+  margin: 0 0 16px;
+}
+
+.abas {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--cor-borda);
+  margin-bottom: 24px;
+}
+
+.aba {
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  color: var(--cor-texto-fraco);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  font-size: 0.95rem;
+}
+
+.aba-ativa {
+  color: var(--cor-texto);
+  border-bottom-color: var(--cor-marca);
+}
+
+.secao-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+h2 {
+  font-size: 1.1rem;
+}
+
+button {
+  background: var(--cor-marca);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-casa,
+.form-upload,
+.form-fechamento {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--cor-texto-fraco);
+  flex: 1 1 160px;
+}
+
+input,
+select {
+  background: var(--cor-fundo);
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  padding: 8px;
+  color: var(--cor-texto);
+  font-size: 0.9rem;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+}
+
+.tabela th,
+.tabela td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.tabela th {
+  color: var(--cor-texto-fraco);
+  font-weight: 500;
+}
+
+.chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.chip-ok {
+  background: color-mix(in srgb, var(--cor-ok) 20%, transparent);
+  color: var(--cor-ok);
+}
+
+.chip-inativa {
+  background: color-mix(in srgb, var(--cor-texto-fraco) 20%, transparent);
+  color: var(--cor-texto-fraco);
+}
+
+.erro {
+  color: var(--cor-ruim);
+}
+
+.ok {
+  color: var(--cor-ok);
+}
+
+.aviso {
+  background: color-mix(in srgb, var(--cor-marca) 12%, transparent);
+  border: 1px solid var(--cor-marca);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+
+.vazio,
+.ajuda {
+  color: var(--cor-texto-fraco);
+  font-size: 0.9rem;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.card {
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.card strong {
+  font-size: 1.4rem;
+}
+
+.card-rotulo {
+  color: var(--cor-texto-fraco);
+  font-size: 0.8rem;
+}
+
+.card-bom strong {
+  color: var(--cor-ok);
+}
+
+.card-ruim strong {
+  color: var(--cor-ruim);
+}
+
+.grafico {
+  width: 100%;
+  height: auto;
+  margin-bottom: 24px;
+}
+
+.grafico-eixo {
+  stroke: var(--cor-borda);
+  stroke-width: 1;
+}
+
+.grafico-linha {
+  stroke-width: 2;
+}
+
+.grafico-teorico {
+  stroke: var(--cor-texto-fraco);
+}
+
+.grafico-real {
+  stroke: var(--cor-marca);
+}
+
+.grafico-rotulo {
+  fill: var(--cor-texto-fraco);
+  font-size: 10px;
+}
+
+.legenda {
+  display: flex;
+  gap: 16px;
+  font-size: 0.8rem;
+  color: var(--cor-texto-fraco);
+  margin-bottom: 8px;
+}
+
+.legenda-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legenda-item i {
+  width: 14px;
+  height: 2px;
+  display: inline-block;
+}
+
+.legenda-item i.grafico-teorico {
+  background: var(--cor-texto-fraco);
+}
+
+.legenda-item i.grafico-real {
+  background: var(--cor-marca);
+}

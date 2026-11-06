@@ -61,12 +61,12 @@ O grupo inteiro deve usar **o mesmo** caminho. Misturar os dois gera divergênci
 │   ├── config.py           Settings (pydantic-settings) — nenhum segredo no código
 │   ├── database.py         Engine, SessionLocal, Base, get_db
 │   ├── deps.py             Aliases Annotated: DbSession, AppSettings, Paginacao
-│   ├── models.py           Tabelas (SQLAlchemy)  — Casa, UploadCusto, ItemCusto
+│   ├── models.py           Tabelas (SQLAlchemy)  — Casa, UploadCusto, LinhaCusto
 │   ├── schemas.py          Contratos (Pydantic)  — o que ENTRA e SAI
 │   ├── crud.py             Operações de banco
 │   ├── routers/            health · casas · uploads · metricas
 │   └── services/           storage (Blob Storage / disco local)
-├── frontend/               index.html placeholder — React entra na Sprint 2
+├── frontend/               React + Vite — Casas, Upload, Fechamento
 ├── tests/                  pytest — 33 testes
 ├── docs/
 │   ├── 00-customer-discovery.md   Registro das conversas (Mom Test)
@@ -94,9 +94,11 @@ O grupo inteiro deve usar **o mesmo** caminho. Misturar os dois gera divergênci
 | `DELETE` | `/api/v1/casas/{id}` | **204** · 404 |
 | `POST` | `/api/v1/uploads-custo` | 201 · 404 casa · 415 tipo · 413 tamanho · 422 coluna faltando |
 | `GET` | `/api/v1/uploads-custo` | 200 — paginado |
-| `GET` | `/api/v1/metricas/delta?casa_id=&periodo=` | 200 — delta custo teórico × real · 404 sem dado |
+| `GET` | `/api/v1/metricas/fechamento?casa_id=&periodo=` | 200 — CMV teórico × real × ajuste por grupo · 404 sem dado |
+| `GET` | `/api/v1/metricas/evolucao?casa_id=` | 200 — CMV teórico × real mês a mês |
+| `GET` | `/api/v1/metricas/top-itens?casa_id=&periodo=` | 200 — itens que mais pesam no custo |
 
-`Casa` cobre o CRUD do MVP mínimo da disciplina; `uploads-custo` o upload; `metricas/delta` alimenta o dashboard (RF04, Sprint 2).
+`Casa` cobre o CRUD do MVP mínimo da disciplina; `uploads-custo` lê os exports reais do Everest (ver `docs/07-fechamento-cmv.md`); `metricas/*` alimenta o dashboard de fechamento, consumido pelo frontend em `frontend/`.
 
 ## Comandos
 
