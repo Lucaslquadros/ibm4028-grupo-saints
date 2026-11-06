@@ -22,7 +22,11 @@ from app.schemas import (
     ItemCardapioResponse,
     LinhaFechamento,
     PontoEvolucao,
+    PontoHistorico,
+    PrevisaoItem,
+    RecomendacaoCompraResponse,
 )
+from app.services import previsao as servico_previsao
 
 router = APIRouter(
     prefix="/api/v1/metricas",
@@ -71,6 +75,101 @@ def evolucao(
 ) -> list[PontoEvolucao]:
     _casa_ou_404(db, casa_id)
     return [PontoEvolucao(**p) for p in crud.evolucao_cmv(db, casa_id, limit)]
+
+
+@router.get("/recomendacao-compra", summary="Demanda esperada por item no próximo mês (RF07)")
+def recomendacao_compra(
+    db: DbSession,
+    casa_id: CasaId,
+    periodo: Periodo,
+    margem_seguranca_pct: Annotated[
+        float,
+        Query(ge=0, le=100, description="Margem sobre a demanda prevista, em %"),
+    ] = 10.0,
+    limit: Annotated[int, Query(ge=1, le=50, description="Quantos itens retornar")] = 10,
+) -> RecomendacaoCompraResponse:
+    """RF07 — o "quanto comprar" que hoje sai do senso do chefe.
+
+    Devolve os itens que mais pesam no custo com a demanda esperada para o mês
+    seguinte a `periodo`, a partir do histórico de venda já carregado.
+
+    A matemática (média móvel + tendência + sazonalidade) está em
+    `app/services/previsao.py`, fora da rota e fora do banco, porque é a parte
+    que precisa ser testada com números na mão.
+    """
+    casa = _casa_ou_404(db, casa_id)
+    linhas = crud.historico_itens(db, casa_id=casa_id, periodo=periodo, limit_itens=limit)
+    if not linhas:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Sem histórico de venda por item para a casa {casa_id} até {periodo}. "
+                "Envie ao menos um relatório de cardápio."
+            ),
+        )
+
+    # Agrupa a série de cada item preservando a ordem de relevância do banco.
+    series: dict[str, dict] = {}
+    for nome, grupo, subgrupo, per, quantidade, _custo in linhas:
+        item = series.setdefault(nome, {"grupo": grupo, "subgrupo": subgrupo, "pontos": []})
+        if quantidade is not None:
+            item["pontos"].append(servico_previsao.Ponto(periodo=per, quantidade=float(quantidade)))
+
+    periodo_alvo = servico_previsao.proximo_periodo(periodo)
+    previsoes = [
+        servico_previsao.prever(
+            nome=nome,
+            grupo=dados["grupo"],
+            subgrupo=dados["subgrupo"],
+            historico=dados["pontos"],
+            periodo_alvo=periodo_alvo,
+            margem_seguranca_pct=margem_seguranca_pct,
+        )
+        for nome, dados in series.items()
+        if dados["pontos"]
+    ]
+
+    return RecomendacaoCompraResponse(
+        casa_id=casa.id,
+        casa_nome=casa.nome,
+        periodo_base=periodo,
+        periodo_alvo=periodo_alvo,
+        margem_seguranca_pct=margem_seguranca_pct,
+        metodo=(
+            "Média de venda dos últimos 3 meses, ajustada por tendência "
+            "(últimas 3 observações contra as 3 anteriores) e por sazonalidade "
+            "(o mesmo mês nos anos anteriores). Não é machine learning."
+        ),
+        aviso=(
+            "Sugestão assume estoque inicial zero — o sistema lê relatórios de venda "
+            "e compra, nunca uma contagem, então não sabe o que já está na prateleira. "
+            "Subtraia o estoque atual antes de comprar."
+        ),
+        # Queda uniforme em todo o catálogo costuma ser relatório incompleto, não
+        # mercado. O sistema não corrige — avisa, e quem decide julga.
+        alerta_dado=servico_previsao.alerta_volume(
+            [dados["pontos"] for dados in series.values()], periodo
+        ),
+        itens=[
+            PrevisaoItem(
+                nome=p.nome,
+                grupo=p.grupo,
+                subgrupo=p.subgrupo,
+                meses_com_dado=p.meses_com_dado,
+                media_recente=p.media_recente,
+                tendencia_pct=p.tendencia_pct,
+                indice_sazonal=p.indice_sazonal,
+                demanda_prevista=p.demanda_prevista,
+                sugestao_compra=p.sugestao_compra,
+                confianca=p.confianca,
+                motivo_confianca=p.motivo_confianca,
+                historico=[
+                    PontoHistorico(periodo=h.periodo, quantidade=h.quantidade) for h in p.historico
+                ],
+            )
+            for p in previsoes
+        ],
+    )
 
 
 @router.get("/top-itens", summary="Itens do cardápio que mais pesam no CMV")

@@ -150,6 +150,56 @@ class ItemCardapioResponse(BaseModel):
     cmv_pct: float | None = Field(description="custo ÷ venda líquida, em %")
 
 
+# ------------------------------------------------- Previsão de demanda (RF07)
+class PontoHistorico(BaseModel):
+    periodo: str
+    quantidade: float
+
+
+class PrevisaoItem(BaseModel):
+    """Demanda esperada de um item no próximo período.
+
+    `sugestao_compra` é um **teto**, não uma ordem de compra: o sistema lê
+    relatórios de venda e compra, nunca uma contagem, então não sabe o estoque
+    atual. Quem compra subtrai o que já tem. Ver `app/services/previsao.py`.
+    """
+
+    nome: str
+    grupo: str
+    subgrupo: str | None
+    meses_com_dado: int
+    media_recente: float = Field(description="Média de venda dos últimos 3 meses com dado")
+    tendencia_pct: float | None = Field(
+        description="Variação entre as últimas 3 observações e as 3 anteriores, em %. "
+        "null quando não há duas janelas completas"
+    )
+    indice_sazonal: float | None = Field(
+        description="Quanto este mês do ano costuma fugir da média. 1,0 = sem efeito. "
+        "null sem um ano de histórico"
+    )
+    demanda_prevista: float
+    sugestao_compra: float = Field(description="Demanda prevista + margem, assumindo estoque zero")
+    confianca: Literal["alta", "media", "baixa"]
+    motivo_confianca: str = Field(description="Por que esta confiança — para a tela mostrar")
+    historico: list[PontoHistorico]
+
+
+class RecomendacaoCompraResponse(BaseModel):
+    casa_id: int
+    casa_nome: str
+    periodo_base: str = Field(description="Último mês de histórico considerado")
+    periodo_alvo: str = Field(description="Mês para o qual a demanda é prevista")
+    margem_seguranca_pct: float
+    metodo: str = Field(description="Como o número foi calculado, em uma frase")
+    aviso: str = Field(description="Limite do cálculo, para ser exibido junto do número")
+    alerta_dado: str | None = Field(
+        default=None,
+        description="Presente quando o próprio dado de entrada é suspeito — ex.: o mês-base "
+        "com volume muito fora do padrão, indício de relatório incompleto",
+    )
+    itens: list[PrevisaoItem]
+
+
 # ------------------------------------------------------------ Health/Erro
 class HealthResponse(BaseModel):
     status: str
