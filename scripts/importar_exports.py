@@ -25,7 +25,7 @@ from sqlalchemy import select  # noqa: E402
 from app import crud  # noqa: E402
 from app.database import SessionLocal, criar_tabelas  # noqa: E402
 from app.models import Casa  # noqa: E402
-from app.services import storage  # noqa: E402
+from app.services import leitores, storage  # noqa: E402
 from app.services.leitores import LEITORES, ErroLeitura  # noqa: E402
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -52,7 +52,7 @@ def main() -> None:
 
         for periodo in args.periodos:
             try:
-                extracao = LEITORES[args.tipo](conteudo, periodo)
+                extracao = leitores.ler(args.tipo, conteudo, periodo)
             except ErroLeitura as exc:
                 print(f"  {periodo}: ERRO — {exc}")
                 continue

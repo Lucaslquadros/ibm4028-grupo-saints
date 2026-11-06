@@ -23,8 +23,8 @@ from app.schemas import (
     UploadCustoPage,
     UploadCustoResponse,
 )
-from app.services import storage
-from app.services.leitores import LEITORES, ErroLeitura
+from app.services import leitores, storage
+from app.services.leitores import ErroLeitura
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +105,9 @@ async def enviar_upload_custo(
         raise HTTPException(status_code=422, detail="Arquivo vazio")
 
     try:
-        extracao = LEITORES[tipo](conteudo, periodo)
+        # `ler` tenta o leitor do Everest e, se não reconhecer, a planilha
+        # genérica — o usuário declara o lado do fechamento, não o formato.
+        extracao = leitores.ler(tipo, conteudo, periodo)
     except ErroLeitura as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

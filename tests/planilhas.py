@@ -78,6 +78,70 @@ def linhas_dre() -> list[list]:
     ]
 
 
+# ------------------------------------------- planilha genérica (outro domínio)
+# De propósito NÃO é um restaurante: o objetivo é provar que o fechamento não
+# depende de ALIMENTOS/BEBIDAS nem do Everest. Aqui é uma farmácia.
+#
+#   teórico  MEDICAMENTOS venda 1500 custo  650 → 43,33%
+#            PERFUMARIA   venda  600 custo  300 → 50,00%
+#            TOTAL        venda 2100 custo  950 → 45,24%
+#   real     MEDICAMENTOS custo 700 → 46,67% (+3,34 pp)
+#            PERFUMARIA   custo 320 → 53,33% (+3,33 pp)
+#            EMBALAGENS   custo 150 → só no lado real, fica FORA do CMV direto
+#            TOTAL        custo 1020 → 48,57% (+3,33 pp), ajuste +70
+
+
+def linhas_planilha_teorico() -> list[list]:
+    # Ordem das colunas trocada e uma coluna extra desconhecida, para provar que
+    # o leitor acha as colunas pelo NOME e tolera o que não conhece.
+    return [
+        ["Custo", "Item", "Grupo", "Subgrupo", "Quantidade", "Venda Líquida", "Observação"],
+        [400, "DIPIRONA 500MG", "MEDICAMENTOS", "GENERICOS", 100, 1000, "ignorar"],
+        [250, "AMOXICILINA", "MEDICAMENTOS", "GENERICOS", 50, 500, None],
+        [300, "SABONETE", "PERFUMARIA", "HIGIENE", 200, 600, None],
+        [],
+    ]
+
+
+def linhas_planilha_real() -> list[list]:
+    # Sem coluna de venda: um relatório de compras não tem receita. Só 'grupo' e
+    # 'custo' são obrigatórios.
+    return [
+        ["Grupo", "Subgrupo", "Custo"],
+        ["MEDICAMENTOS", "GENERICOS", 700],
+        ["PERFUMARIA", "HIGIENE", 320],
+        ["EMBALAGENS", "DESCARTAVEIS", 150],
+    ]
+
+
+def planilha_teorico_xlsx() -> bytes:
+    return xlsx({"Dados": linhas_planilha_teorico()})
+
+
+def planilha_item_xlsx(
+    *, nome: str = "BOLINHO", grupo: str = "ALIMENTOS", quantidade: float, custo: float = 200.0
+) -> bytes:
+    """Planilha genérica de um item só, com a **quantidade** sob controle.
+
+    Existe porque o `fator` de `cardapio_xlsx` escala dinheiro (venda e custo),
+    não quantidade — BOLINHO vende 10 unidades em qualquer fator. Para testar
+    previsão de demanda, que lê justamente a quantidade, é preciso variá-la de
+    mês a mês, e é o que esta função permite.
+    """
+    return xlsx(
+        {
+            "Dados": [
+                ["Grupo", "Subgrupo", "Item", "Quantidade", "Venda Líquida", "Custo"],
+                [grupo, "GERAL", nome, quantidade, quantidade * 60, custo],
+            ]
+        }
+    )
+
+
+def planilha_real_xlsx() -> bytes:
+    return xlsx({"Dados": linhas_planilha_real()})
+
+
 def xlsx(abas: dict[str, list[list]]) -> bytes:
     """{nome_da_aba: linhas} → bytes de um .xlsx."""
     livro = Workbook()
