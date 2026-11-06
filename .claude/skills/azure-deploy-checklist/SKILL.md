@@ -102,6 +102,27 @@ permissions:
 
 Sem `id-token: write`, o `azure/login` falha com "no matching federated identity record".
 
+### O subject do federated credential usa IDs, não nomes
+
+O GitHub emite **subject imutável** por padrão: `repo:OWNER@<owner_id>/REPO@<repo_id>:...`, com os IDs numéricos e não os nomes. Credencial criada como `repo:OWNER/REPO:...` **nunca casa**, e o erro só aparece nas anotações do run:
+
+```
+AADSTS700213: No matching federated identity record found for presented
+assertion subject 'repo:dono@159265468/repo@1412405001:environment:production'
+```
+
+Nunca monte o subject à mão. Pegue o prefixo da própria API:
+
+```bash
+PREFIX=$(gh api repos/<OWNER>/<REPO>/actions/oidc/customization/sub --jq .sub_claim_prefix)
+
+az identity federated-credential create   --name gh-production-env --identity-name <identidade> -g <grupo>   --issuer "https://token.actions.githubusercontent.com"   --subject "${PREFIX}:environment:production"   --audiences "api://AzureADTokenExchange"
+```
+
+O sufixo tem que casar com **como o job autentica**: job com `environment: production` apresenta `:environment:production`; job sem environment apresenta `:ref:refs/heads/main`. Se o workflow usa os dois, crie as duas credenciais.
+
+Não desligue o subject imutável para "resolver": subject por nome quebra — ou passa a casar com outro repositório — se o repo for renomeado ou transferido.
+
 ## 4. Workflow
 
 Regras que valem para todo workflow do projeto:
@@ -140,7 +161,29 @@ curl -sf https://<app>.azurewebsites.net/health   # 200 e banco: "ok"
 curl -sf https://<app>.azurewebsites.net/docs
 ```
 
-Deploy sem verificação automática é deploy que você descobre quebrado pelo cliente. Coloque o `curl /health` como último passo do workflow: se falhar, o job falha.
+Deploy sem verificação automática é deploy que você descobre quebrado pelo cliente.
+
+**Mas `curl /health` sozinho não é verificação.** Health check genérico responde igual em qualquer versão do código: ele prova que a aplicação está de pé, não que está de pé **com o código que você acabou de publicar**. Deploy já ficou verde neste projeto com a versão anterior servindo — o deployment chegou ao App Service, o processo não trocou, e o endpoint que o deploy ia consertar continuou quebrado.
+
+A verificação precisa checar algo que **só existe na versão nova**. O padrão mais simples é o SHA do commit:
+
+```yaml
+# depois de publicar: grava o SHA E reinicia a aplicação (mudar App Setting reinicia)
+- run: |
+    az webapp config appsettings set -g <grupo> --name <app>       --settings GIT_COMMIT=${{ github.sha }} --output none
+
+# e exige que o SHA no ar seja o deste commit
+- run: |
+    for i in $(seq 1 40); do
+      curl -fsS https://<app>.azurewebsites.net/health -o /tmp/h.json         && grep -q "\"commit\":\"${{ github.sha }}\"" /tmp/h.json && exit 0
+      sleep 10
+    done
+    exit 1
+```
+
+A aplicação devolve esse campo lendo `GIT_COMMIT` do ambiente (com default `"desconhecido"` fora do deploy automatizado). O passo de App Setting resolve dois problemas ao mesmo tempo: dá o identificador de build e força o restart.
+
+Se a checagem passaria com o código antigo no ar, ela não é verificação — é decoração.
 
 ## 7. Rollback
 
@@ -174,7 +217,10 @@ az webapp log deployment show -g rg-projeto4 -n <app>
 | "Worker failed to boot" sem traceback de import, build e deploy OK | `-w 2+` workers rodando `create_all()` ao mesmo tempo no cold start; um recebe "already exists" (42S01) e derruba o gunicorn inteiro |
 | `ModuleNotFoundError: No module named 'app'` com build OK | Zip montado com `Compress-Archive` (Windows) em vez de `python -m zipfile` — grava `\` em vez de `/`, então não existe pasta no Linux |
 
-Log de deploy verde não prova nada sobre a aplicação. Sempre confirme no `/health`.
+| Deploy verde mas comportamento antigo em produção | O processo não trocou. `az webapp restart -g <grupo> -n <app>`, e conserte a verificação para comparar o SHA (seção 6) |
+| `azure/login` falha com `AADSTS700213` | Subject do federated credential com nome em vez de ID — ver seção 3 |
+
+Log de deploy verde não prova nada sobre a aplicação. E `/health` 200 prova menos do que parece: confirme o **commit** que está no ar, não só que algo respondeu.
 
 ## Custo
 
@@ -189,7 +235,8 @@ F1 é grátis mas tem 60 min de CPU/dia e não tem Always On — a app hiberna e
 - [ ] Health check path apontando para `/health`
 - [ ] OIDC configurado; nenhum publish profile no repositório
 - [ ] Workflow com `permissions:` explícito e ações pinadas
-- [ ] `curl /health` como passo final do workflow
+- [ ] Verificação final do workflow compara o **SHA publicado** com o `/health`, não só o status
+- [ ] Federated credential usa o `sub_claim_prefix` com IDs, e cobre o sufixo que o job realmente apresenta
 - [ ] Comando de rollback documentado no README
 - [ ] Alerta de orçamento ativo
 - [ ] Nenhum segredo no diff (`git log -p` conferido)

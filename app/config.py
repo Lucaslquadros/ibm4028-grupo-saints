@@ -54,6 +54,17 @@ class Settings(BaseSettings):
     # ambiente, então vem do App Settings e não do código.
     frontend_url: str = ""
 
+    # --- Identificação do build ---------------------------------------------
+    # SHA do commit publicado. Quem define é o workflow de deploy, via App
+    # Setting, DEPOIS de enviar o código — e é isso que permite verificar se o
+    # que está rodando é o que acabou de ser publicado.
+    #
+    # Existe porque em 06/11/2026 o deploy reportou sucesso com o código ANTIGO
+    # no ar: a verificação pós-deploy só olhava `/health`, que responde igual em
+    # qualquer versão. Sem um identificador de build, "deploy verificado" não
+    # verifica nada além de a aplicação estar de pé.
+    git_commit: str = "desconhecido"
+
 
 @lru_cache
 def get_settings() -> Settings:

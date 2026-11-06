@@ -27,4 +27,8 @@ def health_check(db: DbSession, settings: AppSettings) -> HealthResponse:
         versao=settings.app_version,
         ambiente=settings.environment,
         banco=banco,
+        # O workflow de deploy compara este valor com o SHA que acabou de
+        # publicar. Sem ele, "deploy verificado" só provava que a aplicação
+        # estava de pé — podia estar de pé com o código anterior.
+        commit=settings.git_commit,
     )
