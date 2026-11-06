@@ -1,0 +1,58 @@
+{
+  "meses": [
+    {
+      "periodo": "2026-04",
+      "fator_real": 1.0
+    },
+    {
+      "periodo": "2026-05",
+      "fator_real": 1.03
+    },
+    {
+      "periodo": "2026-06",
+      "fator_real": 0.98
+    },
+    {
+      "periodo": "2026-07",
+      "fator_real": 1.06
+    },
+    {
+      "periodo": "2026-08",
+      "fator_real": 1.02
+    },
+    {
+      "periodo": "2026-09",
+      "fator_real": 1.09
+    }
+  ],
+  "empresas": [
+    {
+      "slug": "drogaria-central",
+      "nome": "Drogaria Central - Centro (DEMO)",
+      "marca": "Drogaria Central",
+      "cidade": "Sao Paulo",
+      "ramo": "Farmacia"
+    },
+    {
+      "slug": "padaria-sao-jose",
+      "nome": "Padaria Sao Jose - Pinheiros (DEMO)",
+      "marca": "Padaria Sao Jose",
+      "cidade": "Sao Paulo",
+      "ramo": "Padaria"
+    },
+    {
+      "slug": "pizzaria-bella",
+      "nome": "Pizzaria Bella - Moema (DEMO)",
+      "marca": "Pizzaria Bella",
+      "cidade": "Sao Paulo",
+      "ramo": "Pizzaria"
+    },
+    {
+      "slug": "distribuidora-horizonte",
+      "nome": "Distribuidora Horizonte - Osasco (DEMO)",
+      "marca": "Distribuidora Horizonte",
+      "cidade": "Osasco",
+      "ramo": "Distribuidora de bebidas"
+    }
+  ]
+}
