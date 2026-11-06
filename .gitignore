@@ -42,3 +42,9 @@ _setup/
 *.PublishSettings
 *.pubxml
 deploy.zip
+
+# Exports reais do cliente (CNPJ, faturamento, custos) — NUNCA versionar.
+# Guarde-os em dados_reais/ (fora do Git). Os testes geram planilhas sintéticas.
+dados_reais/
+*.xlsx
+*.xls

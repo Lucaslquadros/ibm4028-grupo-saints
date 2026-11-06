@@ -15,6 +15,7 @@ dependencies = [
     # Servidor de produção. O App Service e o Dockerfile sobem com
     # gunicorn + UvicornWorker; `fastapi dev` só existe para desenvolvimento.
     "gunicorn>=23.0",
+    "openpyxl>=3.1.5",
 ]
 
 [project.optional-dependencies]

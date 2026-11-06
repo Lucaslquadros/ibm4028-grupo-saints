@@ -7,9 +7,15 @@ Backend FastAPI para Azure App Service + Azure SQL + Blob Storage.
 
 Domínio real em construção desde 09/10/2026 (retomada do projeto) — cliente é o
 Grupo Saints (14 bares/restaurantes), problema prioritário é o delta entre
-custo teórico e custo real de compras/estoque (RF02). Entidades: `Casa`
-(RF08, CRUD), `UploadCusto` (RF01) e `ItemCusto` (RF02). RF03/RF05 (gestão de
-pessoal) seguem adiados até a Conversa 2 com Joyce/Renata/Wellington acontecer.
+custo teórico e custo real (RF02). Entidades: `Casa` (RF08, CRUD),
+`UploadCusto` (RF01, com `tipo` = `cardapio` | `compras`) e `LinhaCusto` (linhas
+extraídas dos exports reais do Everest pelos tradutores em
+`app/services/leitores.py`). O MVP é o **fechamento de CMV** de uma casa piloto
+(Boteco São Bento - Vila Madalena) — regra do cálculo em `docs/07-fechamento-cmv.md`.
+RF03/RF05 (gestão de pessoal) seguem adiados.
+
+**Dados reais do cliente nunca vão para o Git** (`dados_reais/`, `*.xlsx` no
+`.gitignore`). Testes usam planilhas sintéticas de `tests/planilhas.py`.
 
 Plano de sprints em `docs/05-sprints.md`. Board: board "IBM4028 - Grupo Saints"
 em [github.com/Lucaslquadros/ibm4028-grupo-saints](https://github.com/Lucaslquadros/ibm4028-grupo-saints).

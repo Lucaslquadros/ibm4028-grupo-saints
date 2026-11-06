@@ -51,6 +51,8 @@ email-validator==2.3.0
     # via
     #   fastapi
     #   pydantic
+et-xmlfile==2.0.0
+    # via openpyxl
 fastapi==0.141.1
     # via projeto4-api
 fastapi-cli==0.0.32
@@ -99,6 +101,8 @@ msal==1.37.0
     #   msal-extensions
 msal-extensions==1.3.1
     # via azure-identity
+openpyxl==3.1.5
+    # via projeto4-api
 packaging==26.3
     # via gunicorn
 pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
