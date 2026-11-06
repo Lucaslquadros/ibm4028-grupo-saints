@@ -33,7 +33,9 @@ ninguém confunda isto com a casa piloto real em nenhuma tela ou slide.
 """
 
 import argparse
+import csv
 import io
+import json
 import sys
 import urllib.error
 import urllib.request
@@ -49,34 +51,68 @@ if hasattr(sys.stdout, "reconfigure"):
 
 from openpyxl import Workbook  # noqa: E402
 
-NOME = "Drogaria Central - Centro (DEMO)"
-MARCA = "Drogaria Central (dado fictício)"
-CIDADE = "São Paulo"
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+EXEMPLOS = Path(__file__).resolve().parent.parent / "exemplos"
 
-# (periodo, fator). O fator move o custo real sem mover a venda, para o ajuste
-# variar mês a mês e o gráfico de evolução ter forma — não uma linha reta.
-MESES = [
-    ("2026-04", 1.00),
-    ("2026-05", 1.03),
-    ("2026-06", 0.98),
-    ("2026-07", 1.06),
-    ("2026-08", 1.02),
-    ("2026-09", 1.09),
-]
 
-# grupo, subgrupo, item, quantidade, venda, custo teórico
-CATALOGO = [
-    ("MEDICAMENTOS", "GENERICOS", "DIPIRONA 500MG 20CP", 820, 14760, 5904),
-    ("MEDICAMENTOS", "GENERICOS", "AMOXICILINA 500MG", 310, 11780, 5301),
-    ("MEDICAMENTOS", "REFERENCIA", "LOSARTANA 50MG", 450, 18900, 7560),
-    ("PERFUMARIA", "HIGIENE", "SABONETE 90G", 1900, 9500, 4750),
-    ("PERFUMARIA", "HIGIENE", "SHAMPOO 350ML", 540, 13500, 7290),
-    ("PERFUMARIA", "INFANTIL", "FRALDA M 30UN", 260, 15600, 9360),
-]
-# Só no lado real: custo indireto, sem venda. O equivalente a UTENSILIOS na DRE
-# do restaurante — a dedução de grupos tem que deixar isto fora do CMV.
-INDIRETOS = [("EMBALAGENS", "DESCARTAVEIS", 2100)]
+def carregar_catalogo() -> tuple[list[tuple[str, float]], list[dict]]:
+    """Lê `exemplos/`: (meses, empresas). Nada de dado embutido no script.
+
+    O dado fica em CSV versionado em vez de .xlsx porque o `.gitignore` bloqueia
+    `*.xlsx` para planilha de cliente nunca entrar no Git — abrir exceção criaria
+    um furo nessa proteção. O .xlsx é gerado aqui, na hora.
+    """
+    manifesto = json.loads((EXEMPLOS / "empresas.json").read_text(encoding="utf-8"))
+    meses = [(m["periodo"], m["fator_real"]) for m in manifesto["meses"]]
+
+    empresas = []
+    for e in manifesto["empresas"]:
+        empresas.append(
+            {
+                **e,
+                "teorico": _ler_csv(EXEMPLOS / f"{e['slug']}-teorico.csv"),
+                "real": _ler_csv(EXEMPLOS / f"{e['slug']}-real.csv"),
+            }
+        )
+    return meses, empresas
+
+
+def _ler_csv(caminho: Path) -> tuple[list[str], list[list]]:
+    """(títulos, linhas). Números viram float; o resto fica texto."""
+    with caminho.open(encoding="utf-8", newline="") as f:
+        linhas = list(csv.reader(f))
+    if not linhas:
+        raise SystemExit(f"{caminho.name} está vazio")
+    titulos, corpo = linhas[0], []
+    for linha in linhas[1:]:
+        if not any(c.strip() for c in linha):
+            continue
+        corpo.append([_talvez_numero(c) for c in linha])
+    return titulos, corpo
+
+
+def _talvez_numero(valor: str):
+    try:
+        return float(valor)
+    except ValueError:
+        return valor
+
+
+def _escalar_custo(titulos: list[str], linhas: list[list], fator: float) -> list[list]:
+    """Multiplica só a coluna de custo. O fator move o custo REAL sem mover a
+    venda, para o ajuste variar mês a mês e o gráfico ter forma, não uma reta."""
+    try:
+        idx = [t.strip().lower() for t in titulos].index("custo")
+    except ValueError as exc:
+        raise SystemExit(f"CSV sem coluna 'custo': {titulos}") from exc
+
+    escaladas = []
+    for linha in linhas:
+        copia = list(linha)
+        if isinstance(copia[idx], float):
+            copia[idx] = round(copia[idx] * fator, 2)
+        escaladas.append(copia)
+    return escaladas
 
 
 def _xlsx(titulos: list[str], linhas: list[list]) -> bytes:
@@ -89,23 +125,6 @@ def _xlsx(titulos: list[str], linhas: list[list]) -> bytes:
     buffer = io.BytesIO()
     livro.save(buffer)
     return buffer.getvalue()
-
-
-def planilha_teorico() -> bytes:
-    """Lado teórico: vendas × custo de ficha. Tem venda, então tem denominador."""
-    return _xlsx(
-        ["Grupo", "Subgrupo", "Item", "Quantidade", "Venda Líquida", "Custo"],
-        [[g, s, i, q, v, c] for g, s, i, q, v, c in CATALOGO],
-    )
-
-
-def planilha_real(fator: float) -> bytes:
-    """Lado real: o que de fato foi comprado. Sem coluna de venda — um relatório
-    de compras não tem receita, e o leitor aceita porque só grupo e custo são
-    obrigatórios."""
-    linhas = [[g, s, round(c * fator, 2)] for g, s, _, _, _, c in CATALOGO]
-    linhas += [[g, s, c] for g, s, c in INDIRETOS]
-    return _xlsx(["Grupo", "Subgrupo", "Custo"], linhas)
 
 
 # ------------------------------------------------------------------ cliente HTTP
@@ -139,65 +158,107 @@ def _multipart(campos: dict[str, str], nome_arquivo: str, conteudo: bytes) -> tu
     return bytes(partes), f"multipart/form-data; boundary={limite}"
 
 
-def garantir_casa(api: str) -> int:
-    """Devolve o id da unidade de demo, criando-a se ainda não existir."""
-    import json
+def garantir_casa(api: str, empresa: dict) -> int:
+    """Devolve o id da unidade de demo, criando-a se ainda não existir.
 
-    busca = _requisicao(f"{api}/api/v1/casas?busca=Drogaria&limit=50", None, None, "GET")
+    Idempotente de propósito: rodar duas vezes contra produção não duplica
+    unidade, e reenviar um período substitui o upload anterior.
+    """
+    nome = empresa["nome"]
+    busca = _requisicao(f"{api}/api/v1/casas?limit=200", None, None, "GET")
     if busca["status"] == 200:
         for casa in json.loads(busca["corpo"])["items"]:
-            if casa["nome"] == NOME:
-                print(f"Unidade de demo já existe: id {casa['id']}")
+            if casa["nome"] == nome:
+                print(f"  unidade já existe: id {casa['id']}")
                 return casa["id"]
 
-    corpo = json.dumps({"nome": NOME, "marca": MARCA, "cidade": CIDADE, "ativa": True}).encode()
+    corpo = json.dumps(
+        {"nome": nome, "marca": empresa["marca"], "cidade": empresa["cidade"], "ativa": True}
+    ).encode()
     criada = _requisicao(f"{api}/api/v1/casas", corpo, "application/json", "POST")
     if criada["status"] != 201:
         raise SystemExit(f"Falhei ao criar a unidade ({criada['status']}): {criada['corpo']}")
     casa_id = json.loads(criada["corpo"])["id"]
-    print(f"Unidade de demo criada: id {casa_id} — {NOME}")
+    print(f"  unidade criada: id {casa_id}")
     return casa_id
 
 
 def enviar(api: str, casa_id: int, periodo: str, tipo: str, conteudo: bytes) -> None:
-    import json
-
     campos = {"casa_id": str(casa_id), "periodo": periodo, "tipo": tipo}
     corpo, content_type = _multipart(campos, f"{tipo}-{periodo}.xlsx", conteudo)
     resposta = _requisicao(f"{api}/api/v1/uploads-custo", corpo, content_type, "POST")
     if resposta["status"] != 201:
         raise SystemExit(f"{periodo} {tipo}: HTTP {resposta['status']} — {resposta['corpo']}")
-    print(f"  {periodo} {tipo:8s} → {json.loads(resposta['corpo'])['linhas_importadas']} linhas")
+    return json.loads(resposta["corpo"])["linhas_importadas"]
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--api", default="http://localhost:8000", help="URL base da API")
     parser.add_argument(
+        "--empresa",
+        action="append",
+        metavar="SLUG",
+        help="Carrega só este slug (pode repetir). Sem a flag, carrega todos",
+    )
+    parser.add_argument(
         "--apenas-planilhas",
         type=Path,
+        metavar="PASTA",
         help="Só grava os .xlsx nesta pasta, sem chamar a API",
     )
     args = parser.parse_args()
 
+    meses, empresas = carregar_catalogo()
+    if args.empresa:
+        conhecidos = {e["slug"] for e in empresas}
+        if desconhecidos := set(args.empresa) - conhecidos:
+            raise SystemExit(
+                f"slug desconhecido: {', '.join(sorted(desconhecidos))}. "
+                f"Disponíveis: {', '.join(sorted(conhecidos))}"
+            )
+        empresas = [e for e in empresas if e["slug"] in args.empresa]
+
     if args.apenas_planilhas:
         args.apenas_planilhas.mkdir(parents=True, exist_ok=True)
-        (args.apenas_planilhas / "template-teorico.xlsx").write_bytes(planilha_teorico())
-        (args.apenas_planilhas / "template-real.xlsx").write_bytes(planilha_real(1.09))
-        print(f"Planilhas gravadas em {args.apenas_planilhas}")
+        ultimo_fator = meses[-1][1]
+        for e in empresas:
+            (args.apenas_planilhas / f"{e['slug']}-teorico.xlsx").write_bytes(_xlsx(*e["teorico"]))
+            (args.apenas_planilhas / f"{e['slug']}-real.xlsx").write_bytes(
+                _xlsx(e["real"][0], _escalar_custo(*e["real"], ultimo_fator))
+            )
+        print(f"{len(empresas) * 2} planilhas gravadas em {args.apenas_planilhas}")
         return
 
     api = args.api.rstrip("/")
     print(f"API: {api}")
-    casa_id = garantir_casa(api)
-    for periodo, fator in MESES:
-        enviar(api, casa_id, periodo, "cardapio", planilha_teorico())
-        enviar(api, casa_id, periodo, "compras", planilha_real(fator))
+    print(f"{len(empresas)} unidade(s) de demonstração, {len(meses)} meses cada\n")
 
+    resumo = []
+    for e in empresas:
+        print(f"{e['nome']}  [{e['ramo']}]")
+        casa_id = garantir_casa(api, e)
+        teorico = _xlsx(*e["teorico"])
+        total = 0
+        for periodo, fator in meses:
+            total += enviar(api, casa_id, periodo, "cardapio", teorico)
+            total += enviar(
+                api,
+                casa_id,
+                periodo,
+                "compras",
+                _xlsx(e["real"][0], _escalar_custo(*e["real"], fator)),
+            )
+        print(f"  {len(meses) * 2} uploads, {total} linhas\n")
+        resumo.append((e["nome"], e["ramo"], casa_id))
+
+    print("Pronto. Unidades carregadas:")
+    for nome, ramo, casa_id in resumo:
+        print(f"  id {casa_id:<4} {ramo:<26} {nome}")
     print(
-        f"\nPronto. Confira o fechamento:\n"
-        f"  {api}/api/v1/metricas/fechamento?casa_id={casa_id}&periodo=2026-09\n"
-        f"  {api}/api/v1/metricas/evolucao?casa_id={casa_id}"
+        f"\nConfira o fechamento de {meses[-1][0]} de qualquer uma:\n"
+        f"  {api}/api/v1/metricas/fechamento?casa_id=<id>&periodo={meses[-1][0]}\n"
+        f"  {api}/api/v1/metricas/recomendacao-compra?casa_id=<id>&periodo={meses[-1][0]}"
     )
 
 
