@@ -120,23 +120,32 @@ Vantagem sobre o `/docs`: as requisições ficam **versionadas no Git**. O grupo
 
 ---
 
-## Forma 4 — o painel visual
+## Forma 4 — a aplicação
 
-Dê duplo clique em **`frontend/painel-teste.html`**. Abre no navegador direto, sem npm, sem build.
+Em produção, sem instalar nada:
+**https://zealous-river-0b6019910.6.azurestaticapps.net**
 
-Você vê:
+Localmente, com a API de pé em `localhost:8000`:
 
-- **os KPIs** — valor em estoque, itens cadastrados, unidades
-- **o gráfico por categoria** — alimentado pelo `/api/v1/metricas/resumo`
-- **a tabela** com os itens, com botão de excluir
-- **o formulário** de criar
-- **o log de requisições**, com o status code de cada chamada
+```bash
+cd frontend
+npm install
+cp .env.example .env.development
+npm run dev
+```
 
-Brinque: crie um item (**201**), exclua (**204**), e clique nos dois botões que provocam erro de propósito — **404** e **422**. Cada um aparece colorido no log.
+As três telas são as do MVP — **Casas** (RF08), **Upload** (RF01) e
+**Fechamento** (RF02/RF04). O percurso que prova o sistema inteiro está em
+`docs/08-roteiro-demo.md`.
 
-Este painel também prova uma coisa invisível: **o CORS está configurado**. Se não estivesse, o navegador bloquearia toda chamada e o painel ficaria vazio, com erro no console (F12). O erro de CORS não vem do backend — vem do navegador.
+A aplicação também prova uma coisa invisível: **o CORS está configurado**. Se
+não estivesse, o navegador bloquearia toda chamada e as telas ficariam vazias,
+com erro no console (F12). Erro de CORS não vem do backend — vem do navegador.
 
-> É um arquivo descartável, não o frontend do projeto. O React entra depois. Ele existe para você ver a API de pé antes disso.
+> O antigo `frontend/public/painel-teste.html`, um painel de duplo clique feito
+> antes do React, descrevia o domínio placeholder (estoque/itens) e não vale
+> mais como teste. A rota `/painel` que o servia foi removida da API em
+> 06/11/2026 — ela apontava para um caminho que não existia e devolvia 500.
 
 ---
 

@@ -37,17 +37,22 @@ class Settings(BaseSettings):
 
     # --- CORS ---------------------------------------------------------------
     # Em produção NUNCA use ["*"]. Liste o domínio real do frontend.
+    # A origem "null" (HTML aberto por file://) saiu junto com o /painel: ela
+    # existia só para o painel-teste.html de duplo clique, e aceitar "null"
+    # libera qualquer página local a chamar a API.
     cors_origins: list[str] = [
         "http://localhost:3000",  # React (create-react-app)
         "http://localhost:5173",  # Vite
-        # "null" é a origem que o navegador manda quando o HTML é aberto por
-        # duplo clique (file://). Serve só para o frontend/painel-teste.html.
-        # REMOVA antes de subir para produção.
-        "null",
     ]
 
     # --- Limites ------------------------------------------------------------
     max_upload_mb: int = 10
+
+    # --- Frontend -----------------------------------------------------------
+    # URL do Static Web App, devolvida por `GET /` para quem chega pela API não
+    # ter que adivinhar onde está a interface. Não é segredo, mas muda por
+    # ambiente, então vem do App Settings e não do código.
+    frontend_url: str = ""
 
 
 @lru_cache

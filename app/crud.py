@@ -130,6 +130,54 @@ def contar_linhas(db: Session, upload_id: int) -> int:
     )
 
 
+def _filtros_upload(casa_id: int | None, periodo: str | None) -> list:
+    filtros = []
+    if casa_id is not None:
+        filtros.append(UploadCusto.casa_id == casa_id)
+    if periodo is not None:
+        filtros.append(UploadCusto.periodo == periodo)
+    return filtros
+
+
+def stmt_listar_uploads_custo(
+    *,
+    limit: int = 50,
+    offset: int = 0,
+    casa_id: int | None = None,
+    periodo: str | None = None,
+):
+    """A query da listagem, isolada para poder ser compilada num teste.
+
+    A contagem de linhas é uma **subquery escalar correlacionada**, não um
+    `GROUP BY`. Os dois somam no banco (nunca em Python), mas só a subquery
+    funciona nos dois bancos que este projeto usa:
+
+      - A versão com `select(UploadCusto, count(...)).group_by(UploadCusto.id)`
+        roda no SQLite, que tolera coluna "solta" no SELECT sob GROUP BY.
+      - O Azure SQL **recusa** a mesma query ("column is invalid in the select
+        list because it is not contained in either an aggregate function or the
+        GROUP BY clause"), porque `select(UploadCusto)` expande para todas as
+        colunas da tabela e só `id` estava agrupado.
+
+    Isso derrubou `GET /api/v1/uploads-custo` em produção com 500 enquanto a
+    suíte seguia verde, porque os testes rodam em SQLite. Ver
+    `test_listar_uploads_e_compativel_com_sql_server`.
+    """
+    linhas = (
+        select(func.count(LinhaCusto.id))
+        .where(LinhaCusto.upload_id == UploadCusto.id)
+        .scalar_subquery()
+    )
+    return (
+        select(UploadCusto, linhas)
+        .where(*_filtros_upload(casa_id, periodo))
+        # ORDER BY não é cosmético aqui: o SQL Server exige um para paginar.
+        .order_by(UploadCusto.periodo.desc(), UploadCusto.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+
+
 def listar_uploads_custo(
     db: Session,
     *,
@@ -138,35 +186,66 @@ def listar_uploads_custo(
     casa_id: int | None = None,
     periodo: str | None = None,
 ) -> tuple[int, list[tuple[UploadCusto, int]]]:
-    """Devolve (total, [(upload, nº de linhas)]). A contagem de linhas sai do
-    banco num GROUP BY, não carregando as linhas de cada upload."""
-    filtros = []
-    if casa_id is not None:
-        filtros.append(UploadCusto.casa_id == casa_id)
-    if periodo is not None:
-        filtros.append(UploadCusto.periodo == periodo)
-
+    """Devolve (total, [(upload, nº de linhas)])."""
+    filtros = _filtros_upload(casa_id, periodo)
     total = db.scalar(select(func.count(UploadCusto.id)).where(*filtros)) or 0
-    stmt = (
-        select(UploadCusto, func.count(LinhaCusto.id))
-        .outerjoin(LinhaCusto, LinhaCusto.upload_id == UploadCusto.id)
-        .where(*filtros)
-        .group_by(UploadCusto.id)
-        .order_by(UploadCusto.periodo.desc(), UploadCusto.id.desc())
-        .limit(limit)
-        .offset(offset)
-    )
+    stmt = stmt_listar_uploads_custo(limit=limit, offset=offset, casa_id=casa_id, periodo=periodo)
     return total, [(upload, n) for upload, n in db.execute(stmt).all()]
 
 
 # --------------------------------------------------------- Fechamento de CMV
-# Os grupos que formam o CMV direto. Só eles existem nos dois relatórios:
-# a DRE tem também utensílios e material de consumo (custo indireto), e o
-# cardápio tem serviços (couvert), que não têm custo de mercadoria.
-GRUPOS_CMV = ("ALIMENTOS", "BEBIDAS")
+def grupos_comparaveis(db: Session, casa_id: int) -> list[str]:
+    """Os grupos que formam o CMV direto desta casa — **deduzidos do dado**.
+
+    Antes isto era uma constante `("ALIMENTOS", "BEBIDAS")`. Funcionava para o
+    Grupo Saints e falsificava a tese de que o sistema serve a outro negócio:
+    categoria de restaurante cravada no código não vale para uma farmácia.
+
+    A regra que substitui a lista não precisa de configuração nenhuma: um grupo
+    só é comparável se **os dois lados do fechamento o reportam**. É o que
+    distingue custo de mercadoria de todo o resto:
+
+      - só na DRE de compras: UTENSILIOS, MATERIAL DE CONSUMO, PRODUTOS REVENDA
+        → custo indireto, sem baixa de estoque, não tem teórico para comparar
+      - só na engenharia de cardápio: SERVICOS (couvert), OUTRAS VENDAS
+        → receita sem custo de mercadoria, não tem real para comparar
+      - nos dois: ALIMENTOS, BEBIDAS → o CMV direto
+
+    Na base real do cliente a interseção devolve exatamente ALIMENTOS e BEBIDAS,
+    ou seja, o mesmo resultado da lista antiga, sem cravar o domínio.
+
+    O conjunto é por casa (não por mês) de propósito: 23 dos 24 meses de
+    histórico têm só o cardápio, e exigir os dois relatórios no mesmo mês
+    esvaziaria a série histórica. Os meses incompletos herdam o conjunto
+    aprendido nos meses completos da mesma casa.
+    """
+    stmt = (
+        select(LinhaCusto.grupo)
+        .join(UploadCusto, UploadCusto.id == LinhaCusto.upload_id)
+        .where(UploadCusto.casa_id == casa_id, LinhaCusto.nivel == "grupo")
+        .group_by(LinhaCusto.grupo)
+        .having(func.count(func.distinct(UploadCusto.tipo)) >= 2)
+    )
+    grupos = sorted(db.scalars(stmt).all())
+    if grupos:
+        return grupos
+
+    # Nenhum mês tem os dois relatórios: não há como deduzir comparabilidade.
+    # Cai para os grupos que têm custo de mercadoria — sem o outro lado não há
+    # ajuste a calcular, então isto afeta só o CMV teórico exibido.
+    alternativa = (
+        select(LinhaCusto.grupo)
+        .join(UploadCusto, UploadCusto.id == LinhaCusto.upload_id)
+        .where(UploadCusto.casa_id == casa_id, LinhaCusto.nivel == "grupo")
+        .group_by(LinhaCusto.grupo)
+        .having(func.sum(LinhaCusto.custo) > 0)
+    )
+    return sorted(db.scalars(alternativa).all())
 
 
-def _somas_por_grupo(db: Session, casa_id: int, periodos: list[str] | None = None):
+def _somas_por_grupo(
+    db: Session, casa_id: int, grupos_cmv: list[str], periodos: list[str] | None = None
+):
     """[(periodo, tipo, grupo, custo, venda)] somados no banco."""
     stmt = (
         select(
@@ -180,7 +259,7 @@ def _somas_por_grupo(db: Session, casa_id: int, periodos: list[str] | None = Non
         .where(
             UploadCusto.casa_id == casa_id,
             LinhaCusto.nivel == "grupo",
-            LinhaCusto.grupo.in_(GRUPOS_CMV),
+            LinhaCusto.grupo.in_(grupos_cmv),
         )
         .group_by(UploadCusto.periodo, UploadCusto.tipo, LinhaCusto.grupo)
     )
@@ -251,8 +330,12 @@ def _fechamentos(db: Session, casa_id: int, periodos: list[str] | None = None) -
                 usa a receita líquida da DRE.
       ajuste  = real − teórico
     """
+    grupos_cmv = grupos_comparaveis(db, casa_id)
+    if not grupos_cmv:
+        return {}
+
     somas: dict[str, dict] = {}
-    for periodo, tipo, grupo, custo, venda in _somas_por_grupo(db, casa_id, periodos):
+    for periodo, tipo, grupo, custo, venda in _somas_por_grupo(db, casa_id, grupos_cmv, periodos):
         mes = somas.setdefault(periodo, {})
         g = mes.setdefault(grupo, {"cardapio": None, "compras": None, "venda": None})
         g[tipo] = float(custo) if custo is not None else None
@@ -266,7 +349,7 @@ def _fechamentos(db: Session, casa_id: int, periodos: list[str] | None = None) -
         tem_compras = any(g["compras"] is not None for g in grupos.values())
         linhas = []
         tot_teorico = tot_real = tot_venda = None
-        for nome in GRUPOS_CMV:
+        for nome in grupos_cmv:
             g = grupos.get(nome)
             if g is None:
                 continue
@@ -323,6 +406,78 @@ def evolucao_cmv(db: Session, casa_id: int, limit: int = 24) -> list[dict]:
         for periodo in sorted(periodos)
         if periodo in fechamentos
     ]
+
+
+def stmt_nomes_mais_custosos(*, casa_id: int, periodo: str, limit: int):
+    """Os `limit` itens com maior custo acumulado até `periodo`, inclusive.
+
+    Separado em statement próprio para ser compilado no dialeto do SQL Server
+    pelo teste de `tests/test_dialeto_sql.py` — o `GROUP BY` aqui é seguro
+    porque só `nome` é selecionado, e `ORDER BY` sobre agregação é permitido.
+    """
+    return (
+        select(LinhaCusto.nome)
+        .join(UploadCusto, UploadCusto.id == LinhaCusto.upload_id)
+        .where(
+            UploadCusto.casa_id == casa_id,
+            UploadCusto.tipo == "cardapio",
+            LinhaCusto.nivel == "item",
+            UploadCusto.periodo <= periodo,
+        )
+        .group_by(LinhaCusto.nome)
+        .order_by(func.sum(LinhaCusto.custo).desc())
+        .limit(limit)
+    )
+
+
+def historico_itens(
+    db: Session, *, casa_id: int, periodo: str, limit_itens: int = 10
+) -> list[tuple]:
+    """[(nome, grupo, subgrupo, periodo, quantidade, custo)] dos itens que mais
+    pesam no custo, mês a mês, até `periodo`.
+
+    Alimenta a previsão de demanda do RF07. Duas consultas em vez de uma:
+    primeiro quais itens interessam (os mais custosos), depois a série deles.
+    Buscar a série de *todos* os itens para descartar 99% em Python seria
+    trazer a tabela inteira para a aplicação — o que a regra 6 do projeto
+    proíbe, e com razão: a casa piloto tem 345 itens por mês × 24 meses.
+
+    A soma é por (item, mês) porque o mesmo nome pode aparecer em mais de uma
+    linha do relatório (subgrupos diferentes para o mesmo produto).
+    """
+    nomes = list(
+        db.scalars(
+            stmt_nomes_mais_custosos(casa_id=casa_id, periodo=periodo, limit=limit_itens)
+        ).all()
+    )
+    if not nomes:
+        return []
+
+    stmt = (
+        select(
+            LinhaCusto.nome,
+            LinhaCusto.grupo,
+            LinhaCusto.subgrupo,
+            UploadCusto.periodo,
+            func.sum(LinhaCusto.quantidade),
+            func.sum(LinhaCusto.custo),
+        )
+        .join(UploadCusto, UploadCusto.id == LinhaCusto.upload_id)
+        .where(
+            UploadCusto.casa_id == casa_id,
+            UploadCusto.tipo == "cardapio",
+            LinhaCusto.nivel == "item",
+            UploadCusto.periodo <= periodo,
+            LinhaCusto.nome.in_(nomes),
+        )
+        .group_by(LinhaCusto.nome, LinhaCusto.grupo, LinhaCusto.subgrupo, UploadCusto.periodo)
+        .order_by(LinhaCusto.nome, UploadCusto.periodo)
+    )
+    # Preserva a ordem de relevância (custo) que a primeira consulta definiu —
+    # o ORDER BY acima é por nome, que é o que agrupa a série de cada item.
+    relevancia = {nome: i for i, nome in enumerate(nomes)}
+    linhas = db.execute(stmt).all()
+    return sorted(linhas, key=lambda linha: (relevancia.get(linha[0], 999), linha[3]))
 
 
 def top_itens_cardapio(
