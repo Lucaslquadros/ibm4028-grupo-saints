@@ -38,3 +38,36 @@ def test_banco_ja_migrado_nao_e_alterado(monkeypatch):
     database._migrar_uploads_sem_tipo()
 
     assert inspect(engine).has_table("uploads_custo")
+
+
+def _create_all_que_falha(mensagem):
+    from sqlalchemy.exc import OperationalError
+
+    def falhar(*args, **kwargs):
+        raise OperationalError("CREATE TABLE casas", {}, Exception(mensagem))
+
+    return falhar
+
+
+def test_corrida_entre_workers_no_sqlite_e_ignorada(monkeypatch):
+    # Dois workers do gunicorn criando as tabelas ao mesmo tempo: o perdedor
+    # recebe "already exists" e a API precisa subir mesmo assim.
+    monkeypatch.setattr(database, "_migrar_uploads_sem_tipo", lambda: None)
+    monkeypatch.setattr(
+        database.Base.metadata, "create_all", _create_all_que_falha("table casas already exists")
+    )
+
+    database.criar_tabelas()  # não levanta
+
+
+def test_outro_erro_de_banco_impede_a_subida(monkeypatch):
+    import pytest
+    from sqlalchemy.exc import OperationalError
+
+    monkeypatch.setattr(database, "_migrar_uploads_sem_tipo", lambda: None)
+    monkeypatch.setattr(
+        database.Base.metadata, "create_all", _create_all_que_falha("disk I/O error")
+    )
+
+    with pytest.raises(OperationalError):
+        database.criar_tabelas()

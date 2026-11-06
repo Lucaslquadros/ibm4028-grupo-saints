@@ -9,7 +9,7 @@ import logging
 from collections.abc import Generator
 
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.exc import DBAPIError, ProgrammingError
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
@@ -56,14 +56,21 @@ def criar_tabelas() -> None:
     _migrar_uploads_sem_tipo()
     try:
         Base.metadata.create_all(bind=engine)
-    except ProgrammingError as exc:
+    except DBAPIError as exc:
         # Com múltiplos workers do gunicorn, dois processos podem cair no
         # cold start ao mesmo tempo: o checkfirst do create_all não é atômico
         # entre processos, então o perdedor da corrida recebe "already
-        # exists" (SQLSTATE 42S01) do Azure SQL. O vencedor termina de criar
-        # o restante das tabelas sem contenção, então é seguro ignorar aqui.
-        if "42S01" not in str(exc.orig):
+        # exists". O vencedor termina de criar o restante das tabelas sem
+        # contenção, então é seguro ignorar aqui. O erro chega diferente em
+        # cada banco: Azure SQL → ProgrammingError com SQLSTATE 42S01;
+        # SQLite (usado no CI do container) → OperationalError "already exists".
+        if not _tabela_ja_existe(exc):
             raise
+
+
+def _tabela_ja_existe(exc: DBAPIError) -> bool:
+    mensagem = str(exc.orig)
+    return "42S01" in mensagem or "already exists" in mensagem
 
 
 def _migrar_uploads_sem_tipo() -> None:
