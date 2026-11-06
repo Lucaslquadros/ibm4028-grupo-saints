@@ -76,6 +76,15 @@ def test_fechamento_so_com_cardapio_mostra_teorico_e_real_nulo(client, casa_id):
 
 
 def test_fechamento_so_com_compras_usa_receita_da_dre(client, casa_id):
+    """Regra de `docs/07-fechamento-cmv.md`: sem cardápio **no mês**, o CMV real
+    usa a receita líquida da DRE como denominador.
+
+    O cardápio de agosto existe de propósito: é a situação real do cliente (24
+    meses de cardápio, o mês corrente com a DRE chegando antes) e é o que
+    permite a `crud.grupos_comparaveis` deduzir que ALIMENTOS e BEBIDAS são o
+    CMV direto desta casa, deixando MATERIAL DE CONSUMO (250) fora.
+    """
+    _enviar(client, casa_id, "cardapio", cardapio_xlsx(), periodo="2026-08")
     _enviar(client, casa_id, "compras", dre_xlsx())
 
     corpo = client.get(FECHAMENTO, params={"casa_id": casa_id, "periodo": PERIODO}).json()
@@ -83,6 +92,27 @@ def test_fechamento_so_com_compras_usa_receita_da_dre(client, casa_id):
     assert corpo["tem_cardapio"] is False
     assert corpo["total"]["custo_real"] == 750.0
     assert corpo["total"]["cmv_real_pct"] == round(750 / 3200 * 100, 2)
+
+
+def test_casa_que_nunca_teve_cardapio_nao_adivinha_o_cmv_direto(client, casa_id):
+    """Limite declarado da dedução de grupos: com apenas a DRE, nada no arquivo
+    diz que DESCARTÁVEIS não é mercadoria e BOVINOS é. O sistema então soma
+    todos os grupos com custo (1000 = 330 + 420 + 250) em vez de aplicar uma
+    taxonomia de restaurante que ele não tem como conhecer.
+
+    Basta um cardápio, de qualquer mês da casa, para a dedução passar a excluir
+    MATERIAL DE CONSUMO — é o que o teste acima cobre.
+    """
+    _enviar(client, casa_id, "compras", dre_xlsx())
+
+    corpo = client.get(FECHAMENTO, params={"casa_id": casa_id, "periodo": PERIODO}).json()
+
+    assert corpo["total"]["custo_real"] == 1000.0
+    assert {g["grupo"] for g in corpo["grupos"]} == {
+        "ALIMENTOS",
+        "BEBIDAS",
+        "MATERIAL DE CONSUMO",
+    }
 
 
 def test_fechamento_sem_upload_no_periodo_devolve_404(client, casa_id):

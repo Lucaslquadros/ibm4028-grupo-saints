@@ -6,11 +6,10 @@ Docs:         http://localhost:8000/docs
 
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import criar_tabelas
@@ -64,21 +63,22 @@ app.include_router(metricas.router)
 
 @app.get("/", tags=["infra"], summary="Raiz")
 async def raiz() -> dict:
-    return {
+    """Ponto de entrada: diz onde está a documentação e onde está a aplicação.
+
+    Antes havia aqui um `/painel` servindo `frontend/painel-teste.html`, o painel
+    descartável de antes do frontend React. O arquivo foi para `frontend/public/`
+    quando o Vite entrou, e a rota passou a devolver 500 — anunciada por esta
+    própria resposta. Removida: quem serve a interface é o Static Web App.
+    """
+    corpo = {
         "aplicacao": settings.app_name,
         "versao": settings.app_version,
         "docs": "/docs",
         "health": "/health",
-        "painel": "/painel",
     }
-
-
-PAINEL_PATH = Path(__file__).resolve().parent.parent / "frontend" / "painel-teste.html"
-
-
-@app.get("/painel", tags=["infra"], summary="Painel de teste (descartável)")
-async def painel() -> FileResponse:
-    return FileResponse(PAINEL_PATH)
+    if settings.frontend_url:
+        corpo["aplicacao_web"] = settings.frontend_url
+    return corpo
 
 
 @app.exception_handler(Exception)
