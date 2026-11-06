@@ -117,6 +117,9 @@ export const api = {
     return pedido<UploadCusto>("/api/v1/uploads-custo", { method: "POST", body: form });
   },
 
+  listarUploads: (casaId: number) =>
+    pedido<Pagina<UploadCusto>>(`/api/v1/uploads-custo?casa_id=${casaId}&limit=200`),
+
   fechamento: (casaId: number, periodo: string) =>
     pedido<Fechamento>(`/api/v1/metricas/fechamento?casa_id=${casaId}&periodo=${periodo}`),
 

@@ -3,6 +3,7 @@ import { api, ApiError, type Casa } from "../api";
 
 export function Casas({ onCasasCarregadas }: { onCasasCarregadas?: (casas: Casa[]) => void }) {
   const [casas, setCasas] = useState<Casa[]>([]);
+  const [busca, setBusca] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -13,11 +14,11 @@ export function Casas({ onCasasCarregadas }: { onCasasCarregadas?: (casas: Casa[
   const [enviando, setEnviando] = useState(false);
   const [erroForm, setErroForm] = useState<string | null>(null);
 
-  async function carregar() {
+  async function carregar(filtro?: string) {
     setCarregando(true);
     setErro(null);
     try {
-      const pagina = await api.listarCasas();
+      const pagina = await api.listarCasas(filtro && filtro.length >= 2 ? { busca: filtro } : {});
       setCasas(pagina.items);
       onCasasCarregadas?.(pagina.items);
     } catch (e) {
@@ -32,6 +33,12 @@ export function Casas({ onCasasCarregadas }: { onCasasCarregadas?: (casas: Casa[
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => carregar(busca), 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busca]);
+
   async function criar(ev: React.FormEvent) {
     ev.preventDefault();
     setEnviando(true);
@@ -42,7 +49,7 @@ export function Casas({ onCasasCarregadas }: { onCasasCarregadas?: (casas: Casa[
       setMarca("");
       setCidade("");
       setMostrarForm(false);
-      await carregar();
+      await carregar(busca);
     } catch (e) {
       setErroForm(e instanceof ApiError ? e.message : "Não foi possível criar a casa.");
     } finally {
@@ -51,44 +58,57 @@ export function Casas({ onCasasCarregadas }: { onCasasCarregadas?: (casas: Casa[
   }
 
   return (
-    <section>
-      <header className="secao-cabecalho">
-        <h2>Casas</h2>
-        <button onClick={() => setMostrarForm((v) => !v)}>
+    <section className="tela">
+      <header className="tela-cabecalho tela-cabecalho-linha">
+        <div>
+          <h2>Casas</h2>
+          <p className="ajuda">As unidades do grupo.</p>
+        </div>
+        <button className="botao-primario" onClick={() => setMostrarForm((v) => !v)}>
           {mostrarForm ? "Cancelar" : "Nova casa"}
         </button>
       </header>
 
       {mostrarForm && (
-        <form className="form-casa" onSubmit={criar}>
-          <label>
-            Nome
+        <form className="glass form-casa" onSubmit={criar}>
+          <label className="campo">
+            <span className="campo-rotulo">Nome</span>
             <input value={nome} onChange={(e) => setNome(e.target.value)} required minLength={3} />
           </label>
-          <label>
-            Marca
+          <label className="campo">
+            <span className="campo-rotulo">Marca</span>
             <input value={marca} onChange={(e) => setMarca(e.target.value)} required minLength={2} />
           </label>
-          <label>
-            Cidade
+          <label className="campo">
+            <span className="campo-rotulo">Cidade</span>
             <input value={cidade} onChange={(e) => setCidade(e.target.value)} required minLength={2} />
           </label>
           {erroForm && <p className="erro">{erroForm}</p>}
-          <button type="submit" disabled={enviando}>
+          <button type="submit" className="botao-primario" disabled={enviando}>
             {enviando ? "Criando…" : "Criar casa"}
           </button>
         </form>
       )}
 
-      {carregando && <p>Carregando…</p>}
+      {casas.length > 0 && (
+        <input
+          className="busca"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar casa pelo nome…"
+          aria-label="Buscar casa"
+        />
+      )}
+
+      {carregando && <p className="vazio">Carregando…</p>}
       {erro && <p className="erro">{erro}</p>}
 
       {!carregando && !erro && casas.length === 0 && (
-        <p className="vazio">Nenhuma casa cadastrada ainda.</p>
+        <p className="vazio">Nenhuma casa encontrada.</p>
       )}
 
       {!carregando && casas.length > 0 && (
-        <table className="tabela">
+        <table className="tabela glass">
           <thead>
             <tr>
               <th>Nome</th>

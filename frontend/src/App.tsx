@@ -7,34 +7,62 @@ import "./App.css";
 
 type Tela = "casas" | "upload" | "fechamento";
 
+const TELAS: { id: Tela; rotulo: string }[] = [
+  { id: "casas", rotulo: "Casas" },
+  { id: "upload", rotulo: "Upload" },
+  { id: "fechamento", rotulo: "Fechamento" },
+];
+
 export default function App() {
   const [tela, setTela] = useState<Tela>("casas");
   const [casas, setCasas] = useState<Casa[]>([]);
+  // Casa e período ficam aqui, não dentro de cada tela: trocar de aba não deve
+  // obrigar a escolher a casa de novo — é o mesmo fluxo da reunião de
+  // fechamento, sobe o arquivo e confere o painel da mesma casa em seguida.
+  const [casaId, setCasaId] = useState<number | "">("");
+  const [periodo, setPeriodo] = useState("");
 
   return (
     <div className="app">
+      <div className="ambient" aria-hidden="true" />
       <header className="app-cabecalho">
-        <h1>Grupo Saints — Fechamento de CMV</h1>
-        <nav className="abas">
-          <button className={tela === "casas" ? "aba aba-ativa" : "aba"} onClick={() => setTela("casas")}>
-            Casas
-          </button>
-          <button className={tela === "upload" ? "aba aba-ativa" : "aba"} onClick={() => setTela("upload")}>
-            Upload
-          </button>
-          <button
-            className={tela === "fechamento" ? "aba aba-ativa" : "aba"}
-            onClick={() => setTela("fechamento")}
-          >
-            Fechamento
-          </button>
+        <div className="marca">
+          <span className="marca-ponto" />
+          Grupo Saints <span className="marca-fraco">· Fechamento de CMV</span>
+        </div>
+        <nav className="abas" aria-label="Navegação principal">
+          {TELAS.map((t) => (
+            <button
+              key={t.id}
+              className={tela === t.id ? "aba aba-ativa" : "aba"}
+              onClick={() => setTela(t.id)}
+            >
+              {t.rotulo}
+            </button>
+          ))}
         </nav>
       </header>
 
       <main className="app-conteudo">
         {tela === "casas" && <Casas onCasasCarregadas={setCasas} />}
-        {tela === "upload" && <Upload casas={casas} />}
-        {tela === "fechamento" && <Fechamento casas={casas} />}
+        {tela === "upload" && (
+          <Upload
+            casas={casas}
+            casaId={casaId}
+            setCasaId={setCasaId}
+            periodo={periodo}
+            setPeriodo={setPeriodo}
+          />
+        )}
+        {tela === "fechamento" && (
+          <Fechamento
+            casas={casas}
+            casaId={casaId}
+            setCasaId={setCasaId}
+            periodo={periodo}
+            setPeriodo={setPeriodo}
+          />
+        )}
       </main>
     </div>
   );

@@ -18,7 +18,7 @@ function EvolucaoChart({ pontos }: { pontos: PontoEvolucao[] }) {
   if (comDado.length === 0) return <p className="vazio">Sem dado suficiente para o gráfico.</p>;
 
   const largura = 640;
-  const altura = 200;
+  const altura = 220;
   const margem = { topo: 16, baixo: 28, esquerda: 40, direita: 16 };
   const valores = comDado.flatMap((p) => [p.cmv_teorico_pct, p.cmv_real_pct]).filter(
     (v): v is number => v !== null,
@@ -40,23 +40,33 @@ function EvolucaoChart({ pontos }: { pontos: PontoEvolucao[] }) {
       .filter((v): v is string => v !== null)
       .join(" ");
 
+  const passo = Math.max(1, Math.ceil(comDado.length / 10));
+
   return (
     <svg viewBox={`0 0 ${largura} ${altura}`} className="grafico" role="img" aria-label="Evolução do CMV teórico e real">
       <line x1={margem.esquerda} x2={largura - margem.direita} y1={y(0)} y2={y(0)} className="grafico-eixo" />
       <polyline points={linha("cmv_teorico_pct")} className="grafico-linha grafico-teorico" fill="none" />
       <polyline points={linha("cmv_real_pct")} className="grafico-linha grafico-real" fill="none" />
-      {comDado.map((p, i) => (
-        <text key={p.periodo} x={x(i)} y={altura - 8} textAnchor="middle" className="grafico-rotulo">
-          {p.periodo.slice(2)}
-        </text>
-      ))}
+      {comDado.map((p, i) =>
+        i % passo === 0 ? (
+          <text key={p.periodo} x={x(i)} y={altura - 6} textAnchor="middle" className="grafico-rotulo">
+            {p.periodo.slice(2)}
+          </text>
+        ) : null,
+      )}
     </svg>
   );
 }
 
-export function Fechamento({ casas }: { casas: Casa[] }) {
-  const [casaId, setCasaId] = useState<number | "">("");
-  const [periodo, setPeriodo] = useState("");
+type Props = {
+  casas: Casa[];
+  casaId: number | "";
+  setCasaId: (v: number | "") => void;
+  periodo: string;
+  setPeriodo: (v: string) => void;
+};
+
+export function Fechamento({ casas, casaId, setCasaId, periodo, setPeriodo }: Props) {
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [dados, setDados] = useState<FechamentoDto | null>(null);
@@ -84,13 +94,19 @@ export function Fechamento({ casas }: { casas: Casa[] }) {
     }
   }
 
-  return (
-    <section>
-      <h2>Fechamento de CMV</h2>
+  const ajuste = dados?.total.ajuste_pp ?? null;
+  const favoravel = ajuste !== null && ajuste <= 0;
 
-      <form className="form-fechamento" onSubmit={buscar}>
-        <label>
-          Casa
+  return (
+    <section className="tela">
+      <header className="tela-cabecalho">
+        <h2>Fechamento de CMV</h2>
+        <p className="ajuda">Teórico × real × ajuste — o relatório que hoje leva dois dias por casa.</p>
+      </header>
+
+      <form className="glass form-fechamento" onSubmit={buscar}>
+        <label className="campo">
+          <span className="campo-rotulo">Casa</span>
           <select
             value={casaId}
             onChange={(e) => setCasaId(e.target.value ? Number(e.target.value) : "")}
@@ -104,17 +120,11 @@ export function Fechamento({ casas }: { casas: Casa[] }) {
             ))}
           </select>
         </label>
-        <label>
-          Período (AAAA-MM)
-          <input
-            value={periodo}
-            onChange={(e) => setPeriodo(e.target.value)}
-            placeholder="2026-09"
-            pattern="\d{4}-(0[1-9]|1[0-2])"
-            required
-          />
+        <label className="campo">
+          <span className="campo-rotulo">Período</span>
+          <input type="month" value={periodo} onChange={(e) => setPeriodo(e.target.value)} required />
         </label>
-        <button type="submit" disabled={carregando}>
+        <button type="submit" className="botao-primario" disabled={carregando}>
           {carregando ? "Calculando…" : "Calcular"}
         </button>
       </form>
@@ -130,28 +140,33 @@ export function Fechamento({ casas }: { casas: Casa[] }) {
             </p>
           )}
 
-          <div className="cards">
-            <div className="card">
-              <span className="card-rotulo">CMV teórico</span>
-              <strong>{pct(dados.total.cmv_teorico_pct)}</strong>
-              <span>{brl(dados.total.custo_teorico)}</span>
+          <div className="hero-ajuste glass">
+            <div className={favoravel ? "hero-selo hero-selo-bom" : "hero-selo hero-selo-ruim"}>
+              {ajuste === null ? "—" : favoravel ? "Favorável" : "Desfavorável"}
             </div>
-            <div className="card">
-              <span className="card-rotulo">CMV real</span>
-              <strong>{pct(dados.total.cmv_real_pct)}</strong>
-              <span>{brl(dados.total.custo_real)}</span>
-            </div>
-            <div className={`card ${dados.total.ajuste_pp !== null && dados.total.ajuste_pp < 0 ? "card-bom" : "card-ruim"}`}>
-              <span className="card-rotulo">Ajuste</span>
-              <strong>
-                {dados.total.ajuste_pp !== null && dados.total.ajuste_pp > 0 ? "+" : ""}
-                {pct(dados.total.ajuste_pp)}
-              </strong>
-              <span>{brl(dados.total.ajuste)}</span>
+            <span className="hero-rotulo">Ajuste do mês · {dados.casa_nome}</span>
+            <strong className="hero-valor">
+              {ajuste !== null && ajuste > 0 ? "+" : ""}
+              {pct(ajuste)}
+            </strong>
+            <span className="hero-detalhe">{brl(dados.total.ajuste)} de diferença entre real e teórico</span>
+
+            <div className="hero-lado">
+              <div>
+                <span className="hero-lado-k">Teórico</span>
+                <span className="hero-lado-v">{pct(dados.total.cmv_teorico_pct)}</span>
+                <span className="hero-lado-d">{brl(dados.total.custo_teorico)}</span>
+              </div>
+              <div className="hero-lado-sep" />
+              <div>
+                <span className="hero-lado-k">Real</span>
+                <span className="hero-lado-v">{pct(dados.total.cmv_real_pct)}</span>
+                <span className="hero-lado-d">{brl(dados.total.custo_real)}</span>
+              </div>
             </div>
           </div>
 
-          <table className="tabela">
+          <table className="tabela glass">
             <thead>
               <tr>
                 <th>Grupo</th>
@@ -165,10 +180,12 @@ export function Fechamento({ casas }: { casas: Casa[] }) {
               {dados.grupos.map((g) => (
                 <tr key={g.grupo}>
                   <td>{g.grupo}</td>
-                  <td>{brl(g.venda_liquida)}</td>
-                  <td>{pct(g.cmv_teorico_pct)}</td>
-                  <td>{pct(g.cmv_real_pct)}</td>
-                  <td>{pct(g.ajuste_pp)}</td>
+                  <td className="num">{brl(g.venda_liquida)}</td>
+                  <td className="num">{pct(g.cmv_teorico_pct)}</td>
+                  <td className="num">{pct(g.cmv_real_pct)}</td>
+                  <td className={`num ${g.ajuste_pp !== null && g.ajuste_pp <= 0 ? "txt-bom" : "txt-ruim"}`}>
+                    {pct(g.ajuste_pp)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -179,12 +196,14 @@ export function Fechamento({ casas }: { casas: Casa[] }) {
             <span className="legenda-item"><i className="grafico-teorico" /> Teórico</span>
             <span className="legenda-item"><i className="grafico-real" /> Real</span>
           </div>
-          <EvolucaoChart pontos={evolucao} />
+          <div className="glass grafico-moldura">
+            <EvolucaoChart pontos={evolucao} />
+          </div>
 
           {topItens.length > 0 && (
             <>
               <h3>Top itens de maior custo</h3>
-              <table className="tabela">
+              <table className="tabela glass">
                 <thead>
                   <tr>
                     <th>Item</th>
@@ -198,8 +217,8 @@ export function Fechamento({ casas }: { casas: Casa[] }) {
                     <tr key={item.nome}>
                       <td>{item.nome}</td>
                       <td>{item.grupo}</td>
-                      <td>{brl(item.custo)}</td>
-                      <td>{pct(item.cmv_pct)}</td>
+                      <td className="num">{brl(item.custo)}</td>
+                      <td className="num">{pct(item.cmv_pct)}</td>
                     </tr>
                   ))}
                 </tbody>
