@@ -344,11 +344,23 @@ evita descobrir isso tarde.
 - [x] Deploy manual confirmado (`/health` responde 200 em produção)
 - [x] Static Web App criado, primeiro build publicado (11/10/2026)
 - [ ] OIDC configurado (App registration + federated credential + role assignment)
-- [ ] 3 variáveis (`AZURE_CLIENT_ID`/`TENANT_ID`/`SUBSCRIPTION_ID`) no GitHub
-- [ ] `AZURE_WEBAPP_NAME` real no workflow (sem `TROCAR`)
+- [x] 3 variáveis (`AZURE_CLIENT_ID`/`TENANT_ID`/`SUBSCRIPTION_ID`) no GitHub
+- [x] `AZURE_WEBAPP_NAME` real no workflow (sem `TROCAR`)
 - [ ] Environment `production` com required reviewer configurado
-- [ ] Push em `main` disparou o deploy automático e passou — hoje falha porque
-      falta o OIDC acima (`azure/login` sem `client-id`/`tenant-id`)
+- [ ] Push em `main` disparou o deploy automático e passou — **bloqueado em
+      05/11/2026**: `az ad app create` falha com "Insufficient privileges" —
+      a conta `@alunos.ibmec.edu.br` não tem permissão de registrar
+      aplicativos no Entra ID desse tenant (nem criar um novo app registration
+      nem usar o antigo, que também sumiu — provável limpeza do tenant
+      educacional). Não é algo que a sessão resolva sozinha: depende de um
+      admin do tenant (professor/TI do IBMEC) liberar a role **Application
+      Developer** ou criar o app registration. A decisão de usar OIDC em vez
+      de publish profile (`docs/02-arquitetura.md`, item 8) continua de pé —
+      isto é um bloqueio de permissão, não uma mudança de arquitetura.
+      **Interino até resolver:** deploy manual (`az webapp deploy`, seção 3),
+      que já está confirmado funcionando. O workflow já está com o nome e o
+      `--extra azuresql` corretos, pronto pra rodar assim que o OIDC for
+      liberado
 - [x] CORS testado com `curl -X OPTIONS` — `200` com `Access-Control-Allow-Origin`
       confirmado em produção (11/10/2026)
 - [ ] Alerta de orçamento ativo no portal
