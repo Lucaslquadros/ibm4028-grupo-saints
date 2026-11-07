@@ -13,6 +13,76 @@ fechamento (cerca de **2 dias**), cruzando exports de três módulos do Everest
 - **CMV real**, ou CMV de compras: custo de compras **depois do inventário completo do dia 30**. Feito pelo Wellington.
 - **Ajuste teórico** = real − teórico. Quando ele é grande, "tem erro em algum lugar" (ficha técnica, contagem, perda não lançada, desvio).
 
+Quem usa: a analista de custos (Persona 1) **envia** os relatórios; o
+sócio/diretor (Persona 2) **lê** o fechamento e decide. Ver `01-requisitos.md`,
+seção 3.
+
+## O que o usuário precisa fornecer
+
+> Adicionado em 07/11/2026. É o contrato de entrada do sistema: se algo desta
+> seção faltar, o fechamento sai errado ou não sai. Está escrito para que a
+> afirmação "a solução é genérica" tenha fronteira clara.
+
+### A. Antes de qualquer arquivo — o que a operação precisa ter
+
+O sistema não supre estes itens: eles nascem na operação.
+
+| Pré-requisito | Por quê | Se faltar |
+|---|---|---|
+| **Ficha técnica cadastrada** para os itens vendidos | É ela que gera o custo teórico (venda × custo-padrão) | Não existe lado teórico, logo não existe fechamento |
+| **Inventário de fim de mês fechado antes de exportar o lado real** | CMV real = estoque inicial + compras − estoque final | O "real" vira "o que comprei no mês". O sistema **não percebe** e calcula um ajuste sem sentido |
+| **As mesmas categorias (grupos) nos dois relatórios** | Só entram no CMV os grupos que aparecem nos dois lados | Grupo com nome diferente em cada lado sai do cálculo em silêncio |
+| **Uma unidade por arquivo** | O fechamento é por unidade | Arquivo consolidado de várias unidades não tem como ser separado |
+
+Esta é a fronteira do público: **operações com ficha técnica e inventário
+mensal**, de qualquer ramo, que exportam uma tabela com grupo, custo e venda. O
+porte não importa; o dado, sim.
+
+### B. Em cada envio
+
+| Campo | Regra |
+|---|---|
+| Unidade | Cadastrada antes (aba Casas) |
+| Período | `AAAA-MM`. **O arquivo não informa o período: quem declara é o usuário** |
+| Lado | `cardapio` (teórico) ou `compras` (real). O **formato** do arquivo é detectado sozinho |
+| Arquivo | **Só `.xlsx`**, até 10 MB. Com várias abas, uma delas precisa começar com o mês do período (ex.: `SETEMBRO26`) |
+| Reenvio | Substitui o anterior da mesma unidade, período e lado |
+
+### C. Conteúdo de cada lado (planilha genérica)
+
+| Coluna (sinônimos aceitos) | Lado teórico | Lado real | Usada em |
+|---|---|---|---|
+| `grupo` (`categoria`) | **Obrigatória** | **Obrigatória** | Tudo |
+| `custo` (`custo total`) | **Obrigatória** | **Obrigatória** | Tudo |
+| `venda_liquida` (`venda`, `receita`, `faturamento`) | **Na prática obrigatória**: é o denominador do CMV % dos dois lados | Opcional; usada só se o mês não tiver lado teórico | CMV %, ajuste em pp |
+| `subgrupo` (`subcategoria`) | Opcional | Opcional | Detalhamento (ver "Explicação do ajuste") |
+| `item` (`produto`, `descricao`) + `quantidade` (`qtd`) | Opcional no fechamento; **obrigatória para "Quanto comprar"** | Ignorada | Top itens, RF07 |
+
+Colunas achadas pelo nome, em qualquer ordem; colunas a mais são ignoradas;
+números no formato `1.234,56` são aceitos. Os dois relatórios do Everest
+(engenharia de cardápio e DRE de compras) são lidos como saem, sem preparo.
+
+### D. Para a recomendação de compra (RF07)
+
+| Meses de lado teórico | O sistema consegue |
+|---|---|
+| < 3 | Sugestão com confiança "baixa" |
+| 3 | Média móvel |
+| 6 | + tendência |
+| 12 | + sazonalidade |
+
+Os **nomes dos itens precisam ser iguais entre os meses**: item renomeado no
+ERP parte a série em dois sem aviso (`01-requisitos.md` 1.9).
+
+### O que o sistema aceita sem conferir
+
+Onde a "solução genérica" pode falhar **sem dar erro**:
+
+1. **Se o lado real é pós-inventário.** Nada no arquivo indica.
+2. **Se o período declarado é o do arquivo.** É a limitação da DRE do caso de origem, e vale para qualquer usuário.
+3. **Maiúsculas e espaços no nome do grupo.** Hoje `Alimentos` e `ALIMENTOS` são grupos diferentes — correção planejada em `11-ciclo-explicacao-do-ajuste.md` (P0).
+4. **Sinal e unidade dos valores.** Se o ERP exportar custo como negativo, o ajuste sai invertido.
+
 ## Os dois relatórios que o sistema lê
 
 | `tipo` | Relatório do Everest | Lado do fechamento |
@@ -76,6 +146,20 @@ sistema soma todos os grupos com custo, em vez de aplicar uma taxonomia de
 restaurante que não tem como conhecer. Basta um cardápio, de qualquer mês, para
 a dedução passar a funcionar.
 
+## Explicação do ajuste (RF11) — planejado
+
+> **Especificado em 07/11/2026, não implementado.** Especificação completa,
+> com contrato da API e testes, em `11-ciclo-explicacao-do-ajuste.md`, seção 3.
+
+Mostrar o ajuste não basta — o ERP do cliente já tem os números. O fechamento
+passa a dizer **onde** a diferença está e **o que conferir**, em texto gerado
+por regras (sem LLM), escrito para o sócio:
+
+- **Contribuição de cada grupo em pontos do total**: `ajuste(g) ÷ venda total × 100`. O `ajuste_pp` de cada grupo usa a venda do próprio grupo e não soma ao total; a contribuição soma.
+- **Três situações, não duas:** acima do previsto, dentro (±1 pp, premissa declarada) e **abaixo** do previsto. Abaixo não é economia: normalmente falta algo no lado real (compra não lançada, inventário superestimado) ou sobra no teórico (ficha superestimada, período desalinhado). O caso real de set/26 (−3,68 pp) é deste tipo.
+- **Compensação declarada:** um grupo acima e outro abaixo podem se anular no total; o texto diz isso.
+- **Subgrupos só onde existem nos dois lados.** No Everest, os subgrupos do cardápio são categorias de **venda** (PETISCOS) e os da DRE são categorias de **insumo** (BOVINOS). Não existe "BOVINOS teórico" sem ficha técnica explodida em insumos, que o sistema não recebe. O resto aparece como composição do custo, nunca como desvio — e a tela diz por quê.
+
 ## O terceiro formato: planilha genérica
 
 Os dois tradutores acima são do Everest. O terceiro (`ler_planilha`) lê uma
@@ -87,7 +171,7 @@ adaptar o sistema a outra origem é escrever um tradutor, não mexer na regra:
 | MEDICAMENTOS | GENERICOS | DIPIRONA 500MG | 820 | 14760 | 5904 |
 | PERFUMARIA | HIGIENE | SABONETE 90G | 1900 | 9500 | 4750 |
 
-- Só `grupo` e `custo` são obrigatórios: um relatório de compras não tem venda.
+- Só `grupo` e `custo` são obrigatórios para o arquivo ser aceito: um relatório de compras não tem venda. No lado teórico, porém, sem `venda_liquida` não há CMV % (ver tabela C acima).
 - As colunas são localizadas **por nome**, em qualquer ordem, e colunas desconhecidas são ignoradas. Aceita sinônimos (`categoria`, `produto`, `receita`, `faturamento`…).
 - A hierarquia é **calculada**: o arquivo traz linhas planas e o tradutor soma subgrupo, grupo e total.
 - O **formato é detectado**, não declarado: `leitores.ler` tenta o leitor do Everest e cai no genérico se não reconhecer. O usuário só diz se o arquivo é o lado teórico (`cardapio`) ou o real (`compras`).
@@ -108,6 +192,13 @@ uv run python scripts/popular_demo_generico.py --apenas-planilhas pasta/
 Cria quatro unidades com 6 meses nos dois lados, a partir dos CSVs de
 `exemplos/`. Acrescentar um ramo é acrescentar dois CSVs e uma entrada no
 manifesto — **sem tocar Python**.
+
+**O que as DEMO provam, e o que não provam.** Provam que o **formato** e a
+**regra** não dependem do Everest nem do ramo. Não provam que existe cliente
+nesses ramos, nem que o pequeno negócio tem os dados da seção "O que o usuário
+precisa fornecer". E têm uma diferença em relação ao dado real: nelas os
+subgrupos são **iguais** nos dois lados, então a comparação por subgrupo do
+RF11 parece completa nas DEMO e quase vazia na casa real. Isso é esperado.
 
 **Dado fictício e rotulado "(DEMO)".** As quatro estão em produção; o fechamento
 de cada uma, com os grupos que o sistema deduziu, está em `01-requisitos.md` 1.8.
@@ -134,6 +225,10 @@ uv run python scripts/importar_exports.py \
 | GET | `/api/v1/metricas/fechamento` | Teórico × real × ajuste por grupo e total |
 | GET | `/api/v1/metricas/evolucao` | CMV teórico × real mês a mês |
 | GET | `/api/v1/metricas/top-itens` | Itens que mais pesam (`ordem=custo` ou `ordem=cmv`) |
+| GET | `/api/v1/modelos/{tipo}` | **Planejado (P0 do ciclo 07/11).** Planilha-modelo `.xlsx` gerada na hora, com linhas sintéticas |
+
+O campo `explicacao` do fechamento (RF11) é **planejado**: ver
+`11-ciclo-explicacao-do-ajuste.md`, seção 3.5.
 
 ## Pendências e próximos passos
 

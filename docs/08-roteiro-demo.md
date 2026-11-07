@@ -5,6 +5,13 @@
 > driver ODBC e `.env` para rodar. **Nada disso é necessário.** A aplicação está
 > em produção; a demonstração é um navegador e cinco links.
 
+> **Ciclo 07–09/11 em andamento.** Este roteiro descreve o que **está no ar**.
+> O que está sendo construído para segunda (explicação do ajuste, fluxo guiado,
+> tempo medido) está em `11-ciclo-explicacao-do-ajuste.md` e só entra aqui
+> **depois do deploy conferido** — roteiro que descreve o que não existe quebra
+> na frente da banca. Os pontos marcados **[ciclo 07/11]** abaixo são o que já
+> muda de discurso, independentemente do código.
+
 ## Regra número um
 
 **Não instale nada, não clone nada, não abra terminal.** Se a demonstração
@@ -64,6 +71,10 @@ Quatro abas, na ordem do fluxo real: **Casas → Upload → Fechamento → Quant
 - **Casas** → o CRUD do RF08. Mostre a casa piloto, o Boteco São Bento - Vila Madalena, e diga que as outras quatro são de demonstração (o nome carrega "(DEMO)").
 - **Fechamento** → escolha a casa piloto, período **09/2026**, Calcular.
 
+**[ciclo 07/11] Quem é quem.** A analista de custos sobe os relatórios; o
+sócio lê o resultado e decide. O sistema é para os dois — não para "qualquer
+pequeno negócio" (ver a pergunta sobre isso no fim).
+
 Pare no número e deixe ele respirar:
 
 | | |
@@ -109,6 +120,12 @@ dizendo qual coluna falta** — não um stack trace. Vale mostrar de propósito.
 > "O cliente parou de responder depois da segunda conversa. Em vez de inventar
 > uma validação que não houve, usamos a base real dele para provar uma
 > afirmação verificável: **o cálculo não depende do ERP dele nem do ramo dele.**"
+
+**[ciclo 07/11] Diga a fronteira junto com a tese:** *"Funciona para qualquer
+operação que tenha ficha técnica e inventário mensal e exporte uma tabela com
+grupo, custo e venda. Provamos com um ERP real e quatro ramos sintéticos."* O que
+o usuário precisa fornecer está em `07-fechamento-cmv.md` — se perguntarem, é
+para lá que se aponta.
 
 Ainda em **Fechamento**, troque a casa — são **quatro ramos diferentes**, e o
 seletor é a demonstração inteira. Não precisa mostrar os quatro: mostre dois
@@ -190,7 +207,8 @@ demonstrado só até onde funciona.
 
 - **A API é pública.** Autenticação era RNF03 da Sprint 2 e não foi entregue. É a lacuna mais séria do trabalho.
 - **Sem Application Insights.** Os logs do App Service foram ligados em 06/11 (antes disso nem existiam), mas observabilidade de verdade — requisição, latência, falha ao longo do tempo — ficou como nível 2 da fila em `docs/09-uso-da-nuvem.md`.
-- **RF09 (nota fiscal fotografada) está especificado e não construído**, em `docs/10-anexos-de-imagem.md`.
+- **RF09 (nota fiscal fotografada) está especificado e não construído**, em `docs/10-anexos-de-imagem.md`. Desceu para Should em 07/11.
+- **O sistema encurta o diagnóstico, não previne.** O CMV real depende do inventário do dia 30. Delta semanal e alertas são roadmap.
 - **A DRE real não diz de qual casa nem de qual mês é.** O rótulo set/26 foi atribuído por nós, com base em evidência circunstancial. É a limitação mais importante do trabalho e está escrita em `docs/01-requisitos.md` 1.9.
 - **Um mês de CMV real.** 24 meses de teórico, 1 de real: a série de ajuste tem um ponto.
 - **Uma casa real.** O consolidado entre casas é exercitado com a unidade de demonstração.
@@ -222,7 +240,10 @@ Só se houver tempo e interesse. É aqui que o terminal pode aparecer.
 | "Por que só uma casa?" | Foi a única com export real cedido. O cliente parou de responder antes de mandar as outras |
 | "Os testes rodam contra o Azure SQL?" | Não, rodam em SQLite, por velocidade. Essa diferença já causou um 500 só em produção; hoje há teste que compila as queries no dialeto do SQL Server (`tests/test_dialeto_sql.py`) |
 | "Como vocês sabem que é o código novo que está no ar?" | O `/health` informa o SHA do commit publicado, e o workflow só dá sucesso se ele bater com o que acabou de subir |
-| "Esses outros negócios são clientes?" | Não, são dado fictício para provar que o cálculo não depende do ramo. Está rotulado "(DEMO)" no nome da unidade |
+| "Esses outros negócios são clientes?" | Não, são dado fictício para provar que o cálculo não depende do ramo. Está rotulado "(DEMO)" no nome da unidade. Existem porque não teríamos os dados das outras casas do Saints para hoje |
+| "Isso serve para um pequeno negócio?" | Serve para quem tem ficha técnica e inventário mensal, de qualquer porte. Quem não tem esses dois controles não tem o dado que o cálculo exige — atendê-lo seria construir um mini-ERP, que está fora de escopo. Chegamos a apontar para esse público em 06/11 e recuamos: ninguém dele foi entrevistado |
+| "Por que vocês mudaram de persona?" | Testamos a hipótese do pequeno negócio contra a evidência que tínhamos e ela não se sustentou. Voltamos ao público com dor comprovada. Está registrado com motivo em `docs/01-requisitos.md`, histórico v1.1 |
+| "Dá para saber qual insumo causou o ajuste?" | Não com estes relatórios: o cardápio agrupa por venda (PETISCOS) e as compras por insumo (BOVINOS). Abaixo do grupo só comparamos o que existe com o mesmo nome nos dois lados — e dizemos isso na tela em vez de inventar |
 | "Por que a sugestão de compra é maior que a média de venda?" | Sazonalidade — a coluna "Efeito do mês" mostra quanto aquele mês costuma fugir da média anual para aquele item |
 | "Vocês usaram Redis? Cache?" | Não, e de propósito: 10–15 usuários, uso concentrado no fechamento. A recusa está escrita em `docs/09-uso-da-nuvem.md` com o motivo |
 | "Cadê a autenticação?" | Não foi entregue. Estava na Sprint 2 e ficou para trás |

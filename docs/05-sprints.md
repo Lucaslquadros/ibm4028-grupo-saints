@@ -95,11 +95,37 @@ véspera da entrega.
 | DRE consolidada automática (se sobrar tempo) | RF06 | Should | O próprio cliente chamou de "muito simples de fazer" — quick win se der tempo |
 | **Decisão sobre RF03** | RF03 | Must (hipótese) | Só entra no backlog se a Conversa 2 tiver validado o fluxo a tempo; senão, documentar como adiado em `docs/01-requisitos.md` com o motivo |
 
-**Buffer 07/11 a 09/11:** ajustes finais, checklist de entrega parcial, README
-atualizado com a URL do ambiente, preparação da demo final.
+**Buffer 07/11 a 09/11:** virou o **ciclo "explicar o ajuste"** — ver a seção
+abaixo e `11-ciclo-explicacao-do-ajuste.md`.
 
 **Review (06/11):** demo completa do MVP para o cliente — upload, delta,
 dashboard consolidado, no ar.
+
+---
+
+## Ciclo 07/11 a 09/11/2026 — explicar o ajuste
+
+**Meta:** o fechamento passa a dizer onde está a diferença e o que conferir, em
+linguagem que o sócio entenda. Especificação completa (decisões, contrato da
+API, testes, ordem de corte) em **`11-ciclo-explicacao-do-ajuste.md`**.
+
+| Ordem | Item | RF | MoSCoW | Estimativa |
+|---|---|---|---|---|
+| P0 | Nomes de grupo padronizados + planilha-modelo `.xlsx` gerada pela API | RF01 | Must | 1,5 h |
+| 1 | Explicação do ajuste — backend + testes | RF11 | Must | 5 h |
+| 2 | Explicação do ajuste — tela de Fechamento | RF11 | Must | 2 h |
+| 3 | Fluxo guiado "Fechar o mês" | RF12 | Should | 3,5 h |
+| 4 | Tempo do primeiro envio ao resultado | RF13 | Should | 0,5–1 h |
+| — | Docs + deploys conferidos | — | — | 2,5 h |
+
+**Ordem de corte:** 1º RF12 inteiro (o cronômetro vai para a tela de Upload);
+2º a comparação por subgrupo. **Inegociável:** P0 + RF11 com os três ramos de
+sinal.
+
+**Congelamento:** nenhum deploy depois de **domingo 08/11, 20h**. Após o último:
+`/health` com o SHA novo e o fechamento de set/26 com `ajuste_pp: -3.68`.
+
+**Fora do ciclo:** mini-ERP, alertas, delta semanal, autenticação, RF09, infra.
 
 ---
 
