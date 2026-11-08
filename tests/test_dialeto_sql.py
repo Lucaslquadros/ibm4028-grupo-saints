@@ -63,6 +63,25 @@ def test_nomes_mais_custosos_e_compativel_com_sql_server():
     assert "ORDER BY" in sql  # obrigatório: o SQL Server não tem LIMIT
 
 
+def test_subgrupos_por_lado_e_compativel_com_sql_server():
+    """A query do RF11 agrupa por (tipo, grupo, subgrupo) e soma custo e venda.
+
+    É a primeira query nova desde o 500 de produção, e tem a mesma forma de
+    risco: três colunas não agregadas no SELECT. Se alguém acrescentar uma
+    quarta sem pôr no GROUP BY, isto falha aqui em vez de falhar no Azure.
+    """
+    stmt = crud.stmt_subgrupos_por_lado(
+        casa_id=1, periodo="2026-09", grupos=["ALIMENTOS", "BEBIDAS"]
+    )
+
+    assert _colunas_soltas_no_group_by(stmt) == []
+    sql = str(stmt.compile(dialect=mssql.dialect())).upper()
+    assert "GROUP BY" in sql
+    # Sem LIMIT nesta query: o fechamento precisa de todos os subgrupos do mês,
+    # e por isso ela não exige ORDER BY no SQL Server.
+    assert "OFFSET" not in sql
+
+
 def test_a_checagem_pegaria_a_query_que_quebrou_em_producao():
     """Guarda do guarda: prova que `_colunas_soltas_no_group_by` acusa a forma
     antiga da query, em vez de aprovar qualquer coisa que receba."""

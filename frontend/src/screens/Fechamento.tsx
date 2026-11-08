@@ -3,15 +3,37 @@ import {
   api,
   ApiError,
   type Casa,
+  type Explicacao,
   type Fechamento as FechamentoDto,
   type ItemCardapio,
   type PontoEvolucao,
+  type SituacaoAjuste,
 } from "../api";
 
 const brl = (n: number | null) =>
   n === null ? "—" : n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const pct = (n: number | null) => (n === null ? "—" : `${n.toFixed(2)}%`);
+
+// Pontos percentuais não são por cento: 3 pp de diferença entre dois CMV% não
+// é "3%". O sinal vem sempre explícito, porque é ele que muda o diagnóstico.
+const pp = (n: number | null) => (n === null ? "—" : `${n > 0 ? "+" : ""}${n.toFixed(2)} pp`);
+
+// As três situações do RF11. Ajuste negativo NÃO é economia — é divergência,
+// normalmente algo faltando no lado real. Por isso "abaixo" é atenção (âmbar),
+// e não o verde de "favorável" que esta tela mostrava antes.
+const SELO: Record<SituacaoAjuste, { rotulo: string; classe: string }> = {
+  acima: { rotulo: "Acima do previsto", classe: "hero-selo-ruim" },
+  dentro: { rotulo: "Dentro da margem", classe: "hero-selo-bom" },
+  abaixo: { rotulo: "Abaixo do previsto", classe: "hero-selo-atencao" },
+};
+
+function classeDoAjuste(valor: number | null, limiar: number) {
+  if (valor === null) return "";
+  if (valor > limiar) return "txt-ruim";
+  if (valor < -limiar) return "txt-atencao";
+  return "txt-neutro";
+}
 
 function EvolucaoChart({ pontos }: { pontos: PontoEvolucao[] }) {
   const comDado = pontos.filter((p) => p.cmv_teorico_pct !== null || p.cmv_real_pct !== null);
@@ -58,6 +80,189 @@ function EvolucaoChart({ pontos }: { pontos: PontoEvolucao[] }) {
   );
 }
 
+/** O parágrafo que o sócio lê primeiro — vem ACIMA do número, de propósito:
+ * o número ele já tem no ERP, a leitura é o que o sistema acrescenta. */
+export function BlocoExplicacao({ explicacao }: { explicacao: Explicacao }) {
+  return (
+    // Sem selo de situação aqui: ele fica no hero logo abaixo, e repetir o
+    // mesmo rótulo duas vezes em meia tela só rouba atenção do parágrafo.
+    <div className="glass explicacao">
+      <p className="explicacao-resumo">{explicacao.resumo}</p>
+      {explicacao.sugestoes.length > 0 && (
+        <>
+          <span className="explicacao-rotulo">O que conferir</span>
+          <ol className="sugestoes">
+            {explicacao.sugestoes.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ol>
+        </>
+      )}
+      <p className="explicacao-premissa">
+        Consideramos normal uma diferença de até {explicacao.limiar_pp.toFixed(1)} ponto. É uma
+        premissa nossa, não um parâmetro do cliente.
+      </p>
+    </div>
+  );
+}
+
+function BlocoSubgrupos({ explicacao }: { explicacao: Explicacao }) {
+  const { subgrupos_comparados: comparados, subgrupos_sem_par: semPar } = explicacao;
+  if (comparados.length === 0 && semPar.length === 0) return null;
+
+  return (
+    <>
+      <h3>Abaixo do grupo</h3>
+      {comparados.length > 0 ? (
+        <table className="tabela glass">
+          <thead>
+            <tr>
+              <th>Grupo</th>
+              <th>Categoria</th>
+              <th>Teórico</th>
+              <th>Real</th>
+              <th>Ajuste</th>
+              <th>Ajuste (pp)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {comparados.map((s) => (
+              <tr key={`${s.grupo}-${s.subgrupo}`}>
+                <td>{s.grupo}</td>
+                <td>{s.subgrupo}</td>
+                <td className="num">{brl(s.custo_teorico)}</td>
+                <td className="num">{brl(s.custo_real)}</td>
+                <td className="num">{brl(s.ajuste)}</td>
+                <td className={`num ${classeDoAjuste(s.ajuste_pp, explicacao.limiar_pp)}`}>
+                  {pp(s.ajuste_pp)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="vazio">
+          Nenhuma categoria aparece com o mesmo nome nos dois relatórios deste mês, então não há
+          comparação a fazer abaixo do grupo.
+        </p>
+      )}
+
+      {semPar.length > 0 && (
+        <>
+          <p className="aviso">{explicacao.limite_dado}</p>
+          <span className="explicacao-rotulo">
+            Composição do custo — categorias que existem em um lado só.{" "}
+            <strong>Não são desvio.</strong>
+          </span>
+          <table className="tabela glass">
+            <thead>
+              <tr>
+                <th>Grupo</th>
+                <th>Categoria</th>
+                <th>Lado</th>
+                <th>Custo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {semPar.map((s) => (
+                <tr key={`${s.grupo}-${s.subgrupo}-${s.lado}`}>
+                  <td>{s.grupo}</td>
+                  <td>{s.subgrupo}</td>
+                  <td>{s.lado === "teorico" ? "Teórico (cardápio)" : "Real (compras)"}</td>
+                  <td className="num">{brl(s.custo)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </>
+  );
+}
+
+/** O resultado do fechamento sem o formulário de busca.
+ *
+ * Extraído para o fluxo guiado "Fechar o mês" (RF12) mostrar exatamente o
+ * mesmo painel do último passo, em vez de uma segunda versão do mesmo
+ * cálculo que depois saísse do lugar.
+ */
+export function PainelFechamento({ dados }: { dados: FechamentoDto }) {
+  const ajuste = dados.total.ajuste_pp;
+  // `explicacao` pode não existir: o backend em produção durante o deploy pode
+  // ser a versão anterior. Sem ela a tela mostra o número sem leitura, nunca um
+  // rótulo de valor ("favorável") que o sinal do ajuste não sustenta.
+  const explicacao = dados.explicacao ?? null;
+  const limiar = explicacao?.limiar_pp ?? 1;
+  const contribuicoes = new Map(
+    (explicacao?.contribuicoes ?? []).map((c) => [c.grupo, c.contribuicao_pp]),
+  );
+
+  return (
+    <>
+      {(!dados.tem_cardapio || !dados.tem_compras) && (
+        <p className="aviso">
+          {!dados.tem_cardapio && "Falta o upload do cardápio (CMV teórico) deste período. "}
+          {!dados.tem_compras && "Falta o upload de compras (CMV real) deste período."}
+        </p>
+      )}
+
+      {explicacao && <BlocoExplicacao explicacao={explicacao} />}
+
+      <div className="hero-ajuste glass">
+        <div className={`hero-selo ${explicacao ? SELO[explicacao.situacao].classe : ""}`}>
+          {explicacao ? SELO[explicacao.situacao].rotulo : "Ajuste do mês"}
+        </div>
+        <span className="hero-rotulo">Ajuste do mês · {dados.casa_nome}</span>
+        <strong className="hero-valor">{pp(ajuste)}</strong>
+        <span className="hero-detalhe">{brl(dados.total.ajuste)} de diferença entre real e teórico</span>
+
+        <div className="hero-lado">
+          <div>
+            <span className="hero-lado-k">Teórico</span>
+            <span className="hero-lado-v">{pct(dados.total.cmv_teorico_pct)}</span>
+            <span className="hero-lado-d">{brl(dados.total.custo_teorico)}</span>
+          </div>
+          <div className="hero-lado-sep" />
+          <div>
+            <span className="hero-lado-k">Real</span>
+            <span className="hero-lado-v">{pct(dados.total.cmv_real_pct)}</span>
+            <span className="hero-lado-d">{brl(dados.total.custo_real)}</span>
+          </div>
+        </div>
+      </div>
+
+      <table className="tabela glass">
+        <thead>
+          <tr>
+            <th>Grupo</th>
+            <th>Venda líquida</th>
+            <th>CMV teórico</th>
+            <th>CMV real</th>
+            <th>Ajuste (pp)</th>
+            {/* Contribuição = ajuste do grupo ÷ venda TOTAL. É a coluna que
+                soma ao ajuste do mês; a de ajuste em pp não soma. */}
+            <th>Contribuição</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dados.grupos.map((g) => (
+            <tr key={g.grupo}>
+              <td>{g.grupo}</td>
+              <td className="num">{brl(g.venda_liquida)}</td>
+              <td className="num">{pct(g.cmv_teorico_pct)}</td>
+              <td className="num">{pct(g.cmv_real_pct)}</td>
+              <td className={`num ${classeDoAjuste(g.ajuste_pp, limiar)}`}>{pp(g.ajuste_pp)}</td>
+              <td className="num">{pp(contribuicoes.get(g.grupo) ?? null)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {explicacao && <BlocoSubgrupos explicacao={explicacao} />}
+    </>
+  );
+}
+
 type Props = {
   casas: Casa[];
   casaId: number | "";
@@ -94,14 +299,11 @@ export function Fechamento({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
     }
   }
 
-  const ajuste = dados?.total.ajuste_pp ?? null;
-  const favoravel = ajuste !== null && ajuste <= 0;
-
   return (
     <section className="tela">
       <header className="tela-cabecalho">
         <h2>Fechamento de CMV</h2>
-        <p className="ajuda">Teórico × real × ajuste — o relatório que hoje leva dois dias por casa.</p>
+        <p className="ajuda">Teórico × real × ajuste — e onde a diferença está.</p>
       </header>
 
       <form className="glass form-fechamento" onSubmit={buscar}>
@@ -133,63 +335,7 @@ export function Fechamento({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
 
       {dados && (
         <>
-          {(!dados.tem_cardapio || !dados.tem_compras) && (
-            <p className="aviso">
-              {!dados.tem_cardapio && "Falta o upload do cardápio (CMV teórico) deste período. "}
-              {!dados.tem_compras && "Falta o upload de compras (CMV real) deste período."}
-            </p>
-          )}
-
-          <div className="hero-ajuste glass">
-            <div className={favoravel ? "hero-selo hero-selo-bom" : "hero-selo hero-selo-ruim"}>
-              {ajuste === null ? "—" : favoravel ? "Favorável" : "Desfavorável"}
-            </div>
-            <span className="hero-rotulo">Ajuste do mês · {dados.casa_nome}</span>
-            <strong className="hero-valor">
-              {ajuste !== null && ajuste > 0 ? "+" : ""}
-              {pct(ajuste)}
-            </strong>
-            <span className="hero-detalhe">{brl(dados.total.ajuste)} de diferença entre real e teórico</span>
-
-            <div className="hero-lado">
-              <div>
-                <span className="hero-lado-k">Teórico</span>
-                <span className="hero-lado-v">{pct(dados.total.cmv_teorico_pct)}</span>
-                <span className="hero-lado-d">{brl(dados.total.custo_teorico)}</span>
-              </div>
-              <div className="hero-lado-sep" />
-              <div>
-                <span className="hero-lado-k">Real</span>
-                <span className="hero-lado-v">{pct(dados.total.cmv_real_pct)}</span>
-                <span className="hero-lado-d">{brl(dados.total.custo_real)}</span>
-              </div>
-            </div>
-          </div>
-
-          <table className="tabela glass">
-            <thead>
-              <tr>
-                <th>Grupo</th>
-                <th>Venda líquida</th>
-                <th>CMV teórico</th>
-                <th>CMV real</th>
-                <th>Ajuste</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dados.grupos.map((g) => (
-                <tr key={g.grupo}>
-                  <td>{g.grupo}</td>
-                  <td className="num">{brl(g.venda_liquida)}</td>
-                  <td className="num">{pct(g.cmv_teorico_pct)}</td>
-                  <td className="num">{pct(g.cmv_real_pct)}</td>
-                  <td className={`num ${g.ajuste_pp !== null && g.ajuste_pp <= 0 ? "txt-bom" : "txt-ruim"}`}>
-                    {pct(g.ajuste_pp)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <PainelFechamento dados={dados} />
 
           <h3>Evolução mensal</h3>
           <div className="legenda">

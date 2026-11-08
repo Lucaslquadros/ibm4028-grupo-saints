@@ -2,18 +2,24 @@ import { useState } from "react";
 import type { Casa } from "./api";
 import { Casas } from "./screens/Casas";
 import { Upload } from "./screens/Upload";
+import { FecharMes } from "./screens/FecharMes";
 import { Fechamento } from "./screens/Fechamento";
 import { Recomendacao } from "./screens/Recomendacao";
 import "./App.css";
 
-type Tela = "casas" | "upload" | "fechamento" | "recomendacao";
+type Tela = "casas" | "upload" | "fecharmes" | "fechamento" | "recomendacao";
 
 // A ordem é o fluxo real de uso: cadastra a casa, sobe o export, confere o
 // fechamento e decide a compra do mês seguinte. "Quanto comprar" vem por último
 // porque depende do histórico que os passos anteriores carregaram.
+//
+// "Fechar o mês" (RF12) é o caminho guiado para quem está fechando pela
+// primeira vez; "Upload" continua como está para quem já sabe o que precisa
+// enviar. Trocar um pelo outro quebraria o fluxo de quem já usa.
 const TELAS: { id: Tela; rotulo: string }[] = [
   { id: "casas", rotulo: "Casas" },
   { id: "upload", rotulo: "Upload" },
+  { id: "fecharmes", rotulo: "Fechar o mês" },
   { id: "fechamento", rotulo: "Fechamento" },
   { id: "recomendacao", rotulo: "Quanto comprar" },
 ];
@@ -52,6 +58,15 @@ export default function App() {
         {tela === "casas" && <Casas onCasasCarregadas={setCasas} />}
         {tela === "upload" && (
           <Upload
+            casas={casas}
+            casaId={casaId}
+            setCasaId={setCasaId}
+            periodo={periodo}
+            setPeriodo={setPeriodo}
+          />
+        )}
+        {tela === "fecharmes" && (
+          <FecharMes
             casas={casas}
             casaId={casaId}
             setCasaId={setCasaId}

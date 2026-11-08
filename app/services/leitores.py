@@ -42,6 +42,9 @@ MESES = (
 
 CODIGO_CONTA = re.compile(r"^\d+(\.\d+)*$")
 
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+"""O único formato de arquivo que a API aceita (e o que ela gera em /modelos)."""
+
 
 class ErroLeitura(ValueError):  # noqa: N818 - nome em português, como o resto do domínio
     """O arquivo não está no formato esperado. Mensagem pensada para o usuário."""
@@ -73,6 +76,22 @@ def _normalizar(texto: Any) -> str:
         return ""
     sem_acento = unicodedata.normalize("NFKD", str(texto)).encode("ascii", "ignore").decode()
     return " ".join(re.sub(r"[^A-Z0-9 ]", " ", sem_acento.upper()).split())
+
+
+def _padronizar(texto: str) -> str:
+    """'  Alimentos  frios ' → 'ALIMENTOS FRIOS'. Para nome de grupo e subgrupo.
+
+    Sem isto, `Alimentos` no cardápio e `ALIMENTOS` na DRE são dois grupos
+    diferentes para o `GROUP BY` — e o grupo **sai do CMV direto em silêncio**,
+    porque `crud.grupos_comparaveis` só compara o que os dois lados reportam
+    com o mesmo nome. Era a lacuna nº1 do contrato de entrada
+    (`docs/07-fechamento-cmv.md`, "O que o sistema aceita sem conferir").
+
+    Diferente de `_normalizar`, que serve para reconhecer **cabeçalho** e por
+    isso descarta acento e pontuação: aqui o texto volta para o banco e é
+    exibido na tela, então acento é preservado.
+    """
+    return " ".join(texto.upper().split())
 
 
 def _numero(valor: Any) -> float | None:
@@ -171,11 +190,12 @@ def ler_cardapio(conteudo: bytes, periodo: str) -> Extracao:
         }
 
         if col_a:
+            rotulo = _padronizar(col_a)
             proxima_a = _texto(corpo[i + 1], 0) if i + 1 < len(corpo) else None
             if proxima_a:
-                grupo, subgrupo, nivel = col_a, None, "grupo"
+                grupo, subgrupo, nivel = rotulo, None, "grupo"
             else:
-                subgrupo, nivel = col_a, "subgrupo"
+                subgrupo, nivel = rotulo, "subgrupo"
             if grupo is None:
                 raise ErroLeitura(f"Subgrupo '{col_a}' aparece antes de qualquer grupo.")
             extracao.linhas.append(
@@ -183,7 +203,7 @@ def ler_cardapio(conteudo: bytes, periodo: str) -> Extracao:
                     nivel=nivel,
                     grupo=grupo,
                     subgrupo=subgrupo,
-                    nome=col_a,
+                    nome=rotulo,
                     custo=valores["custo"] or 0.0,
                     quantidade=valores["quantidade"],
                     venda_liquida=valores["venda_liquida"],
@@ -284,13 +304,12 @@ def ler_compras(conteudo: bytes, periodo: str) -> Extracao:
         if len(niveis) == 2 and _normalizar(descricao) == "CUSTOS":
             custo_total = valor
         elif len(niveis) == 3:
-            grupo = descricao
-            extracao.linhas.append(Linha(nivel="grupo", grupo=grupo, nome=descricao, custo=valor))
+            grupo = _padronizar(descricao)
+            extracao.linhas.append(Linha(nivel="grupo", grupo=grupo, nome=grupo, custo=valor))
         elif len(niveis) == 4 and grupo:
+            subgrupo = _padronizar(descricao)
             extracao.linhas.append(
-                Linha(
-                    nivel="subgrupo", grupo=grupo, subgrupo=descricao, nome=descricao, custo=valor
-                )
+                Linha(nivel="subgrupo", grupo=grupo, subgrupo=subgrupo, nome=subgrupo, custo=valor)
             )
 
     if not extracao.por_nivel("grupo"):
@@ -390,7 +409,11 @@ def ler_planilha(conteudo: bytes, periodo: str) -> Extracao:
         if not grupo or custo is None:
             continue  # linha em branco ou rodapé
 
+        # Padronizado ANTES de acumular: assim 'Alimentos' e 'ALIMENTOS' somam
+        # na mesma chave, dentro do arquivo e entre os dois lados do fechamento.
+        grupo = _padronizar(grupo)
         subgrupo = _celula_texto(linha, colunas.get("subgrupo"))
+        subgrupo = _padronizar(subgrupo) if subgrupo else None
         item = _celula_texto(linha, colunas.get("item"))
         quantidade = _celula_numero(linha, colunas.get("quantidade"))
         venda = _celula_numero(linha, colunas.get("venda_liquida"))

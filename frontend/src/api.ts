@@ -60,6 +60,51 @@ export interface LinhaFechamento {
   ajuste_pp: number | null;
 }
 
+/** Quanto o grupo puxou o ajuste do mês, em pontos do TOTAL.
+ *
+ * Não é o `ajuste_pp` de `LinhaFechamento`: lá o denominador é a venda do
+ * próprio grupo, e por isso aquele número não soma ao total. Este soma.
+ */
+export interface ContribuicaoGrupo {
+  grupo: string;
+  ajuste: number;
+  contribuicao_pp: number;
+}
+
+export interface SubgrupoComparado {
+  grupo: string;
+  subgrupo: string;
+  custo_teorico: number;
+  custo_real: number;
+  ajuste: number;
+  ajuste_pp: number | null;
+}
+
+/** Subgrupo que existe em um lado só: composição do custo, nunca desvio. */
+export interface SubgrupoSemPar {
+  grupo: string;
+  subgrupo: string;
+  lado: "teorico" | "real";
+  custo: number;
+}
+
+/** Três situações, não duas: ajuste negativo não é economia. */
+export type SituacaoAjuste = "acima" | "dentro" | "abaixo";
+
+export interface Explicacao {
+  situacao: SituacaoAjuste;
+  /** Margem tratada como normal, em pontos. É premissa nossa — a tela exibe. */
+  limiar_pp: number;
+  resumo: string;
+  /** No máximo 2. Vazia quando o ajuste está dentro da margem. */
+  sugestoes: string[];
+  contribuicoes: ContribuicaoGrupo[];
+  grupos_sem_par: string[];
+  subgrupos_comparados: SubgrupoComparado[];
+  subgrupos_sem_par: SubgrupoSemPar[];
+  limite_dado: string;
+}
+
 export interface Fechamento {
   casa_id: number;
   casa_nome: string;
@@ -68,6 +113,9 @@ export interface Fechamento {
   tem_compras: boolean;
   total: LinhaFechamento;
   grupos: LinhaFechamento[];
+  /** RF11. Opcional de propósito: entre o deploy do backend e o do front, a
+   * resposta em produção pode não ter este campo — a tela não pode quebrar. */
+  explicacao?: Explicacao | null;
 }
 
 export interface PontoEvolucao {
@@ -123,6 +171,10 @@ export interface RecomendacaoCompra {
 }
 
 export const api = {
+  /** Link direto para a planilha-modelo. Não passa por `pedido`: a API
+   * devolve um arquivo com Content-Disposition, não JSON. */
+  urlModelo: (tipo: TipoUpload) => `${BASE_URL}/api/v1/modelos/${tipo}`,
+
   listarCasas: (params: { ativa?: boolean; busca?: string } = {}) => {
     const q = new URLSearchParams();
     if (params.ativa !== undefined) q.set("ativa", String(params.ativa));

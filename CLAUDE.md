@@ -14,6 +14,29 @@ extraídas dos exports reais do Everest pelos tradutores em
 (Boteco São Bento - Vila Madalena) — regra do cálculo em `docs/07-fechamento-cmv.md`.
 RF03/RF05 (gestão de pessoal) seguem adiados.
 
+**Personas (desde 07/11/2026):** a analista de custos (Persona 1) alimenta o
+sistema; o sócio/diretor (Persona 2) lê o resultado e decide. A Persona 3
+(pequeno negócio) é hipótese futura, **não** é alvo. O público é quem tem ficha
+técnica e inventário mensal — o contrato de entrada está em
+`docs/07-fechamento-cmv.md`, "O que o usuário precisa fornecer". As casas
+"(DEMO)" provam formato e regra genéricos, não mercado.
+
+## Ciclo atual: 07/11 a 09/11/2026 (apresentação na segunda)
+
+**Leia `docs/11-ciclo-explicacao-do-ajuste.md` inteiro antes de escrever código.**
+É a especificação: decisões, contrato da API, testes, ordem de corte.
+
+- **Estado em 07/11, 22h: os cinco itens estão implementados e nenhum foi publicado.**
+  Nada é "entregue" até o deploy conferido no `/health`. Próximo passo: deploy do
+  backend, conferência, deploy do front, e só então atualizar `docs/08-roteiro-demo.md`.
+- Ordem: P0 (nomes de grupo + planilha-modelo) → RF11 backend → RF11 tela → RF12 → RF13.
+- O ajuste da casa real é **negativo** (−3,68 pp): todo texto tem três ramos (acima / dentro / abaixo). Negativo **não** é economia.
+- Abaixo do grupo, só se compara subgrupo que existe nos dois lados. Não inventar granularidade.
+- Campos novos na API são **opcionais**: o frontend em produção não pode quebrar entre deploys. Backend primeiro, depois front.
+- Nunca usar a casa piloto em 09/2026 para testar envio: reenvio **substitui** o dado real.
+- Congelamento: nada de deploy depois de domingo 08/11, 20h. Após cada deploy: `/health` com o SHA novo e fechamento de set/26 com `ajuste_pp: -3.68`.
+- Fora do ciclo: mini-ERP, alertas, delta semanal, autenticação, RF09, infra.
+
 **Dados reais do cliente nunca vão para o Git** (`dados_reais/`, `*.xlsx` no
 `.gitignore`). Testes usam planilhas sintéticas de `tests/planilhas.py`.
 
@@ -61,3 +84,4 @@ NO_COLOR=1 uv export --no-dev --no-hashes --format requirements-txt --extra azur
 - Nenhum segredo no diff
 - `/docs` continua correto
 - Se mudou requisito, `docs/01-requisitos.md` atualizado com o motivo
+- Item do ciclo entregue → marcado como entregue em `docs/01-requisitos.md` e `docs/11-…`, e o roteiro `docs/08-roteiro-demo.md` só descreve o que está no ar

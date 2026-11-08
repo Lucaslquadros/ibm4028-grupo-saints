@@ -18,6 +18,7 @@ from app.deps import DbSession
 from app.schemas import (
     PERIODO_PATTERN,
     ErroResponse,
+    Explicacao,
     FechamentoResponse,
     ItemCardapioResponse,
     LinhaFechamento,
@@ -26,6 +27,7 @@ from app.schemas import (
     PrevisaoItem,
     RecomendacaoCompraResponse,
 )
+from app.services import explicacao as servico_explicacao
 from app.services import previsao as servico_previsao
 
 router = APIRouter(
@@ -64,7 +66,34 @@ def fechamento(db: DbSession, casa_id: CasaId, periodo: Periodo) -> FechamentoRe
         tem_compras=resultado["tem_compras"],
         total=LinhaFechamento(**resultado["total"]),
         grupos=[LinhaFechamento(**g) for g in resultado["grupos"]],
+        explicacao=_explicacao(db, casa_id, periodo, resultado),
     )
+
+
+def _explicacao(db, casa_id: int, periodo: str, resultado: dict) -> Explicacao | None:
+    """RF11 — a explicação do ajuste, ou None quando falta um dos dois lados.
+
+    A consulta dos subgrupos só roda quando há o que comparar: mês com um lado
+    só não gera explicação nenhuma (docs/11, 3.4), então nem vale a query.
+    """
+    if not (resultado["tem_cardapio"] and resultado["tem_compras"]):
+        return None
+
+    linhas = crud.subgrupos_por_lado(
+        db, casa_id=casa_id, periodo=periodo, grupos=resultado["grupos_cmv"]
+    )
+    dados = servico_explicacao.explicar(
+        periodo=periodo,
+        total=resultado["total"],
+        grupos=resultado["grupos"],
+        subgrupos=[
+            servico_explicacao.LinhaSubgrupo(
+                tipo=tipo, grupo=grupo, subgrupo=subgrupo, custo=custo, venda=venda
+            )
+            for tipo, grupo, subgrupo, custo, venda in linhas
+        ],
+    )
+    return Explicacao(**dados) if dados is not None else None
 
 
 @router.get("/evolucao", summary="Evolução mensal do CMV teórico × real")

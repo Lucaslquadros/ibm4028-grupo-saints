@@ -6,8 +6,8 @@
 |---|---|
 | **Grupo** | _(nomes)_ |
 | **Cliente (papel de PO)** | Grupo Saints (grupo de bares/restaurantes, [gruposaints.com.br](https://www.gruposaints.com.br/)). **Desde 06/11/2026 o cliente é caso de estudo, não PO ativo** — ver 1.7 |
-| **Versão** | 1.0 — tudo que está no ar, conferido contra produção |
-| **Última atualização** | 06/11/2026 |
+| **Versão** | 1.2 — RF11–RF13 implementados no ciclo 07–09/11 (`11-ciclo-explicacao-do-ajuste.md`), aguardando deploy |
+| **Última atualização** | 07/11/2026 |
 
 ## Ambiente em produção
 
@@ -35,13 +35,16 @@ e quatro de demonstração, de ramos distintos, com "(DEMO)" no nome.
 
 > Formato: **"[Persona] precisa de [necessidade] porque [insight]."**
 
-**Quem toca o custo de um negócio de alimentos precisa saber onde o custo real
-divergiu do custo que deveria ter sido, porque hoje essa divergência só aparece
-no fechamento do mês — quando o prejuízo já aconteceu e a causa já se perdeu.**
+**A analista de custos de uma rede de bares e restaurantes, e o sócio que decide
+a partir do trabalho dela, precisam saber onde e por que o custo real divergiu
+do custo que deveria ter sido, porque hoje essa divergência só aparece perto do
+dia 15 do mês seguinte, depois de dois dias de planilha por casa — e mesmo
+então como um número, sem a explicação.**
 
-A dor foi validada no caso de origem (Grupo Saints, Conversas 1 e 2) e se agrava
-no alvo do produto (Persona 3, pequeno negócio), que tem a mesma divergência
-**sem** ter equipe de custos para investigá-la.
+A dor foi validada no caso de origem (Grupo Saints, Conversas 1 e 2). O sistema
+**encurta o diagnóstico** (do dia 15 para o dia 1–2 depois do inventário), mas
+**não previne**: o CMV real depende do inventário do dia 30. Prevenção (delta
+semanal, alertas) é roadmap.
 
 ### 1.2 Como o problema é resolvido hoje
 
@@ -50,9 +53,6 @@ equipe exporta três módulos do Everest (vendas, compras e materiais), cola em
 Excel e cruza — cerca de **2 dias por casa**, com o resultado saindo só perto do
 dia 15. Os exports são relatórios de impressão, não tabelas: trazem cabeçalho de
 empresa, totais misturados com itens e hierarquia por indentação.
-
-No alvo (pequeno negócio), não é resolvido: o dono olha o extrato, sente que a
-margem apertou e decide compra "pelo senso".
 
 > A gambiarra é a melhor evidência de que a dor é real. Aqui ela custa 2 dias por
 > casa por mês e ainda assim chega tarde.
@@ -67,12 +67,18 @@ Números do caso de origem, declarados pelo cliente nas Conversas 1 e 2.
 | Atraso da informação | Fechamento sai perto do dia 15 do mês seguinte | No mesmo dia em que o export existe |
 | Custo da divergência | Ajuste de **−3,68 pp** entre CMV real e teórico num único mês, numa casa | Identificar e agir dentro do mês |
 | Erros / retrabalho | Cruzamento manual de 3 relatórios; perdas descobertas só no fim do mês | Cruzamento automático, com o ajuste decomposto por grupo |
+| Entendimento do resultado | O ajuste chega como número; quem decide precisa da analista para interpretá-lo | Parágrafo em português que diz onde está a diferença e o que conferir (RF11) |
 
 ### 1.4 Objetivo do projeto
 
-Transformar exports de ERP em um fechamento de CMV automático que mostra **onde**
-o custo divergiu e **quanto comprar** no mês seguinte — sem montagem manual de
-planilha e sem depender do ERP de nenhum fornecedor específico.
+Transformar exports de ERP em um fechamento de CMV automático que **explica**
+onde o custo divergiu e o que conferir, em linguagem que o sócio entenda, e
+sugere **quanto comprar** no mês seguinte — sem montagem manual de planilha e
+sem depender do ERP de nenhum fornecedor específico.
+
+O público é definido pelo **dado que tem**, não pelo porte: operação com ficha
+técnica cadastrada e inventário mensal, que exporta uma tabela com grupo, custo
+e venda. O que o usuário precisa fornecer está em `07-fechamento-cmv.md`.
 
 ### 1.5 Escopo
 
@@ -81,6 +87,9 @@ planilha e sem depender do ERP de nenhum fornecedor específico.
 - Cadastro de unidades (RF08)
 - Upload de export de custo, em dois lados: teórico e real (RF01)
 - Cálculo do CMV teórico × real, com o ajuste por grupo e total (RF02)
+- Explicação do ajuste por regras: contribuição de cada grupo, subgrupos que existem nos dois lados, resumo e até 2 sugestões (RF11 — implementado, aguardando deploy)
+- Fluxo guiado "Fechar o mês" com planilha-modelo (RF12 — implementado, aguardando deploy, Should)
+- Tempo medido do primeiro envio ao resultado (RF13 — implementado, aguardando deploy, Should)
 - Dashboard com fechamento, evolução mensal e itens que mais pesam (RF04)
 - Recomendação de quantidade de compra a partir do histórico (RF07)
 - Leitura de **três formatos**: dois relatórios do Everest e uma planilha
@@ -95,6 +104,9 @@ planilha e sem depender do ERP de nenhum fornecedor específico.
 - Gestão de pessoal, escala e folha (RF03/RF05)
 - DRE consolidada entre múltiplas casas (RF06)
 - Autenticação e multi-tenant — a API é pública nesta entrega
+- Fluxo para quem não tem ERP (mini-ERP: cadastro de ficha técnica, contagem de estoque)
+- Delta semanal e alertas durante o mês — exigem inventário parcial que não chega ao sistema
+- Comparação teórico × real por **insumo** — exigiria a ficha técnica explodida em insumos, que o ERP não exporta nos relatórios recebidos
 - Eventos, buffet e recebimento de mercadoria
 
 ### 1.6 Como o sucesso será medido
@@ -102,7 +114,8 @@ planilha e sem depender do ERP de nenhum fornecedor específico.
 | Métrica | Alvo | Como foi verificado |
 |---|---|---|
 | O fechamento do mês sai do export cru sem intervenção manual | 100% dos meses carregados | 24 meses da casa piloto processados a partir dos arquivos reais |
-| Tempo da operação manual substituída | de ~2 dias para < 5 min | Medido no fluxo de upload → painel |
+| Tempo da operação manual substituída | de ~2 dias para < 5 min | **Implementado (RF13), aguardando deploy:** tempo de relógio no frontend, do primeiro envio ao resultado na tela. Não inclui exportar do ERP. Os ~2 dias são declarados pelo cliente, não medidos |
+| O resultado é explicado, não só mostrado | Todo fechamento com os dois lados traz resumo e situação (acima / dentro / abaixo) | **Implementado (RF11), aguardando deploy:** `tests/test_explicacao.py` |
 | O cálculo não depende do ERP de origem | ≥ 2 formatos de origem distintos | 3 tradutores, provados em `tests/test_generalizacao.py` |
 | O cálculo não depende do ramo do negócio | ≥ 2 taxonomias distintas de categoria | Farmácia e restaurante, sem categoria no código |
 | O número é auditável por quem decide | método declarado na própria resposta da API | Campos `metodo`, `aviso` e `alerta_dado` em `recomendacao-compra` |
@@ -150,6 +163,13 @@ Não afirmamos "serve para qualquer negócio" sem qualificação — um negócio
 não separe custo por grupo não é atendido, e integração automática com ERP
 (API do Everest) está fora do escopo, por decisão registrada na seção 7.
 
+**Genérico no formato, não no público** (decisão de 07/11/2026). Provar que a
+regra não depende do ERP nem do ramo **não** exige mudar de persona. O sistema
+serve a qualquer operação que tenha **ficha técnica e inventário mensal** —
+essa é a fronteira, e ela está escrita em `07-fechamento-cmv.md`, "O que o
+usuário precisa fornecer". Um pequeno negócio sem esses dois controles não é
+atendido, por mais que tenha o mesmo porte das DEMO.
+
 Duas coisas tiveram que mudar no código para a tese parar de ser slide:
 
 | Antes | Depois | Prova |
@@ -176,6 +196,11 @@ Dado fictício e rotulado como tal. O fechamento da casa piloto real foi
 conferido **depois** da carga e segue idêntico — dado fictício ao lado de dado
 real não pode mexer nele.
 
+Por que existem: sem os dados das outras casas do Grupo Saints para a
+apresentação, o grupo precisava de outros exemplos para mostrar que a solução é
+genérica. Elas provam **formato e regra**, não mercado — nenhum desses ramos é
+cliente ou foi entrevistado.
+
 ### 1.9 Limitações conhecidas
 
 Declaradas aqui para não serem descobertas numa pergunta de banca.
@@ -187,6 +212,9 @@ Declaradas aqui para não serem descobertas numa pergunta de banca.
 | Um mês de CMV real | 24 meses de teórico, 1 mês de real. A série de ajuste tem um ponto só |
 | **Set/26 é o mês mais fraco da série** | A venda do cardápio em set/26 (o mês do fechamento que apresentamos) foi **75% da média** dos 24 meses, e abaixo do mínimo histórico anterior. Pode ser mês fraco real ou export tirado antes do fechamento — nada no arquivo diz. Consequências: **(a)** o CMV % não é afetado, porque é razão, e de fato 24,44% está em linha com todos os meses; **(b)** a receita da DRE equivale a ~94% da venda do cardápio desse setembro fraco, e a só ~71% da venda de um mês típico — ou seja, ela é compatível com setembro e **incompatível** com um mês normal, o que é evidência *a favor* de que os dois arquivos cobrem o mesmo período; **(c)** a previsão de demanda fica subestimada, e por isso `recomendacao-compra` emite `alerta_dado` quando detecta queda uniforme de volume em todo o catálogo |
 | Dedução de grupos precisa dos dois lados | Uma casa que nunca enviou cardápio não tem como saber que "material de consumo" não é mercadoria; o sistema então soma todos os grupos com custo, em vez de aplicar uma taxonomia que não conhece (`tests/test_fechamento.py`) |
+| **Subgrupos de cardápio e de compras são taxonomias diferentes** | No Everest, o cardápio agrupa por categoria de **venda** (PETISCOS, CHOPP) e a DRE por categoria de **insumo** (BOVINOS, HORTIFRUTI). Abaixo do grupo, só é possível comparar teórico × real quando o nome coincide (ex.: CHOPP). Nas DEMO os subgrupos são iguais nos dois lados, então a comparação parece completa lá e quase vazia na casa real. RF11 declara isso na tela em vez de inventar a granularidade |
+| **O sistema não confere se o lado real é pós-inventário** | Se o usuário enviar compras sem o inventário fechado, o ajuste sai sem sentido e nada acusa. Pré-requisito declarado em `07-fechamento-cmv.md` |
+| ~~**Nome de grupo sensível a maiúsculas**~~ | ~~`Alimentos` num lado e `ALIMENTOS` no outro viram grupos distintos, e o grupo sai do CMV sem erro.~~ **Corrigido em 07/11** (P0 de `11-ciclo-explicacao-do-ajuste.md`): os três tradutores padronizam nome de grupo e subgrupo na leitura — maiúsculas e espaços internos colapsados, acento mantido. Vale para uploads novos; os já carregados vieram todos em maiúsculas |
 | Sem autenticação | A API é pública. Era RNF03 da Sprint 2 e **não foi entregue** — é a lacuna mais séria do trabalho |
 | Observabilidade pela metade | Os logs do App Service foram ligados em 06/11/2026 (antes disso a regra 9 não tinha destino), mas **Application Insights não existe**: não há série histórica de requisição, latência e falha. Nível 2 da fila em `09-uso-da-nuvem.md` |
 | **Item é identificado por string de nome** | `LinhaCusto.nome` é a chave de fato do item, lida direto do export (`BOLINHO SB COSTELA 6 UN`, `COSTELA DO PECADO SB`). Se o nome mudar entre meses — e ERP permite editar cadastro —, a série temporal daquele produto **se parte em dois itens, em silêncio**: 12 meses viram 7 de um e 5 de outro, e `top-itens` e a recomendação de compra (RF07) passam a errar sem nenhum erro aparecer. Não há proteção hoje. Resolver exige um cadastro canônico com aliases, o que **duplicaria a chave de agregação** de três consultas já conferidas contra produção — por isso está registrado como risco, e não implementado às pressas. Não depende de foto (ver a retirada do RF10 em `10-anexos-de-imagem.md`) |
@@ -223,33 +251,24 @@ Declaradas aqui para não serem descobertas numa pergunta de banca.
 
 ## 3. Personas
 
-> **Reposicionamento de 06/11/2026.** O alvo do produto passou a ser o **pequeno
-> negócio** (Persona 3), e o Grupo Saints passou a ser o **caso de origem** —
-> quem revelou o problema e cedeu a base real que prova a solução, não quem vai
-> usá-la. Ver 1.7 e 1.8.
+> **Decisão de 07/11/2026: voltam as Personas 1 e 2.** Em 06/11 o alvo tinha
+> passado para o pequeno negócio (Persona 3), numa tentativa de generalizar a
+> solução para mais de um negócio. Na revisão de 07/11 ficou claro que
+> generalizar o **formato do dado** não exige mudar de **público**, e que a
+> Persona 3 tinha dois problemas: nunca foi entrevistada, e o cálculo exige
+> ficha técnica e inventário mensal — controles que justamente o pequeno
+> negócio costuma não ter. Ver 1.8 e `11-ciclo-explicacao-do-ajuste.md`, D1–D2.
 >
-> As Personas 1 e 2 ficam preservadas porque é delas que vem toda a evidência de
-> discovery: elas descrevem a dor num grupo com escritório central e equipe de
-> custos. A Persona 3 é a mesma dor **sem** essa estrutura — e é por isso que o
-> sistema importa mais para ela: a Joyce gasta 5 dias por mês montando planilha;
-> o dono da padaria não tem Joyce.
+> | Persona | Papel no sistema | Sabe custos? | Evidência |
+> |---|---|---|---|
+> | **1 — Analista de custos** | **Alimenta**: sobe os exports e confere o cálculo | É especialista | Conversa 2 |
+> | **2 — Sócio / diretor** | **Decide**: lê o fechamento explicado | Conhece DRE e CMV como número, não a mecânica de ficha e inventário | Conversa 1 |
+> | 3 — Dono de pequeno negócio | Nenhum neste ciclo — hipótese de mercado futuro | Hipótese, sem entrevista: em geral não — tende a confundir compras do mês com custo do mês e não faz inventário | **Nenhuma** |
+>
+> O texto em linguagem simples do RF11 é escrito **para a Persona 2**. A
+> Persona 1 não precisa dele, mas é quem garante que o dado de entrada está certo.
 
-### Persona 3 — Dono de pequeno negócio (alvo do produto)
-
-| Campo | Conteúdo |
-|---|---|
-| Contexto / background | Dono de um ou dois estabelecimentos (padaria, restaurante, farmácia, distribuidora). Não tem equipe de custos nem controller: ele mesmo decide compra, confere nota e olha o resultado do mês. Usa um ERP simples ou um sistema de PDV que exporta planilha; ninguém no negócio sabe o que é BI |
-| Comportamentos | Decide quanto comprar "pelo senso", olhando a prateleira; confere resultado no extrato bancário antes de olhar relatório; usa o contador para obrigação fiscal, não para gestão; mexe no preço de venda quando sente que a margem apertou, sem calcular |
-| Dores | Não sabe se a margem caiu por preço de fornecedor, por desperdício ou por erro de ficha; compra demais e perde produto, ou compra de menos e perde venda; o relatório do ERP mostra o que aconteceu, nunca o que fazer; não tem tempo nem equipe para cruzar planilha |
-| Objetivos | Saber onde está o dinheiro, por que mudou, e quanto comprar no mês que vem — em minutos, sem montar planilha e sem contratar ninguém |
-| Cenário de uso | Fim do mês: exporta o relatório do ERP, sobe no sistema e vê o CMV, os itens que mais pesam e a sugestão de compra do mês seguinte. Decide a compra na mesma sessão |
-| Frase-chave | _(hipótese — esta persona **não foi entrevistada**; ela é derivada da dor validada nas Personas 1 e 2, removendo a estrutura de escritório. Validá-la é o primeiro passo de qualquer continuação do projeto)_ |
-
-> ⚠️ A Persona 3 é a única sem evidência de entrevista atrás. Isso está dito aqui
-> de propósito: o documento proíbe requisito sem evidência, e inventar uma frase
-> de cliente para ela seria pior que admitir a lacuna.
-
-### Persona 1 — Joyce & Renata, Time de Custos e Nutrição _(caso de origem)_
+### Persona 1 — Joyce & Renata, Time de Custos e Nutrição _(usuária principal — alimenta o sistema)_
 
 | Campo | Conteúdo |
 |---|---|
@@ -260,7 +279,7 @@ Declaradas aqui para não serem descobertas numa pergunta de banca.
 | Cenário de uso | No fechamento mensal (hoje só sai perto do dia 15), abrir um dashboard que já mostra o CMV real vs. teórico por casa e por prato, sem precisar exportar e colar planilhas do Everest. |
 | Frase-chave | "_Você clica lá exportar, aí vem um Excel cru, sem formatação, sem nada._" |
 
-### Persona 2 — Sócio / Diretor Administrativo _(caso de origem, papel de PO na entrevista)_
+### Persona 2 — Sócio / Diretor Administrativo _(tomador de decisão — lê o resultado)_
 
 | Campo | Conteúdo |
 |---|---|
@@ -270,6 +289,30 @@ Declaradas aqui para não serem descobertas numa pergunta de banca.
 | Objetivos | Ter visibilidade rápida e centralizada de quem está ativo em cada casa e do custo de folha por casa, sem precisar pedir ao RH; ter uma DRE consolidada pronta, sem montagem manual. |
 | Cenário de uso | Numa reunião de sócios, abrir o sistema e responder na hora "quantos funcionários ativos tem a casa X" e "como está o CMV desse mês", sem esperar o RH ou a equipe de custos prepararem um relatório. |
 | Frase-chave | "_A gente só consegue depois ver o que aconteceu quando a gente vê que já deu merda._" |
+
+**Como o sistema atende a Persona 2 neste ciclo:** ela não monta planilha nem
+interpreta pontos percentuais. Recebe o fechamento com um parágrafo — "onde
+ficou a diferença, e o que conferir" — e decide a partir dele. A visibilidade de
+pessoal (RF03/RF05) continua fora: nunca saiu de hipótese.
+
+### Persona 3 — Dono de pequeno negócio _(hipótese de mercado futuro — não é alvo desde 07/11)_
+
+| Campo | Conteúdo |
+|---|---|
+| Contexto / background | Dono de um ou dois estabelecimentos (padaria, restaurante, farmácia, distribuidora). Não tem equipe de custos nem controller: ele mesmo decide compra, confere nota e olha o resultado do mês. Usa um ERP simples ou um sistema de PDV que exporta planilha; ninguém no negócio sabe o que é BI |
+| Comportamentos | Decide quanto comprar "pelo senso", olhando a prateleira; confere resultado no extrato bancário antes de olhar relatório; usa o contador para obrigação fiscal, não para gestão; mexe no preço de venda quando sente que a margem apertou, sem calcular |
+| Dores | Não sabe se a margem caiu por preço de fornecedor, por desperdício ou por erro de ficha; compra demais e perde produto, ou compra de menos e perde venda; o relatório do ERP mostra o que aconteceu, nunca o que fazer; não tem tempo nem equipe para cruzar planilha |
+| Objetivos | Saber onde está o dinheiro, por que mudou, e quanto comprar no mês que vem — em minutos, sem montar planilha e sem contratar ninguém |
+| Cenário de uso | Fim do mês: exporta o relatório do ERP, sobe no sistema e vê o CMV, os itens que mais pesam e a sugestão de compra do mês seguinte. Decide a compra na mesma sessão |
+| Frase-chave | _(hipótese — esta persona **não foi entrevistada**; ela é derivada da dor validada nas Personas 1 e 2, removendo a estrutura de escritório. Validá-la é o primeiro passo de qualquer continuação do projeto)_ |
+
+> ⚠️ Mantida por registro, não como alvo. Para atendê-la, o produto teria que
+> **criar** o dado (ficha técnica, contagem de estoque) antes de analisá-lo — é
+> outro produto (mini-ERP), fora de escopo.
+>
+> A Persona 3 é a única sem evidência de entrevista atrás. Isso está dito aqui
+> de propósito: o documento proíbe requisito sem evidência, e inventar uma frase
+> de cliente para ela seria pior que admitir a lacuna.
 
 ---
 
@@ -285,9 +328,12 @@ Declaradas aqui para não serem descobertas numa pergunta de banca.
 | RF04 | Dashboard consolidado de custo (CMV real vs. teórico por casa) | Must | **Sprint 2** | Persona 2 |
 | RF03 | Cadastro e consulta de funcionários ativos por casa (CRUD) | Must | **Adiado — pendente Conversa 2** | Persona 2 (Sócio/Diretor) |
 | RF05 | Alerta de escala fora do padrão esperado por casa | Should | **Adiado — pendente Conversa 2** | Persona 2 |
-| RF06 | Geração automática de DRE consolidada entre casas | **Won't** | **Fora de escopo desde 06/11** | Persona 2 (caso de origem) |
-| RF07 | Recomendação de quantidade de compra a partir do histórico de vendas | **Must** | **Entregue 06/11** — endpoint + tela "Quanto comprar" | Persona 3 (dono de pequeno negócio) |
-| RF09 | Anexo de nota fiscal fotografada ao custo do período | **Must** | **Planejado — `10-anexos-de-imagem.md`** | Persona 3 |
+| RF06 | Geração automática de DRE consolidada entre casas | **Won't** | **Fora de escopo desde 06/11** — sem dado das outras casas | Persona 2 |
+| RF07 | Recomendação de quantidade de compra a partir do histórico de vendas | **Must** | **Entregue 06/11** — endpoint + tela "Quanto comprar" | Persona 1 / Persona 2 (era Persona 3 até 07/11) |
+| RF09 | Anexo de nota fiscal fotografada ao custo do período | **Should** (era Must) | **Fora do ciclo 07–09/11** — especificado em `10-anexos-de-imagem.md` | Persona 1 |
+| **RF11** | **Explicação do ajuste**: contribuição por grupo, subgrupos comparáveis, resumo em linguagem simples e até 2 sugestões, por regras | **Must** | **Implementado 07/11, aguardando deploy** (`11-ciclo-explicacao-do-ajuste.md` §3) | Persona 2 (lê) / Persona 1 (confere) |
+| **RF12** | Fluxo guiado "Fechar o mês" (unidade → teórico → real → resultado) com planilha-modelo | Should | **Implementado 07/11, aguardando deploy** (§5) — não precisou do corte | Persona 1 |
+| **RF13** | Tempo medido do primeiro envio ao resultado | Should | **Implementado 07/11, aguardando deploy** (§6) | Persona 2 |
 | ~~RF10~~ | ~~Cadastro de produto com foto como âncora de identidade~~ | — | **Retirado em 06/11** — a foto não fazia o trabalho de identidade e o recurso duplicaria a agregação. Motivo em `10-anexos-de-imagem.md` | — |
 
 > **Nota de retomada (09/10/2026):** RF03 e RF05 continuam como hipótese e ficam
@@ -373,6 +419,9 @@ pra minha planilha [...] e aí comer de novo"; o próprio cliente chamou de
 
 RF07 — Recomendação de quantidade de compra a partir do histórico de vendas
 Prioridade: Must (era Could até 06/11/2026)
+Persona: desde 07/11/2026, Personas 1 e 2 — a fala de origem ("você parte do
+senso do chefe") é da Conversa 1, do caso Saints. O texto abaixo sobre a
+Persona 3 é o motivo histórico da subida para Must.
 Descrição: Para os itens que mais pesam no custo, o sistema devolve a demanda
 esperada do mês seguinte a partir do histórico de venda já carregado, com
 média móvel de 3 meses, ajuste de tendência e ajuste de sazonalidade, mais um
@@ -396,6 +445,40 @@ Entregue: `GET /api/v1/metricas/recomendacao-compra`. Matemática isolada em
   - **Avisa quando o dado de entrada é suspeito**: queda uniforme de volume em
     todo o catálogo costuma ser relatório incompleto, não mercado. O sistema
     não corrige — sinaliza, e quem decide julga.
+
+RF11 — Explicação do ajuste teórico × real
+Prioridade: Must
+Descrição: Para todo fechamento com os dois lados, o sistema diz onde está a
+diferença e o que conferir: contribuição de cada grupo ao ajuste total, em R$ e
+em pontos do total; subgrupos comparados quando existem com o mesmo nome nos
+dois lados; situação em três ramos (acima / dentro / abaixo do previsto, limiar
+de ±1 pp declarado como premissa); um parágrafo em linguagem simples para o
+sócio e até 2 sugestões de conferência. Tudo por regras, sem LLM.
+Origem: Conversa 1 — "eu preciso abrir o relatório da Joyce, [...] o de
+compras, [...] a perda e tentar achar a ligação dos dois". Revisão de 07/11: o
+ERP já tem os números; o que falta é a ligação.
+⚠️ Limites declarados na própria resposta: abaixo do grupo, o dado só permite
+comparar subgrupos que existem nos dois relatórios (cardápio agrupa por venda,
+compras por insumo). Ajuste abaixo do previsto não é tratado como economia.
+Especificação, contrato e testes: `11-ciclo-explicacao-do-ajuste.md` §3.
+
+RF12 — Fluxo guiado "Fechar o mês"
+Prioridade: Should
+Descrição: Uma aba nova conduz unidade e período → lado teórico → lado real →
+resultado, mostrando em cada passo as colunas exigidas e um botão para baixar a
+planilha-modelo. Não substitui as abas atuais. Upload já existente é reutilizado
+por padrão; substituir exige confirmação.
+Origem: o contrato de entrada (`07-fechamento-cmv.md`) só ajuda se aparecer
+na hora do envio.
+Especificação: `11-ciclo-explicacao-do-ajuste.md` §5.
+
+RF13 — Tempo do primeiro envio ao resultado
+Prioridade: Should
+Descrição: O frontend mede o tempo de relógio do primeiro envio até o resultado
+aparecer e o exibe, com a ressalva de que não inclui exportar do ERP.
+Origem: a métrica "de ~2 dias para < 5 min" (1.6) nunca foi medida.
+⚠️ Os ~2 dias são declarados pelo cliente; a comparação é de ordem de grandeza.
+Especificação: `11-ciclo-explicacao-do-ajuste.md` §6.
 ```
 
 ---
@@ -430,20 +513,66 @@ Entregue: `GET /api/v1/metricas/recomendacao-compra`. Matemática isolada em
 ## 6. User Stories
 
 ```
-US01 — relacionada a RF01
+US11 — relacionada a RF11
 
-Como <persona>,
-quero <ação>,
-para <benefício>.
+Como sócio de uma rede de bares (Persona 2),
+quero ler no topo do fechamento onde ficou a diferença entre o custo real e o
+previsto e o que conferir,
+para decidir o que cobrar da operação sem depender de interpretar a planilha.
 
 Critérios de aceitação:
-  DADO que <contexto>
-  QUANDO <ação>
-  ENTÃO <resultado>
+  DADO um fechamento com os dois lados e ajuste total acima de +1 pp
+  QUANDO consulto GET /api/v1/metricas/fechamento
+  ENTÃO explicacao.situacao = "acima", o resumo cita o grupo que mais
+        contribuiu e há no máximo 2 sugestões
 
-  DADO que <contexto de erro>
-  QUANDO <ação inválida>
-  ENTÃO <erro esperado, com status code>
+  DADO um fechamento com ajuste total abaixo de −1 pp
+  QUANDO consulto o fechamento
+  ENTÃO explicacao.situacao = "abaixo" e o resumo não apresenta a diferença
+        como economia
+
+  DADO um fechamento com ajuste entre −1 e +1 pp
+  QUANDO consulto o fechamento
+  ENTÃO explicacao.situacao = "dentro" e não há sugestões
+
+  DADO um fechamento com dois grupos
+  QUANDO somo contribuicao_pp de todos os grupos
+  ENTÃO o resultado é igual a total.ajuste_pp (± 0,02)
+
+  DADO um período com só um dos lados enviado
+  QUANDO consulto o fechamento
+  ENTÃO a resposta é 200 com explicacao = null
+
+US12 — relacionada a RF12
+
+Como analista de custos (Persona 1),
+quero fechar o mês num fluxo único que me diz o que cada arquivo precisa ter,
+para não errar o envio e não ter que lembrar a ordem das telas.
+
+Critérios de aceitação:
+  DADO que estou no passo do lado teórico
+  QUANDO clico em "Baixar planilha-modelo"
+  ENTÃO recebo um .xlsx que, reenviado sem mudanças, é aceito com 201
+
+  DADO que já existe upload daquele lado e período
+  QUANDO chego ao passo
+  ENTÃO o padrão é reutilizar o upload existente, e substituir exige confirmação
+
+  DADO que envio um arquivo sem a coluna "custo"
+  QUANDO o passo processa o envio
+  ENTÃO vejo a mensagem do 422 em português dizendo qual coluna falta
+
+US13 — relacionada a RF13
+
+Como sócio (Persona 2),
+quero ver quanto tempo o sistema levou do primeiro envio ao resultado,
+para comparar com os dias que o fechamento leva hoje.
+
+Critérios de aceitação:
+  DADO que concluí os envios do mês
+  QUANDO o resultado aparece
+  ENTÃO vejo "Do primeiro envio ao resultado: X s" e a ressalva de que não
+        inclui exportar do ERP
 ```
 
 > INVEST: Independent, Negotiable, Valuable, Estimable, **Small (1–3 dias)**, Testable.
@@ -453,28 +582,38 @@ Critérios de aceitação:
 
 ## 7. Priorização (MoSCoW)
 
-Repriorizado em 06/11/2026, junto com o reposicionamento para pequeno negócio
-(Persona 3). O que mudou e por quê está na última linha do histórico.
+Repriorizado em 07/11/2026, na volta às Personas 1 e 2. O que mudou e por quê
+está na primeira linha do histórico.
 
 | Nível | Requisitos | Estado |
 |---|---|---|
-| **Must** — o MVP | RF08 (CRUD de unidade) · RF01 (upload do export) · RF02 (CMV teórico × real) · RF04 (dashboard) · RF07 (recomendação de compra) · RF09 (anexo de nota fiscal) | **RF08/01/02/04/07 no ar**, com tela; **RF09 planejado, não implementado** |
-| **Should** | RNF03 autenticação · registro de perda com foto · decomposição do ajuste em contagem + perdas + não explicado · **tratamento da deriva de nome de item** (ver 1.9) | Nenhum entregue |
+| **Must** — o MVP | RF08 (CRUD de unidade) · RF01 (upload do export) · RF02 (CMV teórico × real) · RF04 (dashboard) · RF07 (recomendação de compra) · **RF11 (explicação do ajuste)** | **RF08/01/02/04/07 no ar**, com tela; **RF11 implementado em 07/11, aguardando deploy** |
+| **Should** | **RF12 (fluxo guiado)** · **RF13 (tempo medido)** · RF09 (anexo de nota fiscal) · RNF03 autenticação · registro de perda com foto · decomposição do ajuste em contagem + perdas + não explicado · **tratamento da deriva de nome de item** (ver 1.9) | RF12/RF13 implementados em 07/11, aguardando deploy; demais não entregues |
 | **Could** | Alerta de variação de custo unitário por item · curva ABC de concentração de custo · OCR de nota fiscal | Nenhum iniciado |
 | **Won't** (documentado) | RF03 (funcionários) · RF05 (alerta de escala) · **RF06 (DRE consolidada entre casas)** · integração via API do Everest | Fora de escopo, com motivo |
 
-**Por que RF06 virou Won't:** consolidar a DRE de 14 casas é requisito de grupo
-com escritório central — a Persona 3 tem uma ou duas unidades, e para ela o
-recurso não existe. Mantê-lo como Should seria carregar escopo que o alvo do
-produto não usa.
+**Por que RF11 entra como Must:** o ERP do cliente já tem os números; mostrar o
+ajuste formatado agrega pouco. O valor está em dizer onde está a diferença e o
+que conferir. Sem RF11, o produto é um relatório mais rápido; com ele, encurta o
+diagnóstico.
+
+**Por que RF09 desceu para Should:** tinha subido para Must em 06/11 como aposta
+ligada à Persona 3 e ao uso do Blob para imagem. Com a volta às Personas 1 e 2,
+a nota fiscal como prova continua útil à analista, mas não é o que explica o
+ajuste — e não cabe no ciclo de 07–09/11.
+
+**Por que RF06 segue Won't:** com a volta da Persona 2, a DRE consolidada
+recupera sentido, mas só há dado real de **uma** casa. Consolidar uma casa não
+prova nada.
 
 **Por que RF03 e RF05 seguem Won't:** nunca saíram de hipótese. Dependiam de uma
 Conversa 3 que não aconteceu e, no caso de RF03, de o RH definir quais dados
 pessoais entram (LGPD). Sem cliente respondendo, construir seria adivinhar.
 
-**Por que a integração com a API do Everest é Won't:** ela só faz sentido para o
-caso de origem. Para a Persona 3, que usa ERP simples, a planilha genérica é o
-caminho — e é justamente o que sustenta a tese de generalização (1.8).
+**Por que a integração com a API do Everest é Won't:** ela amarraria o produto a
+um fornecedor de ERP. A planilha genérica é o caminho para qualquer origem — e é
+justamente o que sustenta a tese de generalização (1.8). E o cliente, que
+precisaria liberar o acesso, parou de responder.
 
 > Must = MVP. Só passe para Should quando todos os Must estiverem entregues.
 > **Se tudo é Must, nada é Must.**
@@ -550,6 +689,8 @@ _(inserir; ver `docs/02-arquitetura.md`)_
 
 | Data | Versão | O que mudou | Motivo |
 |---|---|---|---|
+| 07/11/2026 | 1.2 | **RF11, RF12 e RF13 implementados** (branch do ciclo, ainda não publicado): `explicacao` no fechamento com as três situações, contribuição por grupo, grupos e subgrupos sem par; aba "Fechar o mês"; tempo do primeiro envio ao resultado. **P0 entregue**: tradutores padronizam nome de grupo e subgrupo, e `GET /api/v1/modelos/{tipo}` gera a planilha-modelo. A limitação de maiúsculas em 1.9 sai da lista. Nada marcado como "entregue" ainda: pela regra do ciclo isso só vale depois do deploy conferido no `/health` | Execução do ciclo 07–09/11 na ordem da seção 2 de `11-ciclo-explicacao-do-ajuste.md`. Nenhum item precisou do corte previsto. O roteiro de demo (`08`) segue descrevendo só o que está no ar, e é atualizado junto com o deploy |
+| 07/11/2026 | 1.1 | **Voltam as Personas 1 e 2** (analista alimenta, sócio decide); Persona 3 vira hipótese de mercado futuro. **RF11** (explicação do ajuste, Must), **RF12** (fluxo guiado, Should) e **RF13** (tempo medido, Should) especificados em `11-ciclo-explicacao-do-ajuste.md`. **RF09 desce para Should.** Problema (1.1) e objetivo (1.4) reescritos: o valor é explicar o ajuste, não mostrá-lo. Contrato de entrada ("o que o usuário precisa fornecer") em `07-fechamento-cmv.md`. Três limitações novas em 1.9 | Revisão crítica (Lean Inception): o app mostrava o delta sem explicá-lo, e o ERP do cliente já tem o número. A Persona 3 tinha sido criada para generalizar a solução, mas generalizar o **formato** não exige mudar de **público** — e ela não tinha entrevista nem os dados que o cálculo exige (ficha técnica e inventário). As DEMO continuam, com o papel declarado: sem os dados das outras casas do Saints para a apresentação, provam formato e regra, não mercado |
 | | 0.1 | Criação | Estrutura inicial |
 | 13/09/2026 | 0.2 | Preenchidas Personas (seção 3), RF01–RF07 e RNF01–RNF06 | Baseado na Conversa 1 (`00-customer-discovery.md`) e na pesquisa técnica de Everest/Colibri/Dionísio (`docs/discovery/`). RF03, RF05 e RF06 marcados como hipótese de solução — pendente validação de fluxo operacional com Joyce, Renata e Wellington (Conversa 2, ainda não realizada) |
 | 17/09/2026 | 0.2 | Corrigido nome do cliente de "Grupo Santos" para **Grupo Saints** em todos os docs; nomes das casas atualizados com base no site institucional ([gruposaints.com.br](https://www.gruposaints.com.br/)) | O nome "Grupo Santos" era erro de transcrição automática do áudio da entrevista (confirmado ao ouvir a resposta do cliente na transcrição, `Entrevista/entrevista_cliente.txt` linha 192); site oficial confirma "Grupo Saints" e lista as marcas: Boteco São Bento, Tartuferia San Paolo, Casa Yū, Tuy Bar Cocina, São Conrado Bar, Toca do Urso, Beer Island Tap House. "Tulipa", citado na entrevista, não aparece no site — sinalizado como pendente de confirmação |

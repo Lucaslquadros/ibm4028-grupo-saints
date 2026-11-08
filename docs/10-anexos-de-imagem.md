@@ -11,7 +11,12 @@
 | **RF09** — nota fiscal anexada ao custo do período | **prova** | O número do fechamento não tem documento atrás |
 | ~~RF10 — produto com foto como âncora de identidade~~ | — | **Retirado.** Ver "O que foi retirado" abaixo |
 
-**RF09 é Must**, por decisão de 06/11/2026. É uma **aposta de produto
+> **Atualização de 07/11/2026: RF09 desceu para Should e está fora do ciclo
+> 07–09/11.** Com a volta às Personas 1 e 2, a prioridade passou a ser explicar
+> o ajuste (RF11). A especificação abaixo continua válida para quando for
+> retomada. Motivo em `01-requisitos.md`, seção 7.
+
+~~**RF09 é Must**~~, por decisão de 06/11/2026. É uma **aposta de produto
 deliberada**, não um requisito validado: a Persona 3 não foi entrevistada e o
 cliente parou de responder. Com o prazo curto e o vácuo deixado pelo cliente,
 esperar validação é paralisia — a escolha foi apostar e dizer que é aposta.

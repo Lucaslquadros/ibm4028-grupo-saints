@@ -119,6 +119,69 @@ class LinhaFechamento(BaseModel):
     ajuste_pp: float | None = Field(description="cmv_real_pct − cmv_teorico_pct, em pontos")
 
 
+# ------------------------------------------------- Explicação do ajuste (RF11)
+class ContribuicaoGrupo(BaseModel):
+    """Quanto cada grupo puxou o ajuste do mês, em pontos do TOTAL.
+
+    Não confundir com o `ajuste_pp` de `LinhaFechamento`: lá o denominador é a
+    venda do próprio grupo, e por isso aquele número **não soma** ao total.
+    """
+
+    grupo: str
+    ajuste: float = Field(description="custo_real − custo_teorico do grupo, em R$")
+    contribuicao_pp: float = Field(description="ajuste do grupo ÷ venda líquida total × 100")
+
+
+class SubgrupoComparado(BaseModel):
+    """Subgrupo presente nos DOIS lados do mês — o único caso em que a
+    diferença abaixo do grupo é desvio, e não taxonomia diferente."""
+
+    grupo: str
+    subgrupo: str
+    custo_teorico: float
+    custo_real: float
+    ajuste: float
+    ajuste_pp: float | None = Field(
+        description="ajuste ÷ venda do subgrupo no cardápio × 100; null sem venda"
+    )
+
+
+class SubgrupoSemPar(BaseModel):
+    """Subgrupo que existe em um lado só. É **composição do custo**, nunca
+    desvio: o ERP informa compra por categoria de insumo (BOVINOS) e venda por
+    categoria de cardápio (PETISCOS)."""
+
+    grupo: str
+    subgrupo: str
+    lado: Literal["teorico", "real"]
+    custo: float
+
+
+class Explicacao(BaseModel):
+    """Onde o ajuste do mês está e o que conferir — RF11.
+
+    Gerada por regras em `app/services/explicacao.py`, sem LLM, para o sócio
+    (Persona 2). `situacao` tem três valores porque ajuste negativo **não é
+    economia**: é divergência na direção oposta.
+    """
+
+    situacao: Literal["acima", "dentro", "abaixo"]
+    limiar_pp: float = Field(
+        description="Margem considerada normal, em pontos. É premissa nossa, não "
+        "do cliente — por isso volta na resposta, para a tela exibir junto"
+    )
+    resumo: str = Field(description="O parágrafo que a tela mostra acima do número")
+    sugestoes: list[str] = Field(description="No máximo 2. Vazia quando está dentro da margem")
+    contribuicoes: list[ContribuicaoGrupo]
+    grupos_sem_par: list[str] = Field(
+        description="Grupos com só um dos dois lados no mês: distorcem o total, "
+        "e por isso são declarados em vez de escondidos"
+    )
+    subgrupos_comparados: list[SubgrupoComparado]
+    subgrupos_sem_par: list[SubgrupoSemPar]
+    limite_dado: str = Field(description="Por que a comparação por subgrupo pode vir quase vazia")
+
+
 class FechamentoResponse(BaseModel):
     """O painel de fechamento do mês — o relatório que hoje leva ~2 dias à mão."""
 
@@ -129,6 +192,13 @@ class FechamentoResponse(BaseModel):
     tem_compras: bool
     total: LinhaFechamento
     grupos: list[LinhaFechamento]
+    explicacao: Explicacao | None = Field(
+        default=None,
+        description="RF11. null quando falta um dos dois lados do mês — nunca "
+        "gerar texto sobre ajuste que não existe. Campo OPCIONAL de propósito: "
+        "o frontend em produção continua funcionando entre o deploy do backend "
+        "e o do front",
+    )
 
 
 class PontoEvolucao(BaseModel):

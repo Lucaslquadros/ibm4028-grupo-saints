@@ -24,7 +24,7 @@ from app.schemas import (
     UploadCustoResponse,
 )
 from app.services import leitores, storage
-from app.services.leitores import ErroLeitura
+from app.services.leitores import XLSX, ErroLeitura
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,6 @@ router = APIRouter(
     responses={404: {"model": ErroResponse}, 422: {"model": ErroResponse}},
 )
 
-XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 # Alguns navegadores/SOs mandam .xlsx como octet-stream; aceitamos se a
 # extensão for .xlsx — o tradutor recusa (422) se o conteúdo não for planilha.
 TIPOS_PERMITIDOS = frozenset({XLSX, "application/octet-stream"})
