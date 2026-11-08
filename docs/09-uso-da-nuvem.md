@@ -158,10 +158,11 @@ que é um recurso separado e continuaria pública.
 **Papel declarado no documento de requisitos:** containerização.
 
 **Papel real: nenhum.** O `Dockerfile` existe, mas **não há ACR na
-subscription** e o deploy é por código. Isso precisa de uma decisão: ou o
-`Dockerfile` é apresentado honestamente como "preparado para conteinerizar, não
-usado neste deploy", ou sai da tabela de stack. "Temos Dockerfile mas não
-usamos" é pergunta fácil de fazer e desconfortável de responder.
+subscription** e o deploy é por código.
+
+**Decidido (registrado em `01-requisitos.md` §8):** o `Dockerfile` é
+apresentado como "preparado para conteinerizar, não usado neste deploy". Na
+apresentação, dizer isso antes de perguntarem.
 
 ---
 
@@ -187,7 +188,7 @@ versão; o quarto (`httpsOnly`) saiu por já estar aplicado.
 
 | # | Ajuste | Por que | O que destrava |
 |---|---|---|---|
-| 5 | ⬜ **Endpoint de download com SAS de curta duração** | Hoje o Blob é somente escrita. Além de consertar isso, demonstra *least privilege* — credencial com escopo de um blob e validade de minutos | **Pré-requisito** de RF09 e RF10 (ver `10-anexos-de-imagem.md`): imagem precisa ser exibida, não só guardada |
+| 5 | ⬜ **Endpoint de download com SAS de curta duração** — especificado como **RF14** (`11-ciclo-explicacao-do-ajuste.md` §8.1), ainda não implementado | Hoje o Blob é somente escrita. Além de consertar isso, demonstra *least privilege* — credencial com escopo de um blob e validade de minutos | **Pré-requisito** do RF09 (ver `10-anexos-de-imagem.md`): imagem precisa ser exibida, não só guardada. O RF10 foi retirado em 06/11 |
 | 6 | ⬜ **Application Insights** | A única forma de ver requisição, falha, latência e dependência ao longo do tempo. Está como "extra valorizado" não marcado no documento de requisitos e cobre a fase de Qualidade, que não foi entregue | Diagnóstico de qualquer coisa futura |
 
 ### Nível 3 — postura de segurança
@@ -241,7 +242,8 @@ E o argumento mais honesto, que vale mais que qualquer um deles:
 
 ## Referências
 
-- Especificação dos anexos de imagem (RF09/RF10): `10-anexos-de-imagem.md`
+- Especificação dos anexos de imagem (RF09; RF10 retirado): `10-anexos-de-imagem.md`
+- Ciclo 07–09/11 e os próximos passos (RF14 = item 5 desta fila): `11-ciclo-explicacao-do-ajuste.md`
 - Requisitos, limitações conhecidas e MoSCoW: `01-requisitos.md`
 - Passo a passo de deploy e provisionamento: `06-guia-deploy-azure.md`
 - Roteiro da demonstração: `08-roteiro-demo.md`
