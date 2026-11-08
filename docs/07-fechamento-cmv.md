@@ -228,6 +228,7 @@ uv run python scripts/importar_exports.py \
 | GET | `/api/v1/metricas/evolucao` | CMV teórico × real mês a mês |
 | GET | `/api/v1/metricas/top-itens` | Itens que mais pesam (`ordem=custo` ou `ordem=cmv`) |
 | GET | `/api/v1/modelos/{tipo}` | Planilha-modelo `.xlsx` (`tipo` = `cardapio` \| `compras`) gerada na hora, com linhas sintéticas |
+| GET | `/api/v1/uploads-custo/{id}/arquivo` | **Especificado, não implementado (RF14).** Baixa o arquivo original: 302 para SAS de 5 min no Azure, 200 com o arquivo em dev. Ver `11-…` §8.1 |
 
 O campo `explicacao` do fechamento (RF11) é **opcional** no contrato: o
 frontend em produção continua funcionando entre o deploy do backend e o do

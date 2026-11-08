@@ -6,7 +6,7 @@
 |---|---|
 | **Grupo** | _(nomes)_ |
 | **Cliente (papel de PO)** | Grupo Saints (grupo de bares/restaurantes, [gruposaints.com.br](https://www.gruposaints.com.br/)). **Desde 06/11/2026 o cliente é caso de estudo, não PO ativo** — ver 1.7 |
-| **Versão** | 1.3 — RF11–RF13 entregues e publicados em 07/11 (ciclo `11-ciclo-explicacao-do-ajuste.md`) |
+| **Versão** | 1.4 — RF11–RF13 entregues e publicados em 07/11; RF14 e RF09 especificados para o próximo passo |
 | **Última atualização** | 07/11/2026 |
 
 ## Ambiente em produção
@@ -331,10 +331,11 @@ pessoal (RF03/RF05) continua fora: nunca saiu de hipótese.
 | RF05 | Alerta de escala fora do padrão esperado por casa | Should | **Adiado — pendente Conversa 2** | Persona 2 |
 | RF06 | Geração automática de DRE consolidada entre casas | **Won't** | **Fora de escopo desde 06/11** — sem dado das outras casas | Persona 2 |
 | RF07 | Recomendação de quantidade de compra a partir do histórico de vendas | **Must** | **Entregue 06/11** — endpoint + tela "Quanto comprar" | Persona 1 / Persona 2 (era Persona 3 até 07/11) |
-| RF09 | Anexo de nota fiscal fotografada ao custo do período | **Should** (era Must) | **Fora do ciclo 07–09/11** — especificado em `10-anexos-de-imagem.md` | Persona 1 |
+| RF09 | Anexo de nota fiscal fotografada ao custo do período — a **prova** do lado real do fechamento | **Should** (era Must) | **Especificado, não implementado.** Fora do ciclo 07–09/11; recorte enxuto em `11-…` §8.2, completo em `10-anexos-de-imagem.md`. Depende do RF14 | Persona 1 (anexa) / Persona 2 (confere) |
 | **RF11** | **Explicação do ajuste**: contribuição por grupo, subgrupos comparáveis, resumo em linguagem simples e até 2 sugestões, por regras | **Must** | **Entregue 07/11** — campo `explicacao` no fechamento + tela (`11-ciclo-explicacao-do-ajuste.md` §3) | Persona 2 (lê) / Persona 1 (confere) |
 | **RF12** | Fluxo guiado "Fechar o mês" (unidade → teórico → real → resultado) com planilha-modelo | Should | **Entregue 07/11** — aba "Fechar o mês" (§5); não precisou do corte | Persona 1 |
-| **RF13** | Tempo medido do primeiro envio ao resultado | Should | **Entregue 07/11** (§6) | Persona 2 |
+| **RF13** | Tempo medido do primeiro envio ao resultado | Should | **Entregue 07/11** (§6) — no fim do fluxo guiado | Persona 2 |
+| **RF14** | "De onde veio este número": baixar o arquivo original de cada lado do fechamento, por link SAS de curta duração | Should | **Especificado em 07/11, não implementado** (`11-…` §8.1) | Persona 1 (confere) / Persona 2 (confia) |
 | ~~RF10~~ | ~~Cadastro de produto com foto como âncora de identidade~~ | — | **Retirado em 06/11** — a foto não fazia o trabalho de identidade e o recurso duplicaria a agregação. Motivo em `10-anexos-de-imagem.md` | — |
 
 > **Nota de retomada (09/10/2026):** RF03 e RF05 continuam como hipótese e ficam
@@ -480,6 +481,16 @@ aparecer e o exibe, com a ressalva de que não inclui exportar do ERP.
 Origem: a métrica "de ~2 dias para < 5 min" (1.6) nunca foi medida.
 ⚠️ Os ~2 dias são declarados pelo cliente; a comparação é de ordem de grandeza.
 Especificação: `11-ciclo-explicacao-do-ajuste.md` §6.
+
+RF14 — Rastreabilidade: de onde veio este número
+Prioridade: Should — especificado, NÃO implementado
+Descrição: Na tela de Fechamento, cada lado mostra o arquivo que o gerou (nome
+original, data de envio) com botão para baixar o original. O download usa link
+SAS de leitura, válido por 5 minutos, com escopo de um arquivo.
+Origem: auditoria de nuvem (`09-uso-da-nuvem.md`, item 5 da fila) — o Blob é
+somente escrita e a URL guardada devolve 401. E a pergunta que a Persona 2 faz
+antes de agir sobre um número: "de onde veio isso?".
+Especificação: `11-ciclo-explicacao-do-ajuste.md` §8.1.
 ```
 
 ---
@@ -589,7 +600,7 @@ está na primeira linha do histórico.
 | Nível | Requisitos | Estado |
 |---|---|---|
 | **Must** — o MVP | RF08 (CRUD de unidade) · RF01 (upload do export) · RF02 (CMV teórico × real) · RF04 (dashboard) · RF07 (recomendação de compra) · **RF11 (explicação do ajuste)** | **Todos no ar**, com tela |
-| **Should** | **RF12 (fluxo guiado)** · **RF13 (tempo medido)** · RF09 (anexo de nota fiscal) · RNF03 autenticação · registro de perda com foto · decomposição do ajuste em contagem + perdas + não explicado · **tratamento da deriva de nome de item** (ver 1.9) | RF12/RF13 entregues em 07/11 e no ar; demais não entregues |
+| **Should** | **RF12 (fluxo guiado)** · **RF13 (tempo medido)** · **RF14 (de onde veio este número)** · RF09 (anexo de nota fiscal) · RNF03 autenticação · registro de perda com foto · decomposição do ajuste em contagem + perdas + não explicado · **tratamento da deriva de nome de item** (ver 1.9) | RF12/RF13 entregues em 07/11 e no ar; **RF14 e RF09 especificados, não implementados**; demais não entregues |
 | **Could** | Alerta de variação de custo unitário por item · curva ABC de concentração de custo · OCR de nota fiscal | Nenhum iniciado |
 | **Won't** (documentado) | RF03 (funcionários) · RF05 (alerta de escala) · **RF06 (DRE consolidada entre casas)** · integração via API do Everest | Fora de escopo, com motivo |
 
@@ -601,7 +612,20 @@ diagnóstico.
 **Por que RF09 desceu para Should:** tinha subido para Must em 06/11 como aposta
 ligada à Persona 3 e ao uso do Blob para imagem. Com a volta às Personas 1 e 2,
 a nota fiscal como prova continua útil à analista, mas não é o que explica o
-ajuste — e não cabe no ciclo de 07–09/11.
+ajuste — e não coube no ciclo de 07–09/11.
+
+A justificativa dele mudou em 07/11, e para melhor: a foto **não** está no
+projeto para justificar o Blob (para o Blob, planilha e foto são o mesmo
+binário). Está porque responde à pergunta seguinte do RF11 — a sugestão do ramo
+`abaixo`, que é o caso real de set/26, é "conferir se todas as compras foram
+lançadas", e a nota é a prova. Recorte enxuto em `11-…` §8.2.
+
+**Por que RF14 existe:** o Blob era somente escrita — a URL guardada em
+`UploadCusto.url` devolve 401 e nenhuma tela lê o arquivo. O RF14 custa ~2 h,
+faz o Blob ser lido com privilégio mínimo (SAS de um arquivo, por minutos) e
+responde a "como o sócio sabe que o número está certo?". É pré-requisito do
+RF09. Foi especificado em 07/11 e **não foi implementado**: o ciclo entregou
+P0, RF11, RF12 e RF13, e o congelamento chegou antes.
 
 **Por que RF06 segue Won't:** com a volta da Persona 2, a DRE consolidada
 recupera sentido, mas só há dado real de **uma** casa. Consolidar uma casa não
@@ -635,7 +659,7 @@ MVP mínimo exigido pela disciplina: **1 CRUD completo + 1 upload + 1 dashboard*
 | Azure Blob Storage | Arquivos (CSV, PDF, imagem) | Binário no object storage, ponteiro no banco |
 | React | Frontend + dashboard | |
 | Azure Static Web Apps | Hospedagem do frontend | CDN e certificado grátis, build/deploy próprio via GitHub Actions, separado do backend |
-| Docker + ACR | Containerização | Opcional nesta fase — deploy do backend é por código (Oryx/buildpack), ver `docs/06-guia-deploy-azure.md` |
+| Docker + ACR | Containerização | **Não usado neste deploy, por decisão:** o backend é publicado por código (Oryx/buildpack). O `Dockerfile` fica como preparo para conteinerizar; não há ACR na subscription. Ver `docs/06-guia-deploy-azure.md` |
 | GitHub Actions | CI/CD | |
 
 ### Extras valorizados
@@ -643,7 +667,8 @@ MVP mínimo exigido pela disciplina: **1 CRUD completo + 1 upload + 1 dashboard*
 Auditoria completa de como cada recurso está sendo usado, com a fila de ajustes
 ordenada por valor: **`09-uso-da-nuvem.md`**. Resumo das decisões:
 
-- [ ] **Application Insights** — a fazer (nível 2 da fila). Hoje **nenhum log está habilitado** no App Service, então a regra 9 do projeto ("stack trace vai para o log") não tem destino
+- [ ] **Application Insights** — a fazer (nível 2 da fila). Os logs do App Service estão ligados desde 06/11 (a regra 9 tem destino), mas sem série histórica de requisição, latência e falha
+- [ ] **Blob lido, não só escrito** — download por SAS (RF14) e, depois dele, a nota fiscal como prova (RF09). Especificados em `11-…` §8, não implementados
 - [ ] **Key Vault** — a fazer (nível 3), depois da identidade gerenciada
 - [ ] Azure Functions — só se o alerta de variação de custo por item sair do Could
 - [x] ~~Redis Cache~~ — **recusado com motivo**: 10–15 usuários, uso concentrado no fechamento, nada a cachear
@@ -690,6 +715,7 @@ _(inserir; ver `docs/02-arquitetura.md`)_
 
 | Data | Versão | O que mudou | Motivo |
 |---|---|---|---|
+| 08/11/2026 | 1.4 | **RF14** ("de onde veio este número": download do original por SAS) entra como Should, **especificado e não implementado**. **RF09** reenquadrado: a nota é a prova que o RF11 pede, não justificativa para o Blob — e depende do RF14. §8 corrigido: os logs do App Service estão ligados desde 06/11, e Docker/ACR passa a constar como "não usado neste deploy, por decisão". Especificações em `11-…` §8 | Integração do replanejamento feito em paralelo na noite de 07/11 (commit `124b6bf`). Aquele plano propunha **cortar o RF12** para abrir espaço ao RF14 — mas o RF12 já estava implementado e foi entregue, então o corte não aconteceu e RF14/RF09 viram próximo passo em vez de item do ciclo. A condição "só se o resto estiver no ar até domingo 12h" expirou |
 | 07/11/2026 | 1.3 | **RF11, RF12 e RF13 entregues e publicados** — backend e frontend no commit `a7fa9c5`, conferidos em produção: `/health` com o SHA novo e o fechamento de set/26 com `ajuste_pp: -3.68` e `explicacao.situacao: "abaixo"`. Roteiro de demo (`08`) reescrito com o que está no ar. Limitação nova em 1.9: nomes que diferem só no singular/plural não são comparados | Conclusão do ciclo 07–09/11. A limitação nova não é regressão: apareceu porque o RF11 passou a comparar abaixo do grupo e, com isso, tornou visível uma diferença de cadastro que antes ninguém via |
 | 07/11/2026 | 1.2 | **RF11, RF12 e RF13 implementados** (branch do ciclo, ainda não publicado): `explicacao` no fechamento com as três situações, contribuição por grupo, grupos e subgrupos sem par; aba "Fechar o mês"; tempo do primeiro envio ao resultado. **P0 entregue**: tradutores padronizam nome de grupo e subgrupo, e `GET /api/v1/modelos/{tipo}` gera a planilha-modelo. A limitação de maiúsculas em 1.9 sai da lista. Nada marcado como "entregue" ainda: pela regra do ciclo isso só vale depois do deploy conferido no `/health` | Execução do ciclo 07–09/11 na ordem da seção 2 de `11-ciclo-explicacao-do-ajuste.md`. Nenhum item precisou do corte previsto. O roteiro de demo (`08`) segue descrevendo só o que está no ar, e é atualizado junto com o deploy |
 | 07/11/2026 | 1.1 | **Voltam as Personas 1 e 2** (analista alimenta, sócio decide); Persona 3 vira hipótese de mercado futuro. **RF11** (explicação do ajuste, Must), **RF12** (fluxo guiado, Should) e **RF13** (tempo medido, Should) especificados em `11-ciclo-explicacao-do-ajuste.md`. **RF09 desce para Should.** Problema (1.1) e objetivo (1.4) reescritos: o valor é explicar o ajuste, não mostrá-lo. Contrato de entrada ("o que o usuário precisa fornecer") em `07-fechamento-cmv.md`. Três limitações novas em 1.9 | Revisão crítica (Lean Inception): o app mostrava o delta sem explicá-lo, e o ERP do cliente já tem o número. A Persona 3 tinha sido criada para generalizar a solução, mas generalizar o **formato** não exige mudar de **público** — e ela não tinha entrevista nem os dados que o cálculo exige (ficha técnica e inventário). As DEMO continuam, com o papel declarado: sem os dados das outras casas do Saints para a apresentação, provam formato e regra, não mercado |

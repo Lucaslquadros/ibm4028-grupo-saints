@@ -109,23 +109,33 @@ dashboard consolidado, no ar.
 linguagem que o sócio entenda. Especificação completa (decisões, contrato da
 API, testes, ordem de corte) em **`11-ciclo-explicacao-do-ajuste.md`**.
 
-| Ordem | Item | RF | MoSCoW | Estimativa |
-|---|---|---|---|---|
-| P0 | Nomes de grupo padronizados + planilha-modelo `.xlsx` gerada pela API | RF01 | Must | 1,5 h |
-| 1 | Explicação do ajuste — backend + testes | RF11 | Must | 5 h |
-| 2 | Explicação do ajuste — tela de Fechamento | RF11 | Must | 2 h |
-| 3 | Fluxo guiado "Fechar o mês" | RF12 | Should | 3,5 h |
-| 4 | Tempo do primeiro envio ao resultado | RF13 | Should | 0,5–1 h |
-| — | Docs + deploys conferidos | — | — | 2,5 h |
+**Encerrado em 07/11 com tudo entregue e no ar.** Nenhum item precisou da
+ordem de corte.
 
-**Ordem de corte:** 1º RF12 inteiro (o cronômetro vai para a tela de Upload);
-2º a comparação por subgrupo. **Inegociável:** P0 + RF11 com os três ramos de
-sinal.
+| Ordem | Item | RF | MoSCoW | Estimativa | Estado |
+|---|---|---|---|---|---|
+| P0 | Nomes de grupo padronizados + planilha-modelo `.xlsx` gerada pela API | RF01 | Must | 1,5 h | ✅ no ar |
+| 1 | Explicação do ajuste — backend + testes | RF11 | Must | 5 h | ✅ no ar |
+| 2 | Explicação do ajuste — tela de Fechamento | RF11 | Must | 2 h | ✅ no ar |
+| 3 | Fluxo guiado "Fechar o mês" | RF12 | Should | 3,5 h | ✅ no ar |
+| 4 | Tempo do primeiro envio ao resultado | RF13 | Should | 0,5–1 h | ✅ no ar |
+| — | Docs + deploys conferidos | — | — | 2,5 h | ✅ |
+
+Depois do ciclo, em 08/11, o fechamento ganhou o **formato de balanço** (colunas
+= os dois lados, linhas = as contas) e a correção de contraste do `<select>` no
+tema escuro.
+
+**Próximo passo, especificado e não implementado** (`11-…` §8):
+
+| Item | RF | MoSCoW | Estimativa |
+|---|---|---|---|
+| "De onde veio este número" — download do original por SAS de 5 min | RF14 | Should | 2 h |
+| Nota fiscal fotografada, versão enxuta — depende do RF14 | RF09 | Should | 4 h |
 
 **Congelamento:** nenhum deploy depois de **domingo 08/11, 20h**. Após o último:
 `/health` com o SHA novo e o fechamento de set/26 com `ajuste_pp: -3.68`.
 
-**Fora do ciclo:** mini-ERP, alertas, delta semanal, autenticação, RF09, infra.
+**Ficou fora:** mini-ERP, alertas, delta semanal, autenticação, infra.
 
 ---
 

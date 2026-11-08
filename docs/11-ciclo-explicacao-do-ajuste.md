@@ -56,6 +56,8 @@
 | D4 | **As casas DEMO continuam**, com o papel declarado: provam que o **formato** e a **regra** são genéricos, não que existe cliente em outros ramos | Sem os dados do Grupo Saints para segunda-feira, o grupo precisava de outros exemplos para mostrar a solução genérica. Isso é legítimo desde que dito |
 | D5 | **Não inventar granularidade.** Abaixo do grupo, só se compara o que existe nos dois lados | Ver seção 3.3 — as categorias de compra e de cardápio são taxonomias diferentes |
 | D6 | **Sistema encurta o diagnóstico, não previne.** O CMV real depende do inventário do dia 30; o ganho é ter a explicação no dia 1–2 em vez do dia 15 | Delta semanal e alertas ficam como roadmap |
+| D7 | **O Blob passa a ser lido, não só escrito** (RF14) — cada número do fechamento aponta para o arquivo que o gerou, com download por SAS de curta duração | Auditoria em `09-uso-da-nuvem.md`: hoje a URL guardada devolve 401 e nenhuma tela lê o Blob. É o pré-requisito de qualquer uso com imagem. **Decidido em 07/11, não implementado** — ver 8.1 |
+| D8 | **Imagem só com função: a nota fiscal é a prova do lado real (RF09)**, não "foto para justificar o Blob" | Para o Blob, planilha e foto são o mesmo binário. O que justifica a foto é ela responder à pergunta que o RF11 já faz no ramo `abaixo`: "conferir se todas as compras foram lançadas" pede a nota. **Decidido em 07/11, não implementado** — ver 8.2 |
 
 **Fora de escopo deste ciclo:** fluxo sem ERP (mini-ERP), alertas, delta
 semanal, autenticação, RF09, mudanças de infra/deploy (salvo se algo quebrar).
@@ -358,8 +360,11 @@ aberto para a banca.
   até o resultado aparecer na tela (`performance.now()`). Mostrar ao fim:
   "Do primeiro envio ao resultado: X s".
 - Ao lado, a ressalva fixa: "não inclui o tempo de exportar os relatórios do ERP".
-- Sem tabela nova, sem migração. Se o RF12 for cortado, o cronômetro vai para
-  a tela de Upload atual (do envio até a resposta 201).
+- Sem tabela nova, sem migração.
+- A especificação previa mandar o cronômetro para a tela de Upload caso o
+  RF12 fosse cortado. **O RF12 não foi cortado — foi entregue**, então o
+  cronômetro ficou onde era o lugar dele: no fim do fluxo guiado. A tela de
+  Upload segue sem cronômetro, inalterada.
 
 ---
 
@@ -372,7 +377,65 @@ aberto para a banca.
 - Depois de cada deploy: `/health` com o SHA novo + fechamento de set/26 com `ajuste_pp: -3.68`.
 - No fim: marcar como entregue em `01-requisitos.md` (RF11–RF13) e reescrever o passo 2 de `08-roteiro-demo.md` com o que **está no ar**.
 
-## 8. Roadmap (não implementar agora)
+## 8. Próximo ciclo — especificado, não implementado
+
+> Estas duas seções vieram de um replanejamento feito **em paralelo**, na noite
+> de 07/11, por outra sessão (commit `124b6bf`). Aquele replanejamento propunha
+> **cortar o RF12** e pôr o RF14 no lugar — mas o RF12 já estava sendo
+> implementado e **foi entregue**, então o corte não aconteceu. O que se
+> aproveitou foi a especificação do RF14 e a nova justificativa do RF09, que
+> seguem válidas e viram **próximo passo**, não item deste ciclo.
+>
+> A condição original do RF09 ("só se o resto estiver no ar até domingo 12h")
+> **expirou** e não vale mais: o prazo passou e o RF14, que era pré-requisito,
+> não foi feito.
+
+### 8.1 RF14 — De onde veio este número (Blob lido, não só escrito)
+
+Hoje `UploadCusto.url` guarda a URL nua do blob, que devolve **401** (o
+container é privado, corretamente). E ao reenviar, o original é apagado — só o
+soft delete de 14 dias o segura. **Nenhuma tela lê o Blob.**
+
+- **Endpoint:** `GET /api/v1/uploads-custo/{upload_id}/arquivo`
+  - Com Azure: **302** para uma URL SAS de **leitura**, válida por **5 min**, com escopo de **um blob** (`generate_blob_sas`, permissão `read`). A chave vem da connection string já configurada — nada de segredo novo.
+  - Sem Azure (dev/testes): **200** com o arquivo de `uploads_local/` (`FileResponse`), `Content-Disposition` com o `nome_original`.
+  - **404** se o upload não existe ou o arquivo sumiu. Erro do SDK vai para o log, nunca para a resposta (regra 9).
+- **Arquivos:** `app/services/storage.py` (`url_leitura(blob_name, nome_original)`), `app/routers/uploads.py` (rota), `tests/test_uploads.py` (200 local com os mesmos bytes enviados; 404 para id inexistente).
+- **Tela:** no Fechamento, bloco **"De onde veio este número"** com os dois uploads do período (lado, nome original, data de envio, botão "Baixar original"). Os ids vêm de `GET /api/v1/uploads-custo?casa_id=&periodo=`, que já existe.
+- **Não mudar junto:** o comportamento de apagar o blob antigo no reenvio. Guardar versões é o passo seguinte.
+- **Por que vale:** a banca pode perguntar "como o sócio sabe que o número está certo?". A resposta passa a ser "abra o arquivo que o gerou". E o SAS demonstra privilégio mínimo: um arquivo, leitura, minutos.
+- **Estimativa:** ~2 h. É o item 5 da fila de `09-uso-da-nuvem.md`.
+
+### 8.2 RF09 — Nota fiscal fotografada (versão enxuta)
+
+Especificação completa em `10-anexos-de-imagem.md`; aqui está o recorte que
+cabe em ~4 h. **Depende do RF14**, que resolve o download por SAS.
+
+A foto tem função: ela é a **prova** que o fechamento pede. No ramo `abaixo` do
+RF11 — que é o caso real de set/26 — a sugestão é conferir se todas as compras
+foram lançadas; no ramo `acima`, investigar o grupo que mais contribuiu. Nos
+dois casos, a pergunta seguinte é "cadê a nota?".
+
+Isso é diferente de "criar algo com imagem para justificar o Blob": para o
+Blob, planilha e foto são o mesmo tipo de coisa (binário). O que justifica a
+foto é ela responder a uma pergunta que o sistema já faz.
+
+- Tabela `Anexo` como em `10-anexos-de-imagem.md` (`create_all` cria a tabela nova no startup; nenhuma tabela existente muda).
+- `POST /api/v1/casas/{casa_id}/anexos` (multipart: `periodo`, `descricao` opcional, `arquivo`) → **201** · 404 casa · 413 · 415.
+- `GET /api/v1/casas/{casa_id}/anexos?periodo=` → 200 **paginado** (regra 6).
+- `GET /api/v1/anexos/{id}/conteudo` → 302 SAS / 200 local, reaproveitando o RF14.
+- **Validação por magic bytes** no servidor: só JPEG, PNG e WebP. SVG recusado (415), mesmo com extensão de imagem. Nome do blob em `uuid4` (regra 10).
+- **No navegador, antes de enviar:** reduzir para no máximo 1600 px no lado maior e reencodar em JPEG via `<canvas>`. Isso resolve o limite de 10 MB **e remove o EXIF** (localização do celular), sem adicionar Pillow ao backend.
+- Tela: seção **"Notas do mês"** no Fechamento, ao lado do "De onde veio este número", com miniaturas e botão "Anexar nota".
+- Testes: 201 com PNG sintético gerado no teste; 415 para SVG e para texto renomeado `.jpg`; 404 casa inexistente; listagem paginada filtrando por período.
+
+Fica fora: DELETE, OCR, vínculo da nota a um grupo, várias fotos por envio.
+
+**Em demo:** anexar numa casa **DEMO**. Não usar foto de nota real do cliente
+(tem CNPJ e valores) — use uma nota fictícia ou um cupom pessoal sem dados
+sensíveis.
+
+## 9. Roadmap (mais adiante)
 
 | Item | Por que fica para depois |
 |---|---|
@@ -380,3 +443,5 @@ aberto para a banca.
 | Alertas durante o mês | Mesmo motivo; e sem auth não há para quem mandar |
 | Persona 3 (pequeno negócio) | Hipótese não entrevistada; exige resolver ficha técnica e inventário antes (mini-ERP) |
 | Ficha técnica explodida em insumos | É o que permitiria comparar BOVINOS teórico × real — exige um novo relatório do ERP |
+| Versionar o original no reenvio | Hoje o reenvio apaga o blob anterior; só o soft delete de 14 dias o segura. Depende do RF14 estar no ar |
+| Casar nomes de subgrupo com flexão | `VINHOS` × `VINHO` ficam fora da comparação. Exige mapeamento explícito ou padronização no ERP — adivinhar inventa desvio (ver `01-requisitos.md` 1.9) |

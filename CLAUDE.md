@@ -35,7 +35,8 @@ técnica e inventário mensal — o contrato de entrada está em
 - Campos novos na API são **opcionais**: o frontend em produção não pode quebrar entre deploys. Backend primeiro, depois front.
 - Nunca usar a casa piloto em 09/2026 para testar envio: reenvio **substitui** o dado real.
 - Congelamento: nada de deploy depois de domingo 08/11, 20h. Após cada deploy: `/health` com o SHA novo e fechamento de set/26 com `ajuste_pp: -3.68`.
-- Fora do ciclo: mini-ERP, alertas, delta semanal, autenticação, RF09, infra.
+- **Próximo passo, especificado e não implementado:** RF14 (download do original por SAS) e, depois dele, RF09 (nota fiscal como prova do lado real). Ver `docs/11-…` §8. Imagem só com função: validar por magic bytes (JPEG/PNG/WebP; SVG recusado) e remover EXIF no navegador.
+- Fora do ciclo entregue: mini-ERP, alertas, delta semanal, autenticação, infra.
 
 **Dados reais do cliente nunca vão para o Git** (`dados_reais/`, `*.xlsx` no
 `.gitignore`). Testes usam planilhas sintéticas de `tests/planilhas.py`.
