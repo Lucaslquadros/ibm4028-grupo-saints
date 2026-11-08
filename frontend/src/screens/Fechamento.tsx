@@ -106,77 +106,145 @@ export function BlocoExplicacao({ explicacao }: { explicacao: Explicacao }) {
   );
 }
 
-function BlocoSubgrupos({ explicacao }: { explicacao: Explicacao }) {
-  const { subgrupos_comparados: comparados, subgrupos_sem_par: semPar } = explicacao;
-  if (comparados.length === 0 && semPar.length === 0) return null;
+/** As categorias que existem num lado só — recolhidas por padrão.
+ *
+ * São o maior volume de número da tela e **não são desvio**: o ERP informa
+ * compra por categoria de insumo e venda por categoria de cardápio. Ficam
+ * disponíveis porque escondê-las seria esconder de que o custo é feito; ficam
+ * fechadas porque ninguém decide nada olhando para elas.
+ */
+function ComposicaoDoCusto({ explicacao }: { explicacao: Explicacao }) {
+  const semPar = explicacao.subgrupos_sem_par;
+  if (semPar.length === 0) return null;
 
   return (
     <>
-      <h3>Abaixo do grupo</h3>
-      {comparados.length > 0 ? (
-        <table className="tabela glass">
+      {/* A tarja fica FORA do recolhível: é o motivo de a comparação por
+          categoria vir curta, e precisa ser lida mesmo por quem não abrir. */}
+      <p className="aviso">{explicacao.limite_dado}</p>
+      <details className="composicao glass">
+        <summary>
+          Composição do custo — {semPar.length} categorias que existem em um lado só.{" "}
+          <strong>Não são desvio.</strong>
+        </summary>
+        <table className="tabela tabela-embutida">
           <thead>
             <tr>
               <th>Grupo</th>
               <th>Categoria</th>
-              <th>Teórico</th>
-              <th>Real</th>
-              <th>Ajuste</th>
-              <th>Ajuste (pp)</th>
+              <th>Lado</th>
+              <th>Custo</th>
             </tr>
           </thead>
           <tbody>
-            {comparados.map((s) => (
-              <tr key={`${s.grupo}-${s.subgrupo}`}>
+            {semPar.map((s) => (
+              <tr key={`${s.grupo}-${s.subgrupo}-${s.lado}`}>
                 <td>{s.grupo}</td>
                 <td>{s.subgrupo}</td>
-                <td className="num">{brl(s.custo_teorico)}</td>
-                <td className="num">{brl(s.custo_real)}</td>
-                <td className="num">{brl(s.ajuste)}</td>
-                <td className={`num ${classeDoAjuste(s.ajuste_pp, explicacao.limiar_pp)}`}>
-                  {pp(s.ajuste_pp)}
-                </td>
+                <td>{s.lado === "teorico" ? "Teórico (cardápio)" : "Real (compras)"}</td>
+                <td className="num">{brl(s.custo)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      ) : (
-        <p className="vazio">
-          Nenhuma categoria aparece com o mesmo nome nos dois relatórios deste mês, então não há
-          comparação a fazer abaixo do grupo.
-        </p>
-      )}
-
-      {semPar.length > 0 && (
-        <>
-          <p className="aviso">{explicacao.limite_dado}</p>
-          <span className="explicacao-rotulo">
-            Composição do custo — categorias que existem em um lado só.{" "}
-            <strong>Não são desvio.</strong>
-          </span>
-          <table className="tabela glass">
-            <thead>
-              <tr>
-                <th>Grupo</th>
-                <th>Categoria</th>
-                <th>Lado</th>
-                <th>Custo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {semPar.map((s) => (
-                <tr key={`${s.grupo}-${s.subgrupo}-${s.lado}`}>
-                  <td>{s.grupo}</td>
-                  <td>{s.subgrupo}</td>
-                  <td>{s.lado === "teorico" ? "Teórico (cardápio)" : "Real (compras)"}</td>
-                  <td className="num">{brl(s.custo)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
+      </details>
     </>
+  );
+}
+
+/** O fechamento no formato de balanço: colunas são os dois lados, linhas são
+ * as contas.
+ *
+ * A tabela anterior punha venda, CMV teórico, CMV real, ajuste e contribuição
+ * lado a lado na mesma linha — e isso mistura os dois relatórios dentro de uma
+ * linha só: "CMV real" é custo de **compras** dividido por receita de
+ * **venda**. Correto no cálculo, ilegível na tela.
+ *
+ * Aqui a venda aparece uma vez, como base do grupo, e fica explícito que é o
+ * MESMO denominador dos dois lados — que é justamente o que faz a diferença em
+ * pontos ser só diferença de custo. Os subgrupos comparáveis entram aninhados,
+ * como numa DRE, em vez de numa segunda tabela.
+ */
+function Balanco({
+  dados,
+  explicacao,
+}: {
+  dados: FechamentoDto;
+  explicacao: Explicacao | null;
+}) {
+  const limiar = explicacao?.limiar_pp ?? 1;
+  const temExplicacao = explicacao !== null;
+  const subgruposDe = (grupo: string) =>
+    (explicacao?.subgrupos_comparados ?? []).filter((s) => s.grupo === grupo);
+
+  const bloco = (linha: FechamentoDto["total"], total = false) => {
+    const subgrupos = total ? [] : subgruposDe(linha.grupo);
+    return (
+      <tbody key={linha.grupo} className={total ? "balanco-total" : undefined}>
+        <tr className="balanco-grupo">
+          <th scope="rowgroup" colSpan={2}>
+            {linha.grupo}
+          </th>
+          <td className="num balanco-base" colSpan={2}>
+            venda líquida {brl(linha.venda_liquida)}
+          </td>
+        </tr>
+        <tr>
+          <td className="balanco-conta" colSpan={1}>
+            custo
+          </td>
+          <td className="num">{brl(linha.custo_teorico)}</td>
+          <td className="num">{brl(linha.custo_real)}</td>
+          <td className="num">{brl(linha.ajuste)}</td>
+        </tr>
+        <tr>
+          <td className="balanco-conta">sobre a venda</td>
+          <td className="num">{pct(linha.cmv_teorico_pct)}</td>
+          <td className="num">{pct(linha.cmv_real_pct)}</td>
+          <td className={`num ${classeDoAjuste(linha.ajuste_pp, limiar)}`}>{pp(linha.ajuste_pp)}</td>
+        </tr>
+        {subgrupos.map((s) => (
+          <tr key={s.subgrupo} className="balanco-sub">
+            <td className="balanco-conta">{s.subgrupo}</td>
+            <td className="num">{brl(s.custo_teorico)}</td>
+            <td className="num">{brl(s.custo_real)}</td>
+            <td className="num">
+              {brl(s.ajuste)}
+              {s.ajuste_pp !== null && <span className="balanco-pp">{pp(s.ajuste_pp)}</span>}
+            </td>
+          </tr>
+        ))}
+        {/* Sem esta linha, um grupo sem filhos parece dado faltando. Não é:
+            é taxonomia que não se encontra nos dois relatórios. A tarja abaixo
+            da tabela explica o porquê, mas ela está longe daqui. */}
+        {!total && temExplicacao && subgrupos.length === 0 && (
+          <tr className="balanco-sub">
+            <td className="balanco-conta balanco-vazio" colSpan={4}>
+              nenhuma categoria com o mesmo nome nos dois relatórios
+            </td>
+          </tr>
+        )}
+      </tbody>
+    );
+  };
+
+  return (
+    <table className="tabela balanco glass">
+      <thead>
+        <tr>
+          <th />
+          <th className="num">
+            Teórico<span className="balanco-fonte">ficha técnica</span>
+          </th>
+          <th className="num">
+            Real<span className="balanco-fonte">compras</span>
+          </th>
+          <th className="num">Diferença</th>
+        </tr>
+      </thead>
+      {dados.grupos.map((g) => bloco(g))}
+      {bloco(dados.total, true)}
+    </table>
   );
 }
 
@@ -187,15 +255,10 @@ function BlocoSubgrupos({ explicacao }: { explicacao: Explicacao }) {
  * cálculo que depois saísse do lugar.
  */
 export function PainelFechamento({ dados }: { dados: FechamentoDto }) {
-  const ajuste = dados.total.ajuste_pp;
   // `explicacao` pode não existir: o backend em produção durante o deploy pode
   // ser a versão anterior. Sem ela a tela mostra o número sem leitura, nunca um
   // rótulo de valor ("favorável") que o sinal do ajuste não sustenta.
   const explicacao = dados.explicacao ?? null;
-  const limiar = explicacao?.limiar_pp ?? 1;
-  const contribuicoes = new Map(
-    (explicacao?.contribuicoes ?? []).map((c) => [c.grupo, c.contribuicao_pp]),
-  );
 
   return (
     <>
@@ -208,57 +271,22 @@ export function PainelFechamento({ dados }: { dados: FechamentoDto }) {
 
       {explicacao && <BlocoExplicacao explicacao={explicacao} />}
 
+      {/* O hero perdeu o par teórico × real: ele agora está no balanço, e
+          repetido aqui eram seis números a mais dizendo a mesma coisa. */}
       <div className="hero-ajuste glass">
         <div className={`hero-selo ${explicacao ? SELO[explicacao.situacao].classe : ""}`}>
           {explicacao ? SELO[explicacao.situacao].rotulo : "Ajuste do mês"}
         </div>
         <span className="hero-rotulo">Ajuste do mês · {dados.casa_nome}</span>
-        <strong className="hero-valor">{pp(ajuste)}</strong>
-        <span className="hero-detalhe">{brl(dados.total.ajuste)} de diferença entre real e teórico</span>
-
-        <div className="hero-lado">
-          <div>
-            <span className="hero-lado-k">Teórico</span>
-            <span className="hero-lado-v">{pct(dados.total.cmv_teorico_pct)}</span>
-            <span className="hero-lado-d">{brl(dados.total.custo_teorico)}</span>
-          </div>
-          <div className="hero-lado-sep" />
-          <div>
-            <span className="hero-lado-k">Real</span>
-            <span className="hero-lado-v">{pct(dados.total.cmv_real_pct)}</span>
-            <span className="hero-lado-d">{brl(dados.total.custo_real)}</span>
-          </div>
-        </div>
+        <strong className="hero-valor">{pp(dados.total.ajuste_pp)}</strong>
+        <span className="hero-detalhe">
+          {brl(dados.total.ajuste)} de diferença entre real e teórico
+        </span>
       </div>
 
-      <table className="tabela glass">
-        <thead>
-          <tr>
-            <th>Grupo</th>
-            <th>Venda líquida</th>
-            <th>CMV teórico</th>
-            <th>CMV real</th>
-            <th>Ajuste (pp)</th>
-            {/* Contribuição = ajuste do grupo ÷ venda TOTAL. É a coluna que
-                soma ao ajuste do mês; a de ajuste em pp não soma. */}
-            <th>Contribuição</th>
-          </tr>
-        </thead>
-        <tbody>
-          {dados.grupos.map((g) => (
-            <tr key={g.grupo}>
-              <td>{g.grupo}</td>
-              <td className="num">{brl(g.venda_liquida)}</td>
-              <td className="num">{pct(g.cmv_teorico_pct)}</td>
-              <td className="num">{pct(g.cmv_real_pct)}</td>
-              <td className={`num ${classeDoAjuste(g.ajuste_pp, limiar)}`}>{pp(g.ajuste_pp)}</td>
-              <td className="num">{pp(contribuicoes.get(g.grupo) ?? null)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <Balanco dados={dados} explicacao={explicacao} />
 
-      {explicacao && <BlocoSubgrupos explicacao={explicacao} />}
+      {explicacao && <ComposicaoDoCusto explicacao={explicacao} />}
     </>
   );
 }

@@ -353,6 +353,76 @@ input:focus, select:focus, .busca:focus {
 .tabela-colunas { margin-bottom: 0; width: auto; min-width: 340px; }
 .tabela-colunas code { font-size: 13px; }
 
+/* ----------------------------------------- balanço do fechamento (RF02/RF11) */
+/* Colunas são os dois lados, linhas são as contas. A tabela antiga punha venda,
+   CMV teórico e CMV real na mesma linha — e "CMV real" é custo de COMPRAS sobre
+   receita de VENDA, ou seja, dois relatórios dentro de uma linha só. */
+.balanco { font-variant-numeric: tabular-nums; }
+.balanco thead th {
+  text-align: right;
+  vertical-align: bottom;
+  padding-bottom: 8px;
+}
+.balanco thead th:first-child { width: 42%; }
+.balanco-fonte {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.75;
+}
+.balanco tbody { border-top: 1px solid rgba(var(--border-dark), 0.1); }
+.balanco tbody tr td, .balanco tbody tr th { border-bottom: none; padding: 5px 16px; }
+.balanco-grupo th {
+  text-align: left;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  padding-top: 14px;
+}
+/* A venda aparece uma vez, como base do grupo: é o MESMO denominador dos dois
+   lados, e é isso que faz a diferença em pontos ser só diferença de custo. */
+.balanco-base {
+  text-align: right;
+  font-size: 12px;
+  color: var(--ink-soft);
+  padding-top: 14px;
+}
+.balanco-conta { padding-left: 30px !important; color: var(--ink-soft); }
+.balanco-sub td { font-size: 13px; }
+.balanco-sub .balanco-conta {
+  padding-left: 48px !important;
+  position: relative;
+}
+.balanco-sub .balanco-conta::before {
+  content: "└";
+  position: absolute;
+  left: 32px;
+  opacity: 0.4;
+}
+.balanco-pp { display: block; font-size: 11px; color: var(--ink-soft); }
+.balanco-total { border-top: 1.5px solid rgba(var(--border-dark), 0.28); }
+.balanco-total th, .balanco-total td { font-weight: 650; }
+.balanco-total tr:last-child td { padding-bottom: 14px; }
+
+/* Composição do custo: recolhida por padrão. É o maior volume de número da
+   tela e não é desvio — mas esconder de vez seria esconder do que o custo é
+   feito. A tarja do limite do dado fica FORA, sempre visível. */
+.composicao { padding: 0; margin-bottom: 24px; }
+.composicao > summary {
+  cursor: pointer;
+  padding: 13px 18px;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  list-style-position: inside;
+}
+.composicao > summary:hover { color: var(--ink); }
+.composicao[open] > summary { border-bottom: 1px solid rgba(var(--border-dark), 0.08); }
+.tabela-embutida { margin-bottom: 0; background: transparent; }
+
 /* RF13 — o tempo medido vem colado na ressalva do que ele NÃO inclui. */
 .cronometro {
   display: flex;
@@ -661,3 +731,11 @@ input:focus, select:focus, .busca:focus {
 .selo-conf-alta { background: rgba(var(--good-rgb), 0.16); color: var(--good); }
 .selo-conf-media { background: rgba(var(--amber-rgb), 0.16); color: var(--amber-strong); }
 .selo-conf-baixa { background: rgba(var(--bad-rgb), 0.14); color: var(--bad); }
+
+/* Grupo sem categoria comparável: dizer isso é diferente de não dizer nada. */
+.balanco-vazio {
+  font-size: 12px;
+  font-style: italic;
+  opacity: 0.65;
+  padding-left: 48px !important;
+}
