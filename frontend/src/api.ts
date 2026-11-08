@@ -171,6 +171,10 @@ export interface RecomendacaoCompra {
 }
 
 export const api = {
+  /** Link direto para a planilha-modelo. Não passa por `pedido`: a API
+   * devolve um arquivo com Content-Disposition, não JSON. */
+  urlModelo: (tipo: TipoUpload) => `${BASE_URL}/api/v1/modelos/${tipo}`,
+
   listarCasas: (params: { ativa?: boolean; busca?: string } = {}) => {
     const q = new URLSearchParams();
     if (params.ativa !== undefined) q.set("ativa", String(params.ativa));

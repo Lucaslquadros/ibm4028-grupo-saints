@@ -180,6 +180,89 @@ function BlocoSubgrupos({ explicacao }: { explicacao: Explicacao }) {
   );
 }
 
+/** O resultado do fechamento sem o formulário de busca.
+ *
+ * Extraído para o fluxo guiado "Fechar o mês" (RF12) mostrar exatamente o
+ * mesmo painel do último passo, em vez de uma segunda versão do mesmo
+ * cálculo que depois saísse do lugar.
+ */
+export function PainelFechamento({ dados }: { dados: FechamentoDto }) {
+  const ajuste = dados.total.ajuste_pp;
+  // `explicacao` pode não existir: o backend em produção durante o deploy pode
+  // ser a versão anterior. Sem ela a tela mostra o número sem leitura, nunca um
+  // rótulo de valor ("favorável") que o sinal do ajuste não sustenta.
+  const explicacao = dados.explicacao ?? null;
+  const limiar = explicacao?.limiar_pp ?? 1;
+  const contribuicoes = new Map(
+    (explicacao?.contribuicoes ?? []).map((c) => [c.grupo, c.contribuicao_pp]),
+  );
+
+  return (
+    <>
+      {(!dados.tem_cardapio || !dados.tem_compras) && (
+        <p className="aviso">
+          {!dados.tem_cardapio && "Falta o upload do cardápio (CMV teórico) deste período. "}
+          {!dados.tem_compras && "Falta o upload de compras (CMV real) deste período."}
+        </p>
+      )}
+
+      {explicacao && <BlocoExplicacao explicacao={explicacao} />}
+
+      <div className="hero-ajuste glass">
+        <div className={`hero-selo ${explicacao ? SELO[explicacao.situacao].classe : ""}`}>
+          {explicacao ? SELO[explicacao.situacao].rotulo : "Ajuste do mês"}
+        </div>
+        <span className="hero-rotulo">Ajuste do mês · {dados.casa_nome}</span>
+        <strong className="hero-valor">{pp(ajuste)}</strong>
+        <span className="hero-detalhe">{brl(dados.total.ajuste)} de diferença entre real e teórico</span>
+
+        <div className="hero-lado">
+          <div>
+            <span className="hero-lado-k">Teórico</span>
+            <span className="hero-lado-v">{pct(dados.total.cmv_teorico_pct)}</span>
+            <span className="hero-lado-d">{brl(dados.total.custo_teorico)}</span>
+          </div>
+          <div className="hero-lado-sep" />
+          <div>
+            <span className="hero-lado-k">Real</span>
+            <span className="hero-lado-v">{pct(dados.total.cmv_real_pct)}</span>
+            <span className="hero-lado-d">{brl(dados.total.custo_real)}</span>
+          </div>
+        </div>
+      </div>
+
+      <table className="tabela glass">
+        <thead>
+          <tr>
+            <th>Grupo</th>
+            <th>Venda líquida</th>
+            <th>CMV teórico</th>
+            <th>CMV real</th>
+            <th>Ajuste (pp)</th>
+            {/* Contribuição = ajuste do grupo ÷ venda TOTAL. É a coluna que
+                soma ao ajuste do mês; a de ajuste em pp não soma. */}
+            <th>Contribuição</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dados.grupos.map((g) => (
+            <tr key={g.grupo}>
+              <td>{g.grupo}</td>
+              <td className="num">{brl(g.venda_liquida)}</td>
+              <td className="num">{pct(g.cmv_teorico_pct)}</td>
+              <td className="num">{pct(g.cmv_real_pct)}</td>
+              <td className={`num ${classeDoAjuste(g.ajuste_pp, limiar)}`}>{pp(g.ajuste_pp)}</td>
+              <td className="num">{pp(contribuicoes.get(g.grupo) ?? null)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {explicacao && <BlocoSubgrupos explicacao={explicacao} />}
+    </>
+  );
+}
+
 type Props = {
   casas: Casa[];
   casaId: number | "";
@@ -215,16 +298,6 @@ export function Fechamento({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
       setCarregando(false);
     }
   }
-
-  const ajuste = dados?.total.ajuste_pp ?? null;
-  // `explicacao` pode não existir: o backend em produção durante o deploy pode
-  // ser a versão anterior. Sem ela a tela mostra o número sem leitura, nunca um
-  // rótulo de valor ("favorável") que o sinal do ajuste não sustenta.
-  const explicacao = dados?.explicacao ?? null;
-  const limiar = explicacao?.limiar_pp ?? 1;
-  const contribuicoes = new Map(
-    (explicacao?.contribuicoes ?? []).map((c) => [c.grupo, c.contribuicao_pp]),
-  );
 
   return (
     <section className="tela">
@@ -262,68 +335,7 @@ export function Fechamento({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
 
       {dados && (
         <>
-          {(!dados.tem_cardapio || !dados.tem_compras) && (
-            <p className="aviso">
-              {!dados.tem_cardapio && "Falta o upload do cardápio (CMV teórico) deste período. "}
-              {!dados.tem_compras && "Falta o upload de compras (CMV real) deste período."}
-            </p>
-          )}
-
-          {explicacao && <BlocoExplicacao explicacao={explicacao} />}
-
-          <div className="hero-ajuste glass">
-            <div className={`hero-selo ${explicacao ? SELO[explicacao.situacao].classe : ""}`}>
-              {explicacao ? SELO[explicacao.situacao].rotulo : "Ajuste do mês"}
-            </div>
-            <span className="hero-rotulo">Ajuste do mês · {dados.casa_nome}</span>
-            <strong className="hero-valor">{pp(ajuste)}</strong>
-            <span className="hero-detalhe">{brl(dados.total.ajuste)} de diferença entre real e teórico</span>
-
-            <div className="hero-lado">
-              <div>
-                <span className="hero-lado-k">Teórico</span>
-                <span className="hero-lado-v">{pct(dados.total.cmv_teorico_pct)}</span>
-                <span className="hero-lado-d">{brl(dados.total.custo_teorico)}</span>
-              </div>
-              <div className="hero-lado-sep" />
-              <div>
-                <span className="hero-lado-k">Real</span>
-                <span className="hero-lado-v">{pct(dados.total.cmv_real_pct)}</span>
-                <span className="hero-lado-d">{brl(dados.total.custo_real)}</span>
-              </div>
-            </div>
-          </div>
-
-          <table className="tabela glass">
-            <thead>
-              <tr>
-                <th>Grupo</th>
-                <th>Venda líquida</th>
-                <th>CMV teórico</th>
-                <th>CMV real</th>
-                <th>Ajuste (pp)</th>
-                {/* Contribuição = ajuste do grupo ÷ venda TOTAL. É a coluna que
-                    soma ao ajuste do mês; a de ajuste em pp não soma. */}
-                <th>Contribuição</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dados.grupos.map((g) => (
-                <tr key={g.grupo}>
-                  <td>{g.grupo}</td>
-                  <td className="num">{brl(g.venda_liquida)}</td>
-                  <td className="num">{pct(g.cmv_teorico_pct)}</td>
-                  <td className="num">{pct(g.cmv_real_pct)}</td>
-                  <td className={`num ${classeDoAjuste(g.ajuste_pp, limiar)}`}>
-                    {pp(g.ajuste_pp)}
-                  </td>
-                  <td className="num">{pp(contribuicoes.get(g.grupo) ?? null)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {explicacao && <BlocoSubgrupos explicacao={explicacao} />}
+          <PainelFechamento dados={dados} />
 
           <h3>Evolução mensal</h3>
           <div className="legenda">
