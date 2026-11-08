@@ -26,13 +26,14 @@ técnica e inventário mensal — o contrato de entrada está em
 **Leia `docs/11-ciclo-explicacao-do-ajuste.md` inteiro antes de escrever código.**
 É a especificação: decisões, contrato da API, testes, ordem de corte.
 
-- Ordem: P0 (nomes de grupo + planilha-modelo) → RF11 backend → RF11 tela → RF12 → RF13.
+- Ordem: P0 (nomes de grupo + planilha-modelo) → RF11 backend → RF11 tela + RF13 (cronômetro no Upload) → RF14 (download por SAS) → RF09 enxuto **só se o resto estiver no ar até domingo 12h**. RF12 foi cortado.
 - O ajuste da casa real é **negativo** (−3,68 pp): todo texto tem três ramos (acima / dentro / abaixo). Negativo **não** é economia.
 - Abaixo do grupo, só se compara subgrupo que existe nos dois lados. Não inventar granularidade.
 - Campos novos na API são **opcionais**: o frontend em produção não pode quebrar entre deploys. Backend primeiro, depois front.
 - Nunca usar a casa piloto em 09/2026 para testar envio: reenvio **substitui** o dado real.
 - Congelamento: nada de deploy depois de domingo 08/11, 20h. Após cada deploy: `/health` com o SHA novo e fechamento de set/26 com `ajuste_pp: -3.68`.
-- Fora do ciclo: mini-ERP, alertas, delta semanal, autenticação, RF09, infra.
+- Imagem só com função: a nota fiscal (RF09) é a prova que o RF11 pede, não enfeite do Blob. Validar por magic bytes (JPEG/PNG/WebP; SVG recusado); EXIF removido no navegador.
+- Fora do ciclo: mini-ERP, alertas, delta semanal, autenticação, RF12, infra.
 
 **Dados reais do cliente nunca vão para o Git** (`dados_reais/`, `*.xlsx` no
 `.gitignore`). Testes usam planilhas sintéticas de `tests/planilhas.py`.

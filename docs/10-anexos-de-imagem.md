@@ -11,10 +11,15 @@
 | **RF09** — nota fiscal anexada ao custo do período | **prova** | O número do fechamento não tem documento atrás |
 | ~~RF10 — produto com foto como âncora de identidade~~ | — | **Retirado.** Ver "O que foi retirado" abaixo |
 
-> **Atualização de 07/11/2026: RF09 desceu para Should e está fora do ciclo
-> 07–09/11.** Com a volta às Personas 1 e 2, a prioridade passou a ser explicar
-> o ajuste (RF11). A especificação abaixo continua válida para quando for
-> retomada. Motivo em `01-requisitos.md`, seção 7.
+> **Atualização de 07/11/2026: RF09 é Could e condicional no ciclo 07–09/11.**
+> Justificativa nova: a nota não está aqui para justificar o Blob, e sim porque é
+> a **prova** que o fechamento pede — a sugestão do ramo `abaixo` do RF11 é
+> "conferir se todas as compras foram lançadas". Persona: a analista anexa
+> (Persona 1), o sócio confere (Persona 2); a Persona 3 deixou de ser alvo.
+>
+> O recorte que cabe no ciclo (sem DELETE, sem OCR, EXIF removido no navegador
+> pelo reencode em `<canvas>`) está em `11-ciclo-explicacao-do-ajuste.md` §4c. O
+> download por SAS, pré-requisito abaixo, virou o **RF14** e vem antes.
 
 ~~**RF09 é Must**~~, por decisão de 06/11/2026. É uma **aposta de produto
 deliberada**, não um requisito validado: a Persona 3 não foi entrevistada e o
@@ -164,7 +169,7 @@ Não está especificada aqui porque não foi decidida.
 
 1. Fila nível 1 de `09-uso-da-nuvem.md` — em especial **`soft delete` no Blob**
    (`infra/ajustes-nivel-1.sh`)
-2. **Endpoint de download com SAS** (item 5 da fila) — bloqueador
+2. **Endpoint de download com SAS** (item 5 da fila) — bloqueador. **Virou o RF14** (`11-…` §4b)
 3. Validação de imagem: magic bytes, recusa de SVG, remoção de EXIF
 4. **RF09**: modelo, endpoints, tela
 

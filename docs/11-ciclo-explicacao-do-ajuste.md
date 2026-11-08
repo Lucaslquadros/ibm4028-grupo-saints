@@ -6,7 +6,8 @@
 > escrever código, junto com `CLAUDE.md`, `docs/07-fechamento-cmv.md` e as
 > skills de `.claude/skills/`.
 >
-> **Estado: especificado, nada implementado.** Cada item muda para "entregue"
+> **Estado: especificado, nada implementado.** Replanejado no fim do dia 07/11/2026: entram
+> o RF14 (Blob lido) e o RF09 (nota fiscal, condicional); sai o RF12. Cada item muda para "entregue"
 > aqui e em `docs/01-requisitos.md` só depois do deploy conferido no `/health`.
 
 ---
@@ -22,32 +23,42 @@
 | D5 | **Não inventar granularidade.** Abaixo do grupo, só se compara o que existe nos dois lados | Ver seção 3.3 — as categorias de compra e de cardápio são taxonomias diferentes |
 | D6 | **Sistema encurta o diagnóstico, não previne.** O CMV real depende do inventário do dia 30; o ganho é ter a explicação no dia 1–2 em vez do dia 15 | Delta semanal e alertas ficam como roadmap |
 
+| D7 | **O Blob passa a ser lido, não só escrito.** Cada número do fechamento aponta para o arquivo que o gerou (RF14), com download por SAS de curta duração | Auditoria em `09-uso-da-nuvem.md`: hoje a URL guardada devolve 401 e nenhuma tela lê o Blob. É o pré-requisito de qualquer uso com imagem |
+| D8 | **Imagem só com função: nota fiscal como prova do lado real (RF09).** Não "foto para justificar o Blob" | Para o Blob, planilha e foto são o mesmo tipo de coisa (binário). O que justifica a foto é ela responder a uma pergunta do fechamento: a sugestão do ramo `abaixo` do RF11 é "conferir se todas as compras foram lançadas" — a nota é a prova. Atualizada no fim de 07/11 (a primeira revisão do mesmo dia tinha tirado o RF09 do ciclo) |
+
 **Fora de escopo deste ciclo:** fluxo sem ERP (mini-ERP), alertas, delta
-semanal, autenticação, RF09, mudanças de infra/deploy (salvo se algo quebrar).
+semanal, autenticação, RF12 (cortado em 07/11), mudanças de infra/deploy
+(salvo se algo quebrar).
 
 ---
 
 ## 2. Itens, em ordem de prioridade
 
-| Ordem | Item | Requisito | MoSCoW | Estimativa |
-|---|---|---|---|---|
-| P0 | Pré-requisitos de dado: nomes de grupo padronizados + planilha-modelo `.xlsx` | RF01 | Must | 1,5 h |
-| 1 | Explicação do ajuste — backend (decomposição + regras + texto) | **RF11** | Must | 5 h (com testes) |
-| 2 | Explicação do ajuste — tela de Fechamento | **RF11** | Must | 2 h |
-| 3 | Fluxo guiado "Fechar o mês" | **RF12** | Should | 3,5 h |
-| 4 | Tempo do primeiro envio ao resultado | **RF13** | Should | 0,5–1 h |
-| — | Docs (`01`, `07`, `08`) com o que foi entregue | — | — | 1,5 h |
-| — | Deploys e conferência do commit no `/health` | — | — | 1 h |
+> **Replanejado no fim de 07/11/2026 (sábado).** O RF12 saiu do ciclo e entraram o
+> RF14 (rastreabilidade pelo Blob) e o RF09 (nota fiscal) como item condicional.
+> A ordem abaixo é a de execução.
 
-**Total: ~15 h.** Para um fim de semana, é apertado.
+| Ordem | Item | Requisito | MoSCoW | Estimativa | Deploy |
+|---|---|---|---|---|---|
+| 1 | P0 — nomes de grupo padronizados + planilha-modelo `.xlsx` | RF01 | Must | 1,5 h | junto com 2 |
+| 2 | Explicação do ajuste — backend + testes | **RF11** | Must | 5 h | **deploy 1 (backend)** |
+| 3 | Explicação do ajuste — tela de Fechamento + cronômetro na tela de Upload | **RF11**, **RF13** | Must / Should | 2,5 h | **deploy 2 (front)** |
+| 4 | "De onde veio este número": download do arquivo original por SAS | **RF14** | Should | 2 h | deploy 3 (back + front) |
+| 5 | Nota fiscal fotografada no período (versão enxuta, seção 4c) | **RF09** | Could neste ciclo | 4 h | deploy 4 — **só se 1–4 estiverem no ar até domingo 12h** |
+| — | Docs (`01`, `07`, `08`) com o que foi entregue | — | — | 1 h | — |
 
-### Ordem de corte (se não couber até domingo 20h)
+**Total: ~16 h, com 4 h condicionais.** Cabe no fim de semana só se nada travar; a ordem
+existe para que o que ficar de fora seja sempre o final da fila.
 
-1. **Corta o RF12 inteiro.** Maior custo e maior risco, e é o que menos sustenta a tese nova. O cronômetro (RF13) vai para a tela de Upload atual, em 30 min.
-2. **Corta a comparação por subgrupo** (3.3). Fica só a contribuição por grupo, com o aviso explícito de que o dado não desce além disso.
+### Ordem de corte
 
-**Inegociável:** P0 + itens 1 e 2, com os três ramos de sinal (3.2). Sem isso,
-o número da demo (−3,68 pp, real **abaixo** do teórico) contradiz a frase na tela.
+1. ~~RF12 inteiro~~ — **já cortado em 07/11.** O cronômetro (RF13) foi para a tela de Upload (seção 6).
+2. **RF09** — se no domingo às 12h os itens 1–4 não estiverem no ar, ele vira "especificado, próximo passo" na apresentação. A especificação em `10-anexos-de-imagem.md` sustenta a fala.
+3. **Comparação por subgrupo** (3.3). Fica só a contribuição por grupo, com o aviso de que o dado não desce além disso.
+4. **RF14.** Só se o RF11 estiver atrasado.
+
+**Inegociável:** itens 1–3, com os três ramos de sinal (3.2). Sem isso, o
+número da demo (−3,68 pp, real **abaixo** do teórico) contradiz a frase na tela.
 
 ### Congelamento
 
@@ -259,7 +270,52 @@ Solução: endpoint que **gera** o modelo na hora, com linhas sintéticas.
 
 ---
 
-## 5. RF12 — Fluxo guiado "Fechar o mês"
+## 4b. RF14 — De onde veio este número (Blob lido, não só escrito)
+
+Hoje `UploadCusto.url` guarda a URL nua do blob, que devolve **401** (o
+container é privado, corretamente). E ao reenviar, o original é apagado — só o
+soft delete de 14 dias o segura. Nenhuma tela lê o Blob.
+
+- **Endpoint:** `GET /api/v1/uploads-custo/{upload_id}/arquivo`
+  - Com Azure: **302** para uma URL SAS de **leitura**, válida por **5 min**, com escopo de **um blob** (`generate_blob_sas`, permissão `read`). A chave vem da connection string já configurada — nada de segredo novo.
+  - Sem Azure (dev/testes): **200** com o arquivo de `uploads_local/` (`FileResponse`), `Content-Disposition` com o `nome_original`.
+  - **404** se o upload não existe ou o arquivo sumiu. Erro do SDK vai para o log, nunca para a resposta (regra 9).
+- **Arquivos:** `app/services/storage.py` (`url_leitura(blob_name, nome_original)`), `app/routers/uploads.py` (rota), `tests/test_uploads.py` (200 local com os mesmos bytes enviados; 404 para id inexistente).
+- **Tela:** no Fechamento, bloco **"De onde veio este número"** com os dois uploads do período (lado, nome original, data de envio, botão "Baixar original"). Os ids vêm de `GET /api/v1/uploads-custo?casa_id=&periodo=`, que já existe.
+- **Não mudar agora:** o comportamento de apagar o blob antigo no reenvio. Guardar versões é o passo seguinte (registrado em 8. Roadmap).
+- **Por que vale:** a banca pode perguntar "como o sócio sabe que o número está certo?". A resposta passa a ser "abra o arquivo que o gerou". E o SAS demonstra privilégio mínimo: um arquivo, leitura, minutos.
+
+## 4c. RF09 — Nota fiscal fotografada (versão enxuta, condicional)
+
+**Só começa se os itens 1–4 estiverem no ar até domingo 08/11, 12h.** Especificação
+completa em `10-anexos-de-imagem.md`; aqui está o recorte que cabe em 4 h.
+
+A foto tem função: ela é a **prova** que o fechamento pede. No ramo `abaixo`
+do RF11, a sugestão é conferir se todas as compras foram lançadas; no ramo
+`acima`, investigar o grupo que mais contribuiu. Nos dois casos, a pergunta
+seguinte é "cadê a nota?".
+
+Entra:
+
+- Tabela `Anexo` como em `10-anexos-de-imagem.md` (`create_all` cria a tabela nova no startup; nenhuma tabela existente muda).
+- `POST /api/v1/casas/{casa_id}/anexos` (multipart: `periodo`, `descricao` opcional, `arquivo`) → **201** · 404 casa · 413 · 415.
+- `GET /api/v1/casas/{casa_id}/anexos?periodo=` → 200 **paginado** (regra 6).
+- `GET /api/v1/anexos/{id}/conteudo` → 302 SAS / 200 local, reaproveitando o RF14.
+- **Validação por magic bytes** no servidor: só JPEG, PNG e WebP. SVG recusado (415), mesmo com extensão de imagem. Nome do blob em `uuid4` (regra 10).
+- **No navegador, antes de enviar:** reduzir para no máximo 1600 px no lado maior e reencodar em JPEG via `<canvas>`. Isso resolve o limite de 10 MB **e remove o EXIF** (localização do celular), sem adicionar Pillow ao backend.
+- Tela: seção **"Notas do mês"** no Fechamento, ao lado do "De onde veio este número", com miniaturas e botão "Anexar nota".
+- Testes: 201 com PNG sintético gerado no teste; 415 para SVG e para texto renomeado `.jpg`; 404 casa inexistente; listagem paginada filtrando por período.
+
+Fica fora: DELETE, OCR, vínculo da nota a um grupo, várias fotos por envio.
+
+**Na demo:** anexar numa casa **DEMO**. Não usar foto de nota real do cliente
+(tem CNPJ e valores) — use uma nota fictícia ou um cupom pessoal sem dados
+sensíveis.
+
+## 5. RF12 — Fluxo guiado "Fechar o mês" (cortado em 07/11)
+
+> **Fora do ciclo.** Mantido como especificação para depois. O RF14 entrou no
+> lugar: custa menos e responde a uma pergunta mais provável da banca.
 
 **Regra: não quebrar o fluxo atual nem os dados em produção.**
 
@@ -286,8 +342,10 @@ aberto para a banca.
   até o resultado aparecer na tela (`performance.now()`). Mostrar ao fim:
   "Do primeiro envio ao resultado: X s".
 - Ao lado, a ressalva fixa: "não inclui o tempo de exportar os relatórios do ERP".
-- Sem tabela nova, sem migração. Se o RF12 for cortado, o cronômetro vai para
-  a tela de Upload atual (do envio até a resposta 201).
+- Sem tabela nova, sem migração.
+- **Como o RF12 foi cortado, este é o formato do ciclo:** cronômetro na tela de
+  Upload atual, do clique em enviar até a resposta 201 (o arquivo já traduzido e
+  gravado). Mostrar "Arquivo lido e gravado em X s" com a mesma ressalva.
 
 ---
 
@@ -308,3 +366,6 @@ aberto para a banca.
 | Alertas durante o mês | Mesmo motivo; e sem auth não há para quem mandar |
 | Persona 3 (pequeno negócio) | Hipótese não entrevistada; exige resolver ficha técnica e inventário antes (mini-ERP) |
 | Ficha técnica explodida em insumos | É o que permitiria comparar BOVINOS teórico × real — exige um novo relatório do ERP |
+| Versões dos uploads no Blob | Hoje reenviar apaga o original (soft delete segura 14 dias). Guardar versões permitiria mostrar "o fechamento mudou porque o arquivo foi reenviado em tal data" |
+| Registro de perda/quebra com foto | Outra imagem com função (a foto é a prova da perda), ligada ao ramo `acima` do RF11. Ideia em `10-anexos-de-imagem.md`, não especificada |
+| RF12 — fluxo guiado | Cortado em 07/11; especificação na seção 5 |

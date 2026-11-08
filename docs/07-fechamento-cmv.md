@@ -226,6 +226,7 @@ uv run python scripts/importar_exports.py \
 | GET | `/api/v1/metricas/evolucao` | CMV teórico × real mês a mês |
 | GET | `/api/v1/metricas/top-itens` | Itens que mais pesam (`ordem=custo` ou `ordem=cmv`) |
 | GET | `/api/v1/modelos/{tipo}` | **Planejado (P0 do ciclo 07/11).** Planilha-modelo `.xlsx` gerada na hora, com linhas sintéticas |
+| GET | `/api/v1/uploads-custo/{id}/arquivo` | **Planejado (RF14).** Baixa o arquivo original: 302 para SAS de 5 min no Azure, 200 com o arquivo em dev |
 
 O campo `explicacao` do fechamento (RF11) é **planejado**: ver
 `11-ciclo-explicacao-do-ajuste.md`, seção 3.5.

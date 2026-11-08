@@ -114,18 +114,20 @@ API, testes, ordem de corte) em **`11-ciclo-explicacao-do-ajuste.md`**.
 | P0 | Nomes de grupo padronizados + planilha-modelo `.xlsx` gerada pela API | RF01 | Must | 1,5 h |
 | 1 | Explicação do ajuste — backend + testes | RF11 | Must | 5 h |
 | 2 | Explicação do ajuste — tela de Fechamento | RF11 | Must | 2 h |
-| 3 | Fluxo guiado "Fechar o mês" | RF12 | Should | 3,5 h |
-| 4 | Tempo do primeiro envio ao resultado | RF13 | Should | 0,5–1 h |
-| — | Docs + deploys conferidos | — | — | 2,5 h |
+| 3 | Tempo do envio ao resultado (na tela de Upload) | RF13 | Should | 0,5 h |
+| 4 | De onde veio este número — download do original por SAS | RF14 | Should | 2 h |
+| 5 | Nota fiscal fotografada, versão enxuta — **só se 1–4 no ar até domingo 12h** | RF09 | Could | 4 h |
+| — | Docs + deploys conferidos | — | — | 2 h |
 
-**Ordem de corte:** 1º RF12 inteiro (o cronômetro vai para a tela de Upload);
-2º a comparação por subgrupo. **Inegociável:** P0 + RF11 com os três ramos de
-sinal.
+RF12 (fluxo guiado) foi cortado em 07/11; o RF14 entrou no lugar.
+
+**Ordem de corte:** 1º RF09; 2º a comparação por subgrupo; 3º RF14.
+**Inegociável:** P0 + RF11 com os três ramos de sinal.
 
 **Congelamento:** nenhum deploy depois de **domingo 08/11, 20h**. Após o último:
 `/health` com o SHA novo e o fechamento de set/26 com `ajuste_pp: -3.68`.
 
-**Fora do ciclo:** mini-ERP, alertas, delta semanal, autenticação, RF09, infra.
+**Fora do ciclo:** mini-ERP, alertas, delta semanal, autenticação, RF12, infra.
 
 ---
 
