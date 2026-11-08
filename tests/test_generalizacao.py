@@ -110,6 +110,45 @@ def test_colunas_fora_de_ordem_e_desconhecidas_nao_atrapalham(client, farmacia_i
     assert corpo["total"]["custo_teorico"] == 950.0
 
 
+def test_grupo_com_caixa_e_espaco_diferentes_entra_no_cmv_direto(client, farmacia_id):
+    """P0 do ciclo 07/11: `Alimentos` num lado e `ALIMENTOS` no outro eram dois
+    grupos diferentes para o `GROUP BY`, e o grupo **saía do CMV sem erro**.
+
+    Agora os tradutores padronizam nome de grupo e subgrupo na leitura
+    (maiúsculas, espaços internos colapsados). O acento é mantido de propósito:
+    é nome exibido, não chave de reconhecimento de cabeçalho.
+    """
+    from tests.planilhas import xlsx
+
+    teorico = xlsx(
+        {
+            "Dados": [
+                ["Grupo", "Subgrupo", "Venda Líquida", "Custo"],
+                ["Medicamentos", "Genericos", 1000, 400],
+                ["Bebidas  não alcoólicas", "Geral", 500, 100],
+            ]
+        }
+    )
+    real = xlsx(
+        {
+            "Dados": [
+                ["Grupo", "Subgrupo", "Custo"],
+                ["  MEDICAMENTOS ", "GENERICOS", 450],
+                ["BEBIDAS NÃO ALCOÓLICAS", "GERAL", 120],
+            ]
+        }
+    )
+    _enviar(client, farmacia_id, "cardapio", teorico)
+    _enviar(client, farmacia_id, "compras", real)
+
+    corpo = client.get(FECHAMENTO, params={"casa_id": farmacia_id, "periodo": PERIODO}).json()
+
+    assert {g["grupo"] for g in corpo["grupos"]} == {"MEDICAMENTOS", "BEBIDAS NÃO ALCOÓLICAS"}
+    assert corpo["total"]["custo_teorico"] == 500.0
+    assert corpo["total"]["custo_real"] == 570.0
+    assert corpo["total"]["ajuste"] == 70.0
+
+
 def test_planilha_sem_as_colunas_minimas_devolve_422_citando_as_duas(client, farmacia_id):
     from tests.planilhas import xlsx
 
