@@ -26,10 +26,10 @@ técnica e inventário mensal — o contrato de entrada está em
 **Leia `docs/11-ciclo-explicacao-do-ajuste.md` inteiro antes de escrever código.**
 É a especificação: decisões, contrato da API, testes, ordem de corte.
 
-- **Estado em 07/11, 22h: os cinco itens estão implementados e nenhum foi publicado.**
-  Nada é "entregue" até o deploy conferido no `/health`. Próximo passo: deploy do
-  backend, conferência, deploy do front, e só então atualizar `docs/08-roteiro-demo.md`.
-- Ordem: P0 (nomes de grupo + planilha-modelo) → RF11 backend → RF11 tela → RF12 → RF13.
+- **Ciclo concluído em 07/11: os cinco itens estão entregues e no ar** (commit
+  `a7fa9c5`), com `/health` e o fechamento de set/26 conferidos. Docs `01`, `07`,
+  `08` e `11` já refletem isso.
+- Ordem executada: P0 (nomes de grupo + planilha-modelo) → RF11 backend → RF11 tela → RF12 → RF13.
 - O ajuste da casa real é **negativo** (−3,68 pp): todo texto tem três ramos (acima / dentro / abaixo). Negativo **não** é economia.
 - Abaixo do grupo, só se compara subgrupo que existe nos dois lados. Não inventar granularidade.
 - Campos novos na API são **opcionais**: o frontend em produção não pode quebrar entre deploys. Backend primeiro, depois front.

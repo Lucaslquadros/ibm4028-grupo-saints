@@ -6,24 +6,41 @@
 > escrever código, junto com `CLAUDE.md`, `docs/07-fechamento-cmv.md` e as
 > skills de `.claude/skills/`.
 >
-> **Estado em 07/11/2026, 22h: todos os itens implementados, nenhum publicado.**
-> Pela regra do próprio ciclo, "entregue" só vale depois do deploy conferido no
-> `/health` — então nada aqui nem em `docs/01-requisitos.md` está marcado assim
-> ainda. O roteiro `08-roteiro-demo.md` segue descrevendo só o que está no ar.
+> **Estado: ciclo concluído em 07/11/2026. Todos os itens entregues e no ar**,
+> no commit `a7fa9c5`, com a verificação da seção 7 feita.
 >
 > | Item | Estado | Onde |
 > |---|---|---|
-> | P0 — nomes de grupo padronizados | Implementado | `app/services/leitores.py`, `tests/test_generalizacao.py` |
-> | P0 — planilha-modelo `.xlsx` | Implementado | `app/routers/modelos.py`, `tests/test_modelos.py` |
-> | 1 — RF11 backend | Implementado | `app/services/explicacao.py`, `app/crud.py`, `app/schemas.py`, `tests/test_explicacao.py`, `tests/test_dialeto_sql.py` |
-> | 2 — RF11 tela | Implementado | `frontend/src/screens/Fechamento.tsx`, `frontend/src/api.ts` |
-> | 3 — RF12 fluxo guiado | Implementado | `frontend/src/screens/FecharMes.tsx`, `frontend/src/App.tsx` |
-> | 4 — RF13 cronômetro | Implementado | `frontend/src/screens/FecharMes.tsx` |
-> | Deploy + conferência no `/health` | **Pendente** | ver seção 7 |
+> | P0 — nomes de grupo padronizados | Entregue | `app/services/leitores.py`, `tests/test_generalizacao.py` |
+> | P0 — planilha-modelo `.xlsx` | Entregue | `app/routers/modelos.py`, `tests/test_modelos.py` |
+> | 1 — RF11 backend | Entregue | `app/services/explicacao.py`, `app/crud.py`, `app/schemas.py`, `tests/test_explicacao.py`, `tests/test_dialeto_sql.py` |
+> | 2 — RF11 tela | Entregue | `frontend/src/screens/Fechamento.tsx`, `frontend/src/api.ts` |
+> | 3 — RF12 fluxo guiado | Entregue | `frontend/src/screens/FecharMes.tsx`, `frontend/src/App.tsx` |
+> | 4 — RF13 cronômetro | Entregue | `frontend/src/screens/FecharMes.tsx` |
+> | Deploy + conferência no `/health` | Feito em 07/11 | ver abaixo |
 >
 > **Nenhum item precisou da ordem de corte.** Conferido local contra as quatro
 > casas DEMO, contra o par Everest sintético (só CHOPP comparado) e contra um
-> caso de ajuste negativo, que é o da casa piloto.
+> caso de ajuste negativo; e conferido em produção contra a casa piloto.
+>
+> **Verificação pós-deploy (07/11), como a seção 7 exige:**
+>
+> - `/health` → `commit: a7fa9c5a528be34d09e579fa45279cf4949c1fde`, `banco: ok`
+> - fechamento de set/26 da casa piloto → `ajuste_pp: -3.68` (inalterado) e
+>   `explicacao.situacao: "abaixo"`, `limiar_pp: 1.0`
+> - contribuições `BEBIDAS -2,30` + `ALIMENTOS -1,37` = `-3,67`, dentro da
+>   tolerância de 0,02 do total — a invariante de 3.1 vale no dado real
+> - `grupos_sem_par: []`; 4 subgrupos comparados, **todos em BEBIDAS**, e 36 sem
+>   par. É exatamente o que 3.3 previu: em ALIMENTOS as duas taxonomias não se
+>   encontram, e a tela declara isso
+> - frontend servindo o bundle novo (as cinco abas, com "Fechar o mês")
+>
+> **Achado do dado real, registrado em `01-requisitos.md` 1.9:** quatro pares de
+> subgrupo diferem só no singular/plural (`AGUAS`/`AGUA`, `ENERGETICOS`/
+> `ENERGETICO`, `VINHOS`/`VINHO`, `SOBREMESA`/`SOBREMESAS`) e por isso não são
+> comparados. O P0 padroniza caixa e espaço, não flexão — e casar flexão é
+> heurística de linguagem que, quando erra, inventa desvio. Fica como lacuna
+> declarada, não como correção às pressas.
 
 ---
 

@@ -148,7 +148,7 @@ a dedução passar a funcionar.
 
 ## Explicação do ajuste (RF11)
 
-> **Implementado em 07/11/2026, aguardando deploy.** Especificação completa,
+> **Entregue e no ar desde 07/11/2026.** Especificação completa,
 > com contrato da API e testes, em `11-ciclo-explicacao-do-ajuste.md`, seção 3.
 > Regras e texto em `app/services/explicacao.py` (funções puras, sem banco e
 > sem LLM); testes em `tests/test_explicacao.py`.
@@ -227,7 +227,7 @@ uv run python scripts/importar_exports.py \
 | GET | `/api/v1/metricas/fechamento` | Teórico × real × ajuste por grupo e total |
 | GET | `/api/v1/metricas/evolucao` | CMV teórico × real mês a mês |
 | GET | `/api/v1/metricas/top-itens` | Itens que mais pesam (`ordem=custo` ou `ordem=cmv`) |
-| GET | `/api/v1/modelos/{tipo}` | Planilha-modelo `.xlsx` (`tipo` = `cardapio` \| `compras`) gerada na hora, com linhas sintéticas. **Implementado em 07/11, aguardando deploy** |
+| GET | `/api/v1/modelos/{tipo}` | Planilha-modelo `.xlsx` (`tipo` = `cardapio` \| `compras`) gerada na hora, com linhas sintéticas |
 
 O campo `explicacao` do fechamento (RF11) é **opcional** no contrato: o
 frontend em produção continua funcionando entre o deploy do backend e o do

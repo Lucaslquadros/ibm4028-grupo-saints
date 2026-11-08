@@ -5,12 +5,11 @@
 > driver ODBC e `.env` para rodar. **Nada disso é necessário.** A aplicação está
 > em produção; a demonstração é um navegador e cinco links.
 
-> **Ciclo 07–09/11 em andamento.** Este roteiro descreve o que **está no ar**.
-> O que está sendo construído para segunda (explicação do ajuste, fluxo guiado,
-> tempo medido) está em `11-ciclo-explicacao-do-ajuste.md` e só entra aqui
-> **depois do deploy conferido** — roteiro que descreve o que não existe quebra
-> na frente da banca. Os pontos marcados **[ciclo 07/11]** abaixo são o que já
-> muda de discurso, independentemente do código.
+> **Ciclo 07–09/11 entregue e publicado em 07/11.** Explicação do ajuste
+> (RF11), fluxo guiado "Fechar o mês" (RF12) e tempo medido (RF13) estão **no
+> ar** — backend no commit `a7fa9c5`, frontend no mesmo deploy, os dois
+> conferidos. Este roteiro já descreve isso. A especificação de cada item está
+> em `11-ciclo-explicacao-do-ajuste.md`.
 
 ## Regra número um
 
@@ -27,10 +26,11 @@ CI/CD, não para rodar a aplicação.
 |---|---|---|
 | 1 | A API está acordada | Abra https://app-projeto4-saints2026.azurewebsites.net/health — tem que responder `{"status":"ok", ..., "banco":"ok"}` **na hora** |
 | 2 | É o código mais recente | No mesmo `/health`, confira que `commit` bate com o último commit da `main` (`git rev-parse HEAD`) |
-| 3 | O frontend carrega, com 4 abas | Abra https://zealous-river-0b6019910.6.azurestaticapps.net — Casas, Upload, Fechamento e **Quanto comprar** |
+| 3 | O frontend carrega, com 5 abas | Abra https://zealous-river-0b6019910.6.azurestaticapps.net — Casas, Upload, **Fechar o mês**, Fechamento e Quanto comprar |
 | 4 | As 5 unidades estão lá | Aba Casas: a piloto real + 4 de demonstração, com "(DEMO)" no nome |
 | 5 | O fechamento calcula | Abra [o fechamento de set/26](https://app-projeto4-saints2026.azurewebsites.net/api/v1/metricas/fechamento?casa_id=2&periodo=2026-09) e confirme `ajuste_pp: -3.68` |
-| 6 | Há crédito no Azure | Portal → Cost Management. Se o crédito acabar, tudo cai |
+| 6 | **A explicação vem junto** | No mesmo JSON, o campo `explicacao` tem que existir, com `"situacao":"abaixo"`. Se vier `null` ou faltar, o backend no ar é anterior ao ciclo 07/11 |
+| 7 | Há crédito no Azure | Portal → Cost Management. Se o crédito acabar, tudo cai |
 
 Deixe as abas **já abertas** na ordem do roteiro, numa janela só. Trocar de aba
 na frente de alguém é melhor que digitar URL.
@@ -46,7 +46,7 @@ na frente de alguém é melhor que digitar URL.
 
 ---
 
-## O roteiro (15–18 min)
+## O roteiro (18–22 min)
 
 ### 1. O problema, antes de qualquer tela (2 min)
 
@@ -62,46 +62,112 @@ Se puder, mostre um export real aberto no Excel por 10 segundos. É a imagem mai
 convincente da apresentação: um relatório de impressão, com cabeçalho de
 empresa, totais no meio dos itens e hierarquia por indentação.
 
-### 2. A aplicação, pelo caminho do usuário (3 min)
+### 2. A aplicação, pelo caminho do usuário (4 min)
 
 https://zealous-river-0b6019910.6.azurestaticapps.net
 
-Quatro abas, na ordem do fluxo real: **Casas → Upload → Fechamento → Quanto comprar**.
+Cinco abas, na ordem do fluxo real: **Casas → Upload → Fechar o mês →
+Fechamento → Quanto comprar**.
 
 - **Casas** → o CRUD do RF08. Mostre a casa piloto, o Boteco São Bento - Vila Madalena, e diga que as outras quatro são de demonstração (o nome carrega "(DEMO)").
 - **Fechamento** → escolha a casa piloto, período **09/2026**, Calcular.
 
-**[ciclo 07/11] Quem é quem.** A analista de custos sobe os relatórios; o
-sócio lê o resultado e decide. O sistema é para os dois — não para "qualquer
-pequeno negócio" (ver a pergunta sobre isso no fim).
+**Quem é quem.** A analista de custos sobe os relatórios; o sócio lê o
+resultado e decide. O sistema é para os dois — não para "qualquer pequeno
+negócio" (ver a pergunta sobre isso no fim).
 
-Pare no número e deixe ele respirar:
+**Leia o parágrafo da tela em voz alta, antes de falar do número.** Ele é o
+item que mudou o produto neste ciclo, e aparece acima do indicador de propósito:
+
+> "Em 2026-09, o CMV (custo das mercadorias vendidas) real ficou 3,68 pontos
+> abaixo do previsto pelas fichas técnicas (R$ … a menos). Diferença nesse
+> sentido costuma apontar algo faltando no lado real — compra não lançada,
+> inventário de fim de mês superestimado — ou sobrando no teórico. A maior
+> parte veio de BEBIDAS (−2,30 pp)."
+
+Logo abaixo, em **"O que conferir"**, duas ações: checar se todas as compras de
+BEBIDAS foram lançadas e se o inventário não está superestimado; e confirmar
+que os dois relatórios são do mesmo período.
+
+> "O ERP do cliente já mostra esse número. O que ele não diz é **onde
+> procurar**. É isso que o sistema passou a fazer."
+
+Só então pare no indicador e deixe ele respirar:
 
 | | |
 |---|---|
 | CMV teórico | **25,54%** |
 | CMV real | **21,86%** |
-| **Ajuste** | **−3,68 pp** |
+| **Ajuste** | **−3,68 pp** · selo **"Abaixo do previsto"**, em âmbar |
 
 Os valores em R$ aparecem na tela, ao vivo — e é com eles que o número
 convence. Eles **não** estão escritos aqui de propósito: este repositório é
 público e faturamento de uma unidade identificada do cliente não vai para o
 Git. Leia na tela, não no roteiro.
 
-> "Isto é dado real, do ERP do cliente, sem nenhum tratamento manual. Essa
-> divergência de um mês, numa casa só, é exatamente o que a equipe leva dois
-> dias para encontrar."
+**O sinal é o ponto mais importante da demonstração.** O ajuste é **negativo**:
+o real ficou **abaixo** do teórico. Isso **não é economia** — e a tela diz isso
+com todas as letras. Até 07/11 ela marcava esse mesmo mês como "Favorável", em
+verde, o que era simplesmente falso; agora são três estados (acima / dentro /
+abaixo) e "abaixo" é âmbar de atenção, não verde de parabéns.
 
-Aponte o valor em R$ na tela ao dizer isso — é o que dá peso à frase.
+> "Ajuste grande, para qualquer lado, quer dizer 'tem erro em algum lugar' —
+> ficha técnica errada, contagem errada, perda não lançada, desvio. O sistema
+> aponta onde olhar; quem conclui é a equipe de custos."
 
-**Seja preciso sobre o que o número significa.** Ajuste grande, para qualquer
-lado, quer dizer "tem erro em algum lugar" — ficha técnica errada, contagem
-errada, perda não lançada, desvio. **Não** é dinheiro economizado, e apresentar
-como se fosse destrói a credibilidade de todo o resto. O sistema aponta onde
-olhar; quem conclui é a equipe de custos.
+Se perguntarem de onde vem o "±1 ponto": está escrito na própria tela que é
+**premissa nossa, não parâmetro do cliente**. O gabarito de fechamento da
+equipe nunca chegou.
 
+- Role até a tabela de grupos → a coluna **Contribuição** é a que soma ao ajuste do mês. A coluna "Ajuste (pp)" de cada grupo usa a venda do próprio grupo e **não** soma: BEBIDAS aparece com −4,23 pp de ajuste e −2,30 pp de contribuição, e os −2,30 e −1,37 é que fecham os −3,68.
+- Role até **Abaixo do grupo** → quatro categorias comparadas, **todas em BEBIDAS**. Em ALIMENTOS não há nenhuma, e a tela explica por quê (ver passo 2b).
 - Role até **Evolução mensal** → 24 meses de CMV teórico, de set/24 a set/26.
 - Role até **Top itens** → onde o custo está concentrado.
+
+### 2b. O limite do dado, dito pela própria tela (1 min)
+
+Ainda em Fechamento, no bloco **Abaixo do grupo**, está a tarja:
+
+> "O ERP informa compras por categoria de insumo e vendas por categoria de
+> cardápio. Abaixo do grupo, só comparamos as categorias que existem com o
+> mesmo nome nos dois relatórios."
+
+E embaixo, **"Composição do custo — categorias que existem em um lado só. Não
+são desvio."**, com mais de trinta linhas: PETISCOS e PRATOS A LA CARTE do lado
+teórico, BOVINOS e HORTIFRUTI do lado real.
+
+É o melhor momento do roteiro para a tese de honestidade do trabalho:
+
+> "Em BEBIDAS os dois relatórios usam os mesmos nomes — CHOPP é CHOPP dos dois
+> lados —, então comparamos. Em ALIMENTOS não dá: o cardápio agrupa por como se
+> vende (PETISCOS) e a compra por insumo (BOVINOS). Sem a ficha técnica
+> explodida em insumos, cruzar os dois seria inventar um número. O sistema
+> prefere declarar o limite a preencher a tabela."
+
+Se trocar para uma casa **(DEMO)**, a mesma seção fica cheia e sem tarja: lá os
+subgrupos coincidem nos dois lados. Vale apontar a diferença em vez de deixar
+alguém notar sozinho — é a prova de que a comparação segue o dado, não a tela.
+
+### 2c. Fechar o mês, do zero ao resultado (2 min)
+
+Aba **Fechar o mês** (RF12). Quatro passos: casa e período → lado teórico →
+lado real → resultado.
+
+**Use uma casa (DEMO) ou um período novo. Nunca a casa piloto em 09/2026** —
+reenviar substitui o dado real, ao vivo.
+
+- Em cada passo de envio aparece **a tabela de colunas daquele lado** e o botão **Baixar planilha-modelo**, que a API gera na hora. Não existe `.xlsx` versionado no repositório: dado de cliente não entra no Git, então o modelo é gerado, não guardado.
+- Quando já existe arquivo do período, o padrão é **"Usar o já enviado"**. Substituir exige um segundo clique e vem com aviso de que não dá para desfazer.
+- No fim: **"Do primeiro envio ao resultado: X s"** (RF13), com a ressalva colada — *não inclui o tempo de exportar os relatórios do ERP*.
+
+> "Os dois dias do processo manual são o que a equipe de custos **declarou**, e
+> incluem exportar do ERP. Os segundos aqui são outra coisa. A gente mede o que
+> mede e diz o que não mede."
+
+Esta aba existe porque o erro mais caro do contrato de entrada é silencioso:
+quem manda só o cardápio vê um painel que parece completo e não tem ajuste
+nenhum. A aba **Upload** continua lá, inalterada, para quem já sabe o que
+precisa enviar.
 
 ### 3. O upload, ao vivo (2 min)
 
@@ -121,7 +187,7 @@ dizendo qual coluna falta** — não um stack trace. Vale mostrar de propósito.
 > uma validação que não houve, usamos a base real dele para provar uma
 > afirmação verificável: **o cálculo não depende do ERP dele nem do ramo dele.**"
 
-**[ciclo 07/11] Diga a fronteira junto com a tese:** *"Funciona para qualquer
+**Diga a fronteira junto com a tese:** *"Funciona para qualquer
 operação que tenha ficha técnica e inventário mensal e exporte uma tabela com
 grupo, custo e venda. Provamos com um ERP real e quatro ramos sintéticos."* O que
 o usuário precisa fornecer está em `07-fechamento-cmv.md` — se perguntarem, é
@@ -243,7 +309,7 @@ Só se houver tempo e interesse. É aqui que o terminal pode aparecer.
 | "Esses outros negócios são clientes?" | Não, são dado fictício para provar que o cálculo não depende do ramo. Está rotulado "(DEMO)" no nome da unidade. Existem porque não teríamos os dados das outras casas do Saints para hoje |
 | "Isso serve para um pequeno negócio?" | Serve para quem tem ficha técnica e inventário mensal, de qualquer porte. Quem não tem esses dois controles não tem o dado que o cálculo exige — atendê-lo seria construir um mini-ERP, que está fora de escopo. Chegamos a apontar para esse público em 06/11 e recuamos: ninguém dele foi entrevistado |
 | "Por que vocês mudaram de persona?" | Testamos a hipótese do pequeno negócio contra a evidência que tínhamos e ela não se sustentou. Voltamos ao público com dor comprovada. Está registrado com motivo em `docs/01-requisitos.md`, histórico v1.1 |
-| "Dá para saber qual insumo causou o ajuste?" | Não com estes relatórios: o cardápio agrupa por venda (PETISCOS) e as compras por insumo (BOVINOS). Abaixo do grupo só comparamos o que existe com o mesmo nome nos dois lados — e dizemos isso na tela em vez de inventar |
+| "Dá para saber qual insumo causou o ajuste?" | Em parte. Abaixo do grupo só comparamos o que existe com o mesmo nome nos dois lados: na casa piloto isso dá quatro categorias, todas em BEBIDAS. Em ALIMENTOS não dá, porque o cardápio agrupa por venda (PETISCOS) e as compras por insumo (BOVINOS) — e a tela diz isso, em vez de inventar a granularidade. Chegar ao insumo exigiria a ficha técnica explodida, que é um relatório que não temos |
 | "Por que a sugestão de compra é maior que a média de venda?" | Sazonalidade — a coluna "Efeito do mês" mostra quanto aquele mês costuma fugir da média anual para aquele item |
 | "Vocês usaram Redis? Cache?" | Não, e de propósito: 10–15 usuários, uso concentrado no fechamento. A recusa está escrita em `docs/09-uso-da-nuvem.md` com o motivo |
 | "Cadê a autenticação?" | Não foi entregue. Estava na Sprint 2 e ficou para trás |
