@@ -88,12 +88,16 @@ function PassoEnvio({
   periodo,
   existente,
   onPronto,
+  onComecouEnvio,
 }: {
   tipo: TipoUpload;
   casaId: number;
   periodo: string;
   existente: UploadCusto | undefined;
   onPronto: (enviou: boolean) => void;
+  /** Chamado no instante em que o arquivo sai, antes da resposta — é daqui
+   * que o cronômetro do RF13 conta. */
+  onComecouEnvio: () => void;
 }) {
   const lado = LADOS[tipo];
   const [substituir, setSubstituir] = useState(false);
@@ -110,6 +114,7 @@ function PassoEnvio({
     if (!arquivo) return;
     setEnviando(true);
     setErro(null);
+    onComecouEnvio();
     try {
       await api.enviarUpload({ casa_id: casaId, periodo, tipo, arquivo });
       onPronto(true);
@@ -228,6 +233,12 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
   const [fechamento, setFechamento] = useState<FechamentoDto | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [calculando, setCalculando] = useState(false);
+  // RF13: tempo de relógio do primeiro envio deste fluxo até o resultado na
+  // tela. Marcado só quando um arquivo é de fato enviado — quem reaproveita
+  // os dois uploads não "fechou o mês" agora, e cronometrar isso seria
+  // medir um clique. `null` enquanto nada foi enviado.
+  const [inicio, setInicio] = useState<number | null>(null);
+  const [segundos, setSegundos] = useState<number | null>(null);
 
   async function recarregarUploads(id: number) {
     try {
@@ -251,6 +262,7 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
     setErro(null);
     try {
       setFechamento(await api.fechamento(casaId, periodo));
+      if (inicio !== null) setSegundos((performance.now() - inicio) / 1000);
       setPasso(3);
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : "Não foi possível calcular o fechamento.");
@@ -263,6 +275,12 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
     setPasso(0);
     setFechamento(null);
     setErro(null);
+    setInicio(null);
+    setSegundos(null);
+  }
+
+  function marcarInicio() {
+    setInicio((t) => t ?? performance.now());
   }
 
   return (
@@ -325,6 +343,7 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
           periodo={periodo}
           existente={doPeriodo("cardapio")}
           onPronto={(enviou) => avancarDe("cardapio", enviou)}
+          onComecouEnvio={marcarInicio}
         />
       )}
 
@@ -336,6 +355,7 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
           periodo={periodo}
           existente={doPeriodo("compras")}
           onPronto={(enviou) => avancarDe("compras", enviou)}
+          onComecouEnvio={marcarInicio}
         />
       )}
 
@@ -344,6 +364,20 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
 
       {passo === 3 && fechamento && (
         <>
+          {/* RF13. Os "2 dias" do processo manual são trabalho humano
+              DECLARADO pelo cliente, nunca medido, e incluem exportar os
+              relatórios do ERP. Comparar os dois números sem dizer isso seria
+              um flanco aberto — por isso a ressalva anda junto do tempo. */}
+          {segundos !== null && (
+            <p className="cronometro glass">
+              <strong>Do primeiro envio ao resultado: {segundos.toFixed(1)} s</strong>
+              <span>
+                Não inclui o tempo de exportar os relatórios do ERP. Hoje o fechamento manual
+                leva cerca de dois dias por casa, segundo a equipe de custos — é um número
+                declarado por eles, não medido por nós.
+              </span>
+            </p>
+          )}
           <PainelFechamento dados={fechamento} />
           <button type="button" className="botao-secundario" onClick={recomecar}>
             Fechar outro mês
