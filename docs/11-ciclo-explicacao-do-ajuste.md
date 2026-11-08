@@ -6,8 +6,24 @@
 > escrever código, junto com `CLAUDE.md`, `docs/07-fechamento-cmv.md` e as
 > skills de `.claude/skills/`.
 >
-> **Estado: especificado, nada implementado.** Cada item muda para "entregue"
-> aqui e em `docs/01-requisitos.md` só depois do deploy conferido no `/health`.
+> **Estado em 07/11/2026, 22h: todos os itens implementados, nenhum publicado.**
+> Pela regra do próprio ciclo, "entregue" só vale depois do deploy conferido no
+> `/health` — então nada aqui nem em `docs/01-requisitos.md` está marcado assim
+> ainda. O roteiro `08-roteiro-demo.md` segue descrevendo só o que está no ar.
+>
+> | Item | Estado | Onde |
+> |---|---|---|
+> | P0 — nomes de grupo padronizados | Implementado | `app/services/leitores.py`, `tests/test_generalizacao.py` |
+> | P0 — planilha-modelo `.xlsx` | Implementado | `app/routers/modelos.py`, `tests/test_modelos.py` |
+> | 1 — RF11 backend | Implementado | `app/services/explicacao.py`, `app/crud.py`, `app/schemas.py`, `tests/test_explicacao.py`, `tests/test_dialeto_sql.py` |
+> | 2 — RF11 tela | Implementado | `frontend/src/screens/Fechamento.tsx`, `frontend/src/api.ts` |
+> | 3 — RF12 fluxo guiado | Implementado | `frontend/src/screens/FecharMes.tsx`, `frontend/src/App.tsx` |
+> | 4 — RF13 cronômetro | Implementado | `frontend/src/screens/FecharMes.tsx` |
+> | Deploy + conferência no `/health` | **Pendente** | ver seção 7 |
+>
+> **Nenhum item precisou da ordem de corte.** Conferido local contra as quatro
+> casas DEMO, contra o par Everest sintético (só CHOPP comparado) e contra um
+> caso de ajuste negativo, que é o da casa piloto.
 
 ---
 
@@ -220,6 +236,29 @@ já reproduz o limite real: PETISCOS (cardápio) não tem par em BOVINOS/HORTIFR
 | Everest sintético | `subgrupos_comparados` = só CHOPP; PETISCOS, BOVINOS e HORTIFRUTI em `subgrupos_sem_par` |
 | Casa/período inexistente | Mantém 404 atual |
 | Fechamento de set/26 da casa real | **Não testável no Git** (dado real). Conferir à mão após o deploy: `ajuste_pp` continua −3,68 |
+
+### 3.8 Decisões tomadas na implementação (07/11)
+
+Três pontos que a especificação deixava em aberto e que o código precisou fechar:
+
+1. **Compensação com o total "dentro" entra no resumo, não nas sugestões.** A
+   tabela de 3.2 dizia "apontar os dois grupos" na coluna de sugestões, mas o
+   teste obrigatório exige `sugestoes == []` nesse ramo — e 3.1 já pede a frase
+   no resumo. Vale a leitura de 3.1: dentro da margem não gera ação.
+2. **Com grupo sem par, a frase vira "entre os grupos com os dois lados, o
+   maior desvio veio de X".** Quando o total é puxado por um grupo que só tem
+   um lado, "a maior parte veio de X" descreveria mal o número — o grupo
+   nomeado pode responder por uma fração pequena dele. A frase então se limita
+   ao que é de fato comparável, e a declaração de `grupos_sem_par` explica o
+   resto.
+3. **Sem nenhum grupo no mesmo sentido do total, não há "grupo principal".** O
+   texto não afirma direção, e a única sugestão é enviar o relatório que falta.
+   Nomear o maior desvio em módulo apontaria para o lado oposto ao do número.
+
+E uma correção que não estava prevista: a tela marcava qualquer ajuste ≤ 0 como
+**"Favorável"**, em verde. Era a contradição que 3.2 descreve, já no ar — o
+painel diria ao sócio que o mês foi bom exatamente no caso de set/26. Agora o
+selo tem os três estados, e "abaixo" é âmbar de atenção.
 
 ---
 

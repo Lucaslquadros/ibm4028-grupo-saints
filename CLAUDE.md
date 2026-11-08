@@ -26,6 +26,9 @@ técnica e inventário mensal — o contrato de entrada está em
 **Leia `docs/11-ciclo-explicacao-do-ajuste.md` inteiro antes de escrever código.**
 É a especificação: decisões, contrato da API, testes, ordem de corte.
 
+- **Estado em 07/11, 22h: os cinco itens estão implementados e nenhum foi publicado.**
+  Nada é "entregue" até o deploy conferido no `/health`. Próximo passo: deploy do
+  backend, conferência, deploy do front, e só então atualizar `docs/08-roteiro-demo.md`.
 - Ordem: P0 (nomes de grupo + planilha-modelo) → RF11 backend → RF11 tela → RF12 → RF13.
 - O ajuste da casa real é **negativo** (−3,68 pp): todo texto tem três ramos (acima / dentro / abaixo). Negativo **não** é economia.
 - Abaixo do grupo, só se compara subgrupo que existe nos dois lados. Não inventar granularidade.

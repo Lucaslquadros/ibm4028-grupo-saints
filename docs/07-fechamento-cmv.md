@@ -31,7 +31,7 @@ O sistema não supre estes itens: eles nascem na operação.
 |---|---|---|
 | **Ficha técnica cadastrada** para os itens vendidos | É ela que gera o custo teórico (venda × custo-padrão) | Não existe lado teórico, logo não existe fechamento |
 | **Inventário de fim de mês fechado antes de exportar o lado real** | CMV real = estoque inicial + compras − estoque final | O "real" vira "o que comprei no mês". O sistema **não percebe** e calcula um ajuste sem sentido |
-| **As mesmas categorias (grupos) nos dois relatórios** | Só entram no CMV os grupos que aparecem nos dois lados | Grupo com nome diferente em cada lado sai do cálculo em silêncio |
+| **As mesmas categorias (grupos) nos dois relatórios** | Só entram no CMV os grupos que aparecem nos dois lados | Grupo com nome diferente em cada lado sai do cálculo em silêncio. Desde 07/11, diferença só de caixa ou de espaço não conta como nome diferente |
 | **Uma unidade por arquivo** | O fechamento é por unidade | Arquivo consolidado de várias unidades não tem como ser separado |
 
 Esta é a fronteira do público: **operações com ficha técnica e inventário
@@ -80,7 +80,7 @@ Onde a "solução genérica" pode falhar **sem dar erro**:
 
 1. **Se o lado real é pós-inventário.** Nada no arquivo indica.
 2. **Se o período declarado é o do arquivo.** É a limitação da DRE do caso de origem, e vale para qualquer usuário.
-3. **Maiúsculas e espaços no nome do grupo.** Hoje `Alimentos` e `ALIMENTOS` são grupos diferentes — correção planejada em `11-ciclo-explicacao-do-ajuste.md` (P0).
+3. ~~**Maiúsculas e espaços no nome do grupo.**~~ **Resolvido em 07/11** (P0 do ciclo): os três tradutores padronizam nome de grupo e subgrupo na leitura — maiúsculas e espaços internos colapsados, acento preservado por ser nome exibido. `Alimentos` e `ALIMENTOS ` passam a ser o mesmo grupo. Só vale para o que for carregado a partir daí.
 4. **Sinal e unidade dos valores.** Se o ERP exportar custo como negativo, o ajuste sai invertido.
 
 ## Os dois relatórios que o sistema lê
@@ -146,10 +146,12 @@ sistema soma todos os grupos com custo, em vez de aplicar uma taxonomia de
 restaurante que não tem como conhecer. Basta um cardápio, de qualquer mês, para
 a dedução passar a funcionar.
 
-## Explicação do ajuste (RF11) — planejado
+## Explicação do ajuste (RF11)
 
-> **Especificado em 07/11/2026, não implementado.** Especificação completa,
+> **Implementado em 07/11/2026, aguardando deploy.** Especificação completa,
 > com contrato da API e testes, em `11-ciclo-explicacao-do-ajuste.md`, seção 3.
+> Regras e texto em `app/services/explicacao.py` (funções puras, sem banco e
+> sem LLM); testes em `tests/test_explicacao.py`.
 
 Mostrar o ajuste não basta — o ERP do cliente já tem os números. O fechamento
 passa a dizer **onde** a diferença está e **o que conferir**, em texto gerado
@@ -225,10 +227,11 @@ uv run python scripts/importar_exports.py \
 | GET | `/api/v1/metricas/fechamento` | Teórico × real × ajuste por grupo e total |
 | GET | `/api/v1/metricas/evolucao` | CMV teórico × real mês a mês |
 | GET | `/api/v1/metricas/top-itens` | Itens que mais pesam (`ordem=custo` ou `ordem=cmv`) |
-| GET | `/api/v1/modelos/{tipo}` | **Planejado (P0 do ciclo 07/11).** Planilha-modelo `.xlsx` gerada na hora, com linhas sintéticas |
+| GET | `/api/v1/modelos/{tipo}` | Planilha-modelo `.xlsx` (`tipo` = `cardapio` \| `compras`) gerada na hora, com linhas sintéticas. **Implementado em 07/11, aguardando deploy** |
 
-O campo `explicacao` do fechamento (RF11) é **planejado**: ver
-`11-ciclo-explicacao-do-ajuste.md`, seção 3.5.
+O campo `explicacao` do fechamento (RF11) é **opcional** no contrato: o
+frontend em produção continua funcionando entre o deploy do backend e o do
+front. Formato em `11-ciclo-explicacao-do-ajuste.md`, seção 3.5.
 
 ## Pendências e próximos passos
 
