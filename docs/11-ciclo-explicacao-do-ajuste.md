@@ -7,7 +7,9 @@
 > skills de `.claude/skills/`.
 >
 > **Estado: ciclo concluído em 07/11/2026. Todos os itens entregues e no ar**,
-> no commit `a7fa9c5`, com a verificação da seção 7 feita.
+> no commit `a7fa9c5`, com a verificação da seção 7 feita. O refinamento de
+> 08/11 descrito em 3.8 (fechamento em formato de balanço) **ainda não foi
+> publicado** — entra no próximo deploy.
 >
 > | Item | Estado | Onde |
 > |---|---|---|
@@ -271,6 +273,20 @@ Três pontos que a especificação deixava em aberto e que o código precisou fe
 3. **Sem nenhum grupo no mesmo sentido do total, não há "grupo principal".** O
    texto não afirma direção, e a única sugestão é enviar o relatório que falta.
    Nomear o maior desvio em módulo apontaria para o lado oposto ao do número.
+
+**Refinamento de 08/11, depois de usar a tela com o dado real:** a tabela de
+grupos virou um **balanço** — colunas são os dois lados (teórico / real /
+diferença) e linhas são as contas, com os subgrupos comparáveis aninhados e a
+composição do custo recolhida. A tabela anterior punha venda, CMV teórico e CMV
+real na mesma linha, e "CMV real" é custo de **compras** sobre receita de
+**venda**: dois relatórios misturados numa linha só, correto no cálculo e
+ilegível na tela. No formato novo a venda aparece uma vez, como base do grupo, o
+que torna visível que é o mesmo denominador dos dois lados. A coluna
+"contribuição" saiu da tabela (é análise, não balanço; o resumo já nomeia o
+grupo de maior peso) e o hero perdeu o par teórico × real, que passou a estar no
+TOTAL. O ganho não foi só estético: o balanço revelou **DESTILADOS +38,24 pp**
+dentro de BEBIDAS, um subgrupo fortemente positivo escondido num grupo que fecha
+negativo, invisível no formato anterior.
 
 E uma correção que não estava prevista: a tela marcava qualquer ajuste ≤ 0 como
 **"Favorável"**, em verde. Era a contradição que 3.2 descreve, já no ar — o

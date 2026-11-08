@@ -1,4 +1,9 @@
+/* color-scheme diz ao navegador com que tema pintar os controles NATIVOS:
+   o popup do <select>, o calendário do <input type="month">, a barra de
+   rolagem. Sem isto, no tema escuro o popup abre com fundo branco do sistema
+   e herda o texto claro da página — texto branco no branco. */
 :root {
+  color-scheme: light;
   --ink: #1C1A16;
   --ink-soft: #645F52;
   --paper: #F3F1EA;
@@ -21,6 +26,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    color-scheme: dark;
     --ink: #EFEAE0;
     --ink-soft: #A79F8D;
     --paper: #121009;
@@ -42,6 +48,7 @@
   }
 }
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --ink: #EFEAE0; --ink-soft: #A79F8D; --paper: #121009; --surface: 30, 27, 20;
   --surface-alpha: 0.42; --border-light: 255, 240, 220; --border-dark: 0, 0, 0;
   --amber: #E3A24A; --amber-strong: #F2BC72; --amber-rgb: 227, 162, 74;
@@ -50,6 +57,7 @@
   --blob-1: rgba(227, 162, 74, 0.16); --blob-2: rgba(70, 130, 150, 0.14); --blob-3: rgba(224, 121, 95, 0.1);
 }
 :root[data-theme="light"] {
+  color-scheme: light;
   --ink: #1C1A16; --ink-soft: #645F52; --paper: #F3F1EA; --surface: 255, 255, 255;
   --surface-alpha: 0.55; --border-light: 255, 255, 255; --border-dark: 28, 26, 22;
   --amber: #B9772B; --amber-strong: #8F5A1E; --amber-rgb: 185, 119, 43;
@@ -245,6 +253,15 @@ input:focus, select:focus, .busca:focus {
   background: rgba(var(--border-dark), 0.02);
 }
 .busca { width: 100%; margin-bottom: 16px; }
+
+/* O popup do <select> é desenhado pelo sistema, não pela página: ele não
+   enxerga o `backdrop-filter` nem a transparência do campo fechado. Sem um
+   par opaco aqui, o item da lista fica claro no claro. */
+select option,
+select optgroup {
+  background-color: var(--paper);
+  color: var(--ink);
+}
 
 .segmentado {
   display: flex;

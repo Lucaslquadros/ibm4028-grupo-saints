@@ -8,8 +8,13 @@
 > **Ciclo 07–09/11 entregue e publicado em 07/11.** Explicação do ajuste
 > (RF11), fluxo guiado "Fechar o mês" (RF12) e tempo medido (RF13) estão **no
 > ar** — backend no commit `a7fa9c5`, frontend no mesmo deploy, os dois
-> conferidos. Este roteiro já descreve isso. A especificação de cada item está
-> em `11-ciclo-explicacao-do-ajuste.md`.
+> conferidos. A especificação de cada item está em
+> `11-ciclo-explicacao-do-ajuste.md`.
+>
+> ⚠️ **Os passos 2a e 2b descrevem o fechamento em formato de balanço, que
+> entra no ar no mesmo merge que traz este arquivo.** Antes desse deploy a tela
+> ainda mostra a tabela larga de grupos. Confira o item 8 de "Antes de sair de
+> casa" — se o balanço não estiver lá, o deploy não aconteceu.
 
 ## Regra número um
 
@@ -30,10 +35,40 @@ CI/CD, não para rodar a aplicação.
 | 4 | As 5 unidades estão lá | Aba Casas: a piloto real + 4 de demonstração, com "(DEMO)" no nome |
 | 5 | O fechamento calcula | Abra [o fechamento de set/26](https://app-projeto4-saints2026.azurewebsites.net/api/v1/metricas/fechamento?casa_id=2&periodo=2026-09) e confirme `ajuste_pp: -3.68` |
 | 6 | **A explicação vem junto** | No mesmo JSON, o campo `explicacao` tem que existir, com `"situacao":"abaixo"`. Se vier `null` ou faltar, o backend no ar é anterior ao ciclo 07/11 |
-| 7 | Há crédito no Azure | Portal → Cost Management. Se o crédito acabar, tudo cai |
+| 7 | **O balanço está no ar** | No Fechamento de set/26, a tabela tem as colunas **Teórico / Real / Diferença** e os subgrupos aninhados. Se ainda aparecer a tabela larga com "Venda líquida / CMV teórico / CMV real / Contribuição", o deploy do balanço não entrou |
+| 8 | Há crédito no Azure | Portal → Cost Management. Se o crédito acabar, tudo cai |
 
 Deixe as abas **já abertas** na ordem do roteiro, numa janela só. Trocar de aba
 na frente de alguém é melhor que digitar URL.
+
+## Qual casa e qual mês usar — leia antes de montar a demo
+
+**A casa piloto só tem UM mês com os dois lados: setembro de 2026.** Em
+qualquer outro mês dela a tela mostra "Falta o upload de compras (CMV real)" e
+**não** gera a explicação do ajuste. Está correto, mas não é o que você quer
+projetar.
+
+| Casa | Meses com os dois lados | Serve para |
+|---|---|---|
+| Boteco São Bento - Vila Madalena | **só 2026-09** | O dado real: o ajuste de −3,68 pp e o balanço |
+| Drogaria Central (DEMO) | 2026-04 a 2026-09 | Outro ramo; evolução com as duas linhas |
+| Padaria Sao Jose (DEMO) | 2026-04 a 2026-09 | Outro ramo |
+| Pizzaria Bella (DEMO) | 2026-04 a 2026-09 | Margem de restaurante |
+| Distribuidora Horizonte (DEMO) | 2026-04 a 2026-09 | Margem de atacado |
+
+Por que só um mês: a Marcela enviou **24 meses de engenharia de cardápio e uma
+única DRE de compras**. O CMV de compras de jul–ago/26 foi pedido em 03/11 e
+nunca chegou. É a limitação registrada em `01-requisitos.md` 1.9 ("Um mês de
+CMV real") e dita no passo 6 — **fale dela antes de ser perguntado.**
+
+**A trilha, em uma linha:** dado real em `Boteco São Bento + 09/2026` →
+mostre que a série de ajuste tem um ponto só e diga por quê → troque para uma
+**(DEMO)** em `09/2026` para ver a evolução completa e a comparação por
+categoria cheia → o fluxo guiado numa casa descartável.
+
+> **Nunca rode o "Fechar o mês" na casa piloto em 09/2026.** Reenvio
+> substitui, e é o único mês real que existe. Para demonstrar o fluxo, crie uma
+> casa `Sandbox (DEMO)` e apague depois — apagar a casa apaga os uploads junto.
 
 > **Se o passo 1 demorar 30–60 segundos**, o Always On caiu. Ele foi **ligado
 > em 06/11/2026** justamente porque a instância dormia em ~20 min e a primeira
@@ -46,7 +81,7 @@ na frente de alguém é melhor que digitar URL.
 
 ---
 
-## O roteiro (18–22 min)
+## O roteiro (20–24 min)
 
 ### 1. O problema, antes de qualquer tela (2 min)
 
@@ -119,22 +154,61 @@ Se perguntarem de onde vem o "±1 ponto": está escrito na própria tela que é
 **premissa nossa, não parâmetro do cliente**. O gabarito de fechamento da
 equipe nunca chegou.
 
-- Role até a tabela de grupos → a coluna **Contribuição** é a que soma ao ajuste do mês. A coluna "Ajuste (pp)" de cada grupo usa a venda do próprio grupo e **não** soma: BEBIDAS aparece com −4,23 pp de ajuste e −2,30 pp de contribuição, e os −2,30 e −1,37 é que fecham os −3,68.
-- Role até **Abaixo do grupo** → quatro categorias comparadas, **todas em BEBIDAS**. Em ALIMENTOS não há nenhuma, e a tela explica por quê (ver passo 2b).
-- Role até **Evolução mensal** → 24 meses de CMV teórico, de set/24 a set/26.
+### 2a. O balanço (2 min)
+
+Logo abaixo do indicador vem o fechamento em **formato de balanço**: colunas
+são os dois lados, linhas são as contas.
+
+```
+                       TEÓRICO          REAL       DIFERENÇA
+                  (ficha técnica)   (compras)
+ALIMENTOS                 venda líquida R$ 262.644,84
+   custo             R$ 69.258,45  R$ 61.347,79   −R$ 7.910,66
+   sobre a venda           26,37%       23,36%       −3,01 pp
+   └ nenhuma categoria com o mesmo nome nos dois relatórios
+BEBIDAS                   venda líquida R$ 314.164,28
+   custo             R$ 78.040,86  R$ 64.762,48  −R$ 13.278,38
+   sobre a venda           24,84%       20,61%       −4,23 pp
+   └ DESTILADOS      R$  8.451,93  R$ 20.998,05   R$ 12.546,12  +38,24 pp
+   └ CERVEJAS        R$ 15.116,74  R$  9.321,44   −R$ 5.795,30  −12,60 pp
+   └ CHOPP           R$ 21.127,83  R$ 16.084,10   −R$ 5.043,73   −5,27 pp
+   └ REFRIGERANTES   R$  2.009,86  R$  2.300,86     R$ 291,00   +3,30 pp
+──────────────────────────────────────────────────────────────
+TOTAL                     venda líquida R$ 576.809,12
+   custo            R$ 147.299,31 R$ 126.110,27  −R$ 21.189,04
+   sobre a venda           25,54%       21,86%       −3,68 pp
+```
+
+Duas coisas para apontar:
+
+- **A venda aparece uma vez, como base do grupo.** É o *mesmo* denominador dos dois lados — e é isso que faz a diferença em pontos ser só diferença de custo, não diferença de faturamento. Até 07/11 a tela punha venda, CMV teórico e CMV real na mesma linha, e "CMV real" é custo de **compras** sobre receita de **venda**: dois relatórios misturados numa linha só.
+- **DESTILADOS: +38,24 pp.** Compraram R$ 20.998 contra R$ 8.451 previstos pelas fichas — um subgrupo fortemente positivo escondido dentro de um grupo que fecha negativo. Isto era invisível na tabela anterior e apareceu sozinho com o balanço.
+
+> Se perguntarem o que é: não sabemos. Pode ser formação de estoque de
+> destilado, ficha técnica desatualizada ou lançamento no grupo errado. O
+> sistema aponta onde olhar — quem conclui é a equipe de custos. Dizer "não
+> sabemos" aqui vale mais do que inventar uma causa.
+
+- Role até **Evolução mensal** → a linha teórica tem 24 meses, de set/24 a set/26; a real tem **um ponto só**. Diga por quê antes de perguntarem: só chegou uma DRE de compras.
 - Role até **Top itens** → onde o custo está concentrado.
 
 ### 2b. O limite do dado, dito pela própria tela (1 min)
 
-Ainda em Fechamento, no bloco **Abaixo do grupo**, está a tarja:
+Logo abaixo do balanço está a tarja:
 
 > "O ERP informa compras por categoria de insumo e vendas por categoria de
 > cardápio. Abaixo do grupo, só comparamos as categorias que existem com o
 > mesmo nome nos dois relatórios."
 
-E embaixo, **"Composição do custo — categorias que existem em um lado só. Não
-são desvio."**, com mais de trinta linhas: PETISCOS e PRATOS A LA CARTE do lado
-teórico, BOVINOS e HORTIFRUTI do lado real.
+E, recolhido, **"Composição do custo — 36 categorias que existem em um lado só.
+Não são desvio."** Abra na frente de quem está assistindo: PETISCOS e PRATOS A
+LA CARTE do lado teórico, BOVINOS e HORTIFRUTI do lado real. Ele vem fechado de
+propósito — é o maior volume de número da tela e ninguém decide nada olhando
+para ele, mas escondê-lo de vez seria esconder do que o custo é feito.
+
+Repare que, no balanço, **ALIMENTOS traz a linha "nenhuma categoria com o mesmo
+nome nos dois relatórios"**. Isso não é dado faltando, e a linha existe para
+ninguém ler como se fosse.
 
 É o melhor momento do roteiro para a tese de honestidade do trabalho:
 
