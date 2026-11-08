@@ -268,6 +268,52 @@ def _somas_por_grupo(
     return db.execute(stmt).all()
 
 
+def stmt_subgrupos_por_lado(*, casa_id: int, periodo: str, grupos: list[str]):
+    """Os subgrupos do mês, por lado do fechamento — statement isolado.
+
+    Separado da função para ser compilado no dialeto do SQL Server em
+    `tests/test_dialeto_sql.py`. O `GROUP BY` aqui é seguro porque as três
+    colunas não agregadas (`tipo`, `grupo`, `subgrupo`) estão todas agrupadas —
+    foi exatamente isso que faltou na query que derrubou `/uploads-custo` com
+    500 em produção enquanto a suíte em SQLite seguia verde.
+    """
+    return (
+        select(
+            UploadCusto.tipo,
+            LinhaCusto.grupo,
+            LinhaCusto.subgrupo,
+            func.sum(LinhaCusto.custo),
+            func.sum(LinhaCusto.venda_liquida),
+        )
+        .join(UploadCusto, UploadCusto.id == LinhaCusto.upload_id)
+        .where(
+            UploadCusto.casa_id == casa_id,
+            UploadCusto.periodo == periodo,
+            LinhaCusto.nivel == "subgrupo",
+            LinhaCusto.subgrupo.is_not(None),
+            LinhaCusto.grupo.in_(grupos),
+        )
+        .group_by(UploadCusto.tipo, LinhaCusto.grupo, LinhaCusto.subgrupo)
+    )
+
+
+def subgrupos_por_lado(
+    db: Session, *, casa_id: int, periodo: str, grupos: list[str]
+) -> list[tuple]:
+    """[(tipo, grupo, subgrupo, custo, venda)] somados no banco (regra 6).
+
+    Alimenta a comparação por subgrupo do RF11. Quem decide o que é par e o que
+    é composição de custo é `app/services/explicacao.py` — aqui só se soma.
+    """
+    if not grupos:
+        return []
+    stmt = stmt_subgrupos_por_lado(casa_id=casa_id, periodo=periodo, grupos=grupos)
+    return [
+        (tipo, grupo, subgrupo, float(custo or 0), float(venda) if venda is not None else None)
+        for tipo, grupo, subgrupo, custo, venda in db.execute(stmt).all()
+    ]
+
+
 def _receitas_compras(db: Session, casa_id: int, periodos: list[str] | None = None):
     """{periodo: receita líquida da DRE} — usada como denominador quando o
     cardápio do mês ainda não foi enviado."""
@@ -373,6 +419,9 @@ def _fechamentos(db: Session, casa_id: int, periodos: list[str] | None = None) -
             "tem_compras": tem_compras,
             "grupos": linhas,
             "total": _montar_linha("TOTAL", tot_teorico, tot_real, tot_venda),
+            # Vai junto para a rota do RF11 não precisar refazer a dedução de
+            # `grupos_comparaveis` numa segunda consulta ao banco.
+            "grupos_cmv": grupos_cmv,
         }
     return resultado
 
