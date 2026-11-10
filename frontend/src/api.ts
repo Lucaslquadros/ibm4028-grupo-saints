@@ -103,6 +103,30 @@ export interface Explicacao {
   subgrupos_comparados: SubgrupoComparado[];
   subgrupos_sem_par: SubgrupoSemPar[];
   limite_dado: string;
+  /** false quando o lado real é só compras (sem estoque): aí a situação não é
+   * diagnóstico do mês. Opcional: backend antigo não manda. */
+  conclusivo?: boolean;
+}
+
+/** Em que base está o lado real.
+ * - consumo: estoque inicial + compras − estoque final — o CMV real
+ * - compras: só as compras do mês (DRE do Everest), falta o estoque
+ * - declarada: planilha com uma coluna "custo"; o usuário declara que é o real */
+export type BaseReal = "consumo" | "compras" | "declarada";
+
+/** Teórico × real somados nos meses com os dois lados (janela de 12 meses). */
+export interface Acumulado {
+  periodo_inicio: string;
+  periodo_fim: string;
+  meses: number;
+  periodos: string[];
+  base_real: BaseReal;
+  conclusivo: boolean;
+  meses_minimos: number;
+  ajuste_mensal_min_pp: number | null;
+  ajuste_mensal_max_pp: number | null;
+  total: LinhaFechamento;
+  grupos: LinhaFechamento[];
 }
 
 export interface Fechamento {
@@ -116,6 +140,9 @@ export interface Fechamento {
   /** RF11. Opcional de propósito: entre o deploy do backend e o do front, a
    * resposta em produção pode não ter este campo — a tela não pode quebrar. */
   explicacao?: Explicacao | null;
+  /** Opcionais pelo mesmo motivo de `explicacao`. */
+  base_real?: BaseReal | null;
+  acumulado?: Acumulado | null;
 }
 
 export interface PontoEvolucao {
@@ -123,6 +150,7 @@ export interface PontoEvolucao {
   cmv_teorico_pct: number | null;
   cmv_real_pct: number | null;
   ajuste_pp: number | null;
+  base_real?: BaseReal | null;
 }
 
 export interface ItemCardapio {

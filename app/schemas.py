@@ -112,7 +112,10 @@ class LinhaFechamento(BaseModel):
     grupo: str
     venda_liquida: float | None = Field(description="Venda líquida do grupo (cardápio)")
     custo_teorico: float | None = Field(description="Vendas × ficha técnica (cardápio)")
-    custo_real: float | None = Field(description="Custo de compras pós-inventário (DRE)")
+    custo_real: float | None = Field(
+        description="Custo do lado real. Só é CMV real com base_real = consumo "
+        "(EI + compras − EF); com base_real = compras é o total comprado no mês"
+    )
     cmv_teorico_pct: float | None
     cmv_real_pct: float | None
     ajuste: float | None = Field(description="custo_real − custo_teorico, em R$")
@@ -180,6 +183,45 @@ class Explicacao(BaseModel):
     subgrupos_comparados: list[SubgrupoComparado]
     subgrupos_sem_par: list[SubgrupoSemPar]
     limite_dado: str = Field(description="Por que a comparação por subgrupo pode vir quase vazia")
+    conclusivo: bool = Field(
+        default=True,
+        description="false quando o lado real é só compras (sem estoque): aí "
+        "`situacao` descreve compras × teórico e não serve de diagnóstico do mês",
+    )
+
+
+BaseReal = Literal["consumo", "compras", "declarada"]
+"""Em que base está o lado real.
+
+- consumo:   estoque inicial + compras − estoque final — o CMV real
+- compras:   só as compras do mês (DRE do Everest); falta a variação de estoque
+- declarada: planilha genérica com uma coluna `custo`; o usuário declara que é o real
+"""
+
+
+class Acumulado(BaseModel):
+    """Teórico × real somados nos meses com os dois lados (janela de 12 meses).
+
+    Com o lado real em compras, é a única leitura que faz sentido: mês a mês a
+    diferença mistura desvio com ritmo de compra e estoque; somando meses, a
+    variação de estoque se dilui.
+    """
+
+    periodo_inicio: str
+    periodo_fim: str
+    meses: int
+    periodos: list[str]
+    base_real: BaseReal
+    conclusivo: bool = Field(
+        description="Com base compras, só a partir de `meses_minimos` meses somados"
+    )
+    meses_minimos: int
+    ajuste_mensal_min_pp: float | None = Field(
+        description="Menor ajuste de um mês isolado na janela: mostra o tamanho do ruído"
+    )
+    ajuste_mensal_max_pp: float | None
+    total: LinhaFechamento
+    grupos: list[LinhaFechamento]
 
 
 class FechamentoResponse(BaseModel):
@@ -199,6 +241,14 @@ class FechamentoResponse(BaseModel):
         "o frontend em produção continua funcionando entre o deploy do backend "
         "e o do front",
     )
+    base_real: BaseReal | None = Field(
+        default=None, description="Base do lado real no mês. null sem lado real"
+    )
+    acumulado: Acumulado | None = Field(
+        default=None,
+        description="Somas dos meses com os dois lados até este período. null quando "
+        "nenhum mês da janela tem os dois relatórios",
+    )
 
 
 class PontoEvolucao(BaseModel):
@@ -206,6 +256,7 @@ class PontoEvolucao(BaseModel):
     cmv_teorico_pct: float | None
     cmv_real_pct: float | None
     ajuste_pp: float | None
+    base_real: BaseReal | None = None
 
 
 class ItemCardapioResponse(BaseModel):

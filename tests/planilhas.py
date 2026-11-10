@@ -78,6 +78,57 @@ def linhas_dre() -> list[list]:
     ]
 
 
+def linhas_dre_sem_codigo() -> list[list]:
+    """A mesma DRE sintética no layout SEM código de conta, com a hierarquia na
+    indentação — como as DREs coladas nas abas `ENTRADA - <mês>` da planilha
+    de fechamento da equipe. Tem contas zeradas e um bloco de despesas depois
+    do LUCRO BRUTO, que o leitor precisa ignorar."""
+    return [
+        ["Descrição", "V. Set/2022", "% Ver.", "V. Total"],
+        ["(+) RECEITA OPERACIONAL BRUTA", 3300, 100, 3300],
+        ["(=) RECEITA LIQUIDA", 3200, 100, 3200],
+        ["(-) CUSTOS", 1000, 31.25, 1000],
+        ["    CUSTOS E DESPESAS", 1000, 31.25, 1000],
+        ["        CUSTOS", 1000, 31.25, 1000],
+        ["            ALIMENTOS", 330, 10.3, 330],
+        ["                BOVINOS", 200, 6.25, 200],
+        ["                HORTIFRUTI", 130, 4.06, 130],
+        ["                TRUFAS FRESCAS", 0, 0, 0],
+        ["            BEBIDAS", 420, 13.1, 420],
+        ["                CHOPP", 420, 13.1, 420],
+        ["            MATERIAL DE CONSUMO", 250, 7.8, 250],
+        ["                DESCARTAVEIS", 250, 7.8, 250],
+        ["            OUTROS ITENS", 0, 0, 0],
+        ["(=) LUCRO BRUTO", 2200, 68.75, 2200],
+        ["(-) DESPESAS OPERACIONAIS", 500, 15.6, 500],
+        ["    CUSTOS E DESPESAS", 500, 15.6, 500],
+        ["        DESPESAS GERAIS", 500, 15.6, 500],
+        ["            VIAGENS E REEMBOLSOS", 500, 15.6, 500],
+        ["                TAXI / UBER / APP", 500, 15.6, 500],
+    ]
+
+
+def dre_sem_codigo_xlsx() -> bytes:
+    return xlsx({"DRE": linhas_dre_sem_codigo()})
+
+
+def planilha_movimento_xlsx(*, ei_alimentos: float = 100.0, ef_alimentos: float = 70.0) -> bytes:
+    """Lado real como movimento de estoque, sem coluna `custo`.
+
+    ALIMENTOS: EI 100 + compras 300 − EF 70 = 330 (o mesmo custo da DRE sintética)
+    BEBIDAS:   EI  50 + compras 400 − EF 30 = 420
+    """
+    return xlsx(
+        {
+            "Dados": [
+                ["Grupo", "Subgrupo", "Estoque Inicial", "Compras", "Estoque Final"],
+                ["ALIMENTOS", "BOVINOS", ei_alimentos, 300, ef_alimentos],
+                ["BEBIDAS", "CHOPP", 50, 400, 30],
+            ]
+        }
+    )
+
+
 # ------------------------------------------- planilha genérica (outro domínio)
 # De propósito NÃO é um restaurante: o objetivo é provar que o fechamento não
 # depende de ALIMENTOS/BEBIDAS nem do Everest. Aqui é uma farmácia.

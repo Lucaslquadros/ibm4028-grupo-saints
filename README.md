@@ -7,10 +7,11 @@ equipe de custos do cliente monta à mão, cruzando três módulos do ERP, em ce
 de **2 dias por casa por mês**.
 
 O sistema lê os exports como eles saem do ERP, cruza o custo teórico (ficha
-técnica × vendas) com o custo real (compras pós-inventário) e mostra onde está
-a divergência. Na base real do cliente, o fechamento de set/26 acusou um ajuste
-de **−3,68 pp** em uma casa — uma divergência de dezenas de milhares de
-reais num único mês.
+técnica × vendas) com o custo real (estoque inicial + compras − estoque final)
+e mostra onde está a divergência. Na base real do cliente só há compras (sem
+inventário): mês a mês, compras × teórico oscila de −7,2 a +9,3 pp, e somando
+jun–dez/22 a diferença é de +0,48 pp, concentrada em alimentos. Por isso o
+sistema separa compras de consumo e mostra o acumulado.
 
 ## Está no ar
 

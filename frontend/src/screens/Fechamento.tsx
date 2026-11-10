@@ -2,6 +2,8 @@ import { useState } from "react";
 import {
   api,
   ApiError,
+  type Acumulado,
+  type BaseReal,
   type Casa,
   type Explicacao,
   type Fechamento as FechamentoDto,
@@ -26,6 +28,20 @@ const SELO: Record<SituacaoAjuste, { rotulo: string; classe: string }> = {
   acima: { rotulo: "Acima do previsto", classe: "hero-selo-ruim" },
   dentro: { rotulo: "Dentro da margem", classe: "hero-selo-bom" },
   abaixo: { rotulo: "Abaixo do previsto", classe: "hero-selo-atencao" },
+};
+
+// O cabeçalho da coluna do lado real diz o que ela é. A DRE do Everest é
+// compras do mês, não consumo: chamá-la de "Real" foi o que fez o −3,68 pp de
+// set/26 parecer um desvio (ver docs/07-fechamento-cmv.md, 10/11/2026).
+const LADO_REAL: Record<BaseReal, { titulo: string; fonte: string }> = {
+  consumo: { titulo: "Real", fonte: "estoque inicial + compras − final" },
+  compras: { titulo: "Compras", fonte: "DRE, sem estoque" },
+  declarada: { titulo: "Real", fonte: "informado na planilha" },
+};
+
+const mesAno = (periodo: string) => {
+  const [ano, mes] = periodo.split("-");
+  return `${mes}/${ano.slice(2)}`;
 };
 
 function classeDoAjuste(valor: number | null, limiar: number) {
@@ -169,10 +185,11 @@ function Balanco({
   dados,
   explicacao,
 }: {
-  dados: FechamentoDto;
+  dados: Pick<FechamentoDto, "grupos" | "total" | "base_real">;
   explicacao: Explicacao | null;
 }) {
   const limiar = explicacao?.limiar_pp ?? 1;
+  const ladoReal = LADO_REAL[dados.base_real ?? "declarada"];
   const temExplicacao = explicacao !== null;
   const subgruposDe = (grupo: string) =>
     (explicacao?.subgrupos_comparados ?? []).filter((s) => s.grupo === grupo);
@@ -237,7 +254,8 @@ function Balanco({
             Teórico<span className="balanco-fonte">ficha técnica</span>
           </th>
           <th className="num">
-            Real<span className="balanco-fonte">compras</span>
+            {ladoReal.titulo}
+            <span className="balanco-fonte">{ladoReal.fonte}</span>
           </th>
           <th className="num">Diferença</th>
         </tr>
@@ -245,6 +263,43 @@ function Balanco({
       {dados.grupos.map((g) => bloco(g))}
       {bloco(dados.total, true)}
     </table>
+  );
+}
+
+/** Teórico × real somados nos meses com os dois lados.
+ *
+ * Sem inventário, é a única leitura do lado real que faz sentido: mês a mês a
+ * diferença mistura desvio com o ritmo de compra e estoque (na casa piloto,
+ * de −7,2 a +9,3 pp em jun–dez/22); somando meses, o estoque se dilui (+0,5 pp).
+ */
+function BlocoAcumulado({ acumulado }: { acumulado: Acumulado }) {
+  const intervalo =
+    acumulado.meses === 1
+      ? mesAno(acumulado.periodo_inicio)
+      : `${mesAno(acumulado.periodo_inicio)} a ${mesAno(acumulado.periodo_fim)}`;
+  const faixa =
+    acumulado.meses > 1 &&
+    acumulado.ajuste_mensal_min_pp !== null &&
+    acumulado.ajuste_mensal_max_pp !== null
+      ? `Mês a mês, a diferença foi de ${pp(acumulado.ajuste_mensal_min_pp)} a ${pp(acumulado.ajuste_mensal_max_pp)}.`
+      : null;
+
+  return (
+    <>
+      <h3>
+        Acumulado · {acumulado.meses} {acumulado.meses === 1 ? "mês" : "meses"} ({intervalo})
+      </h3>
+      <p className={acumulado.conclusivo ? "ajuda" : "aviso"}>
+        {acumulado.conclusivo
+          ? "Soma dos meses com os dois relatórios nos últimos 12 meses."
+          : `Com o lado real só em compras, o acumulado precisa de pelo menos ${acumulado.meses_minimos} meses com os dois relatórios para a variação de estoque se diluir. Há ${acumulado.meses}: ainda não dá para concluir.`}{" "}
+        {faixa}
+      </p>
+      <Balanco
+        dados={{ grupos: acumulado.grupos, total: acumulado.total, base_real: acumulado.base_real }}
+        explicacao={null}
+      />
+    </>
   );
 }
 
@@ -259,13 +314,21 @@ export function PainelFechamento({ dados }: { dados: FechamentoDto }) {
   // ser a versão anterior. Sem ela a tela mostra o número sem leitura, nunca um
   // rótulo de valor ("favorável") que o sinal do ajuste não sustenta.
   const explicacao = dados.explicacao ?? null;
+  // Lado real só em compras: o número do mês fica na tela para conferência,
+  // mas o selo não pode dizer "acima/abaixo do previsto" como diagnóstico.
+  const soCompras = dados.base_real === "compras" || explicacao?.conclusivo === false;
+  const selo = soCompras
+    ? { rotulo: "Inconclusivo · falta o estoque", classe: "" }
+    : explicacao
+      ? SELO[explicacao.situacao]
+      : { rotulo: "Ajuste do mês", classe: "" };
 
   return (
     <>
       {(!dados.tem_cardapio || !dados.tem_compras) && (
         <p className="aviso">
           {!dados.tem_cardapio && "Falta o upload do cardápio (CMV teórico) deste período. "}
-          {!dados.tem_compras && "Falta o upload de compras (CMV real) deste período."}
+          {!dados.tem_compras && "Falta o upload do lado real (compras ou movimento de estoque) deste período."}
         </p>
       )}
 
@@ -274,17 +337,19 @@ export function PainelFechamento({ dados }: { dados: FechamentoDto }) {
       {/* O hero perdeu o par teórico × real: ele agora está no balanço, e
           repetido aqui eram seis números a mais dizendo a mesma coisa. */}
       <div className="hero-ajuste glass">
-        <div className={`hero-selo ${explicacao ? SELO[explicacao.situacao].classe : ""}`}>
-          {explicacao ? SELO[explicacao.situacao].rotulo : "Ajuste do mês"}
-        </div>
-        <span className="hero-rotulo">Ajuste do mês · {dados.casa_nome}</span>
+        <div className={`hero-selo ${selo.classe}`}>{selo.rotulo}</div>
+        <span className="hero-rotulo">
+          {soCompras ? "Compras × teórico do mês" : "Ajuste do mês"} · {dados.casa_nome}
+        </span>
         <strong className="hero-valor">{pp(dados.total.ajuste_pp)}</strong>
         <span className="hero-detalhe">
-          {brl(dados.total.ajuste)} de diferença entre real e teórico
+          {brl(dados.total.ajuste)} de diferença entre {soCompras ? "compras" : "real"} e teórico
         </span>
       </div>
 
       <Balanco dados={dados} explicacao={explicacao} />
+
+      {dados.acumulado && <BlocoAcumulado acumulado={dados.acumulado} />}
 
       {explicacao && <ComposicaoDoCusto explicacao={explicacao} />}
     </>

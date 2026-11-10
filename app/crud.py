@@ -9,7 +9,18 @@ from sqlalchemy.orm import Session
 
 from app.models import Casa, LinhaCusto, UploadCusto
 from app.schemas import CasaCreate, CasaUpdate
-from app.services.leitores import Linha
+from app.services.leitores import BASE_COMPRAS, BASE_CONSUMO, BASE_DECLARADA, Linha, base_do_total
+
+JANELA_ACUMULADO = 12
+"""Meses (terminando no período pedido) que entram no acumulado."""
+
+MESES_MINIMOS_ACUMULADO = 6
+"""Com o lado real só em compras, quantos meses somados bastam para a variação
+de estoque virar ruído. Na casa piloto o estoque é menor que um mês de custo:
+somando 6 meses, uma variação do tamanho do estoque inteiro pesa menos de 1/6
+do custo. Na base real, jun–dez/22 oscilou de −7,2 a +9,3 pp mês a mês e fechou
+em +0,5 pp somado.
+"""
 
 
 # ------------------------------------------------------------------ Casa
@@ -314,11 +325,15 @@ def subgrupos_por_lado(
     ]
 
 
-def _receitas_compras(db: Session, casa_id: int, periodos: list[str] | None = None):
-    """{periodo: receita líquida da DRE} — usada como denominador quando o
-    cardápio do mês ainda não foi enviado."""
+def _totais_compras(db: Session, casa_id: int, periodos: list[str] | None = None):
+    """{periodo: (receita líquida da DRE, base do lado real)}.
+
+    A receita é o denominador quando o cardápio do mês ainda não foi enviado.
+    A base (compras | consumo | declarada) vem do nome da linha total — ver
+    `leitores.base_do_total`.
+    """
     stmt = (
-        select(UploadCusto.periodo, LinhaCusto.venda_liquida)
+        select(UploadCusto.periodo, LinhaCusto.venda_liquida, LinhaCusto.nome)
         .join(UploadCusto, UploadCusto.id == LinhaCusto.upload_id)
         .where(
             UploadCusto.casa_id == casa_id,
@@ -328,7 +343,10 @@ def _receitas_compras(db: Session, casa_id: int, periodos: list[str] | None = No
     )
     if periodos is not None:
         stmt = stmt.where(UploadCusto.periodo.in_(periodos))
-    return {periodo: float(v) for periodo, v in db.execute(stmt).all() if v is not None}
+    return {
+        periodo: (float(v) if v is not None else None, base_do_total(nome))
+        for periodo, v, nome in db.execute(stmt).all()
+    }
 
 
 def _pct(custo: float | None, venda: float | None) -> float | None:
@@ -369,7 +387,11 @@ def _fechamentos(db: Session, casa_id: int, periodos: list[str] | None = None) -
 
     Regra do cálculo (ver docs/07-fechamento-cmv.md):
       teórico = custo do grupo no cardápio (vendas × ficha técnica)
-      real    = custo do grupo na DRE de compras (pós-inventário)
+      real    = custo do grupo no lado real. Depende da `base_real`:
+                consumo   → EI + compras − EF: é o CMV real
+                compras   → só as compras do mês (DRE do Everest): falta o
+                            estoque, e o mês isolado NÃO é conclusivo
+                declarada → planilha genérica com `custo`, sem como conferir
       CMV %   = custo ÷ venda líquida do grupo no cardápio — o MESMO
                 denominador nos dois lados, para que a diferença em pontos
                 percentuais seja só diferença de custo. Sem cardápio no mês,
@@ -388,7 +410,7 @@ def _fechamentos(db: Session, casa_id: int, periodos: list[str] | None = None) -
         if tipo == "cardapio" and venda is not None:
             g["venda"] = float(venda)
 
-    receitas = _receitas_compras(db, casa_id, periodos)
+    totais_compras = _totais_compras(db, casa_id, periodos)
     resultado = {}
     for periodo, grupos in somas.items():
         tem_cardapio = any(g["cardapio"] is not None for g in grupos.values())
@@ -410,7 +432,7 @@ def _fechamentos(db: Session, casa_id: int, periodos: list[str] | None = None) -
 
         if not tem_cardapio:
             # sem venda por grupo: CMV % só no total, sobre a receita da DRE
-            tot_venda = receitas.get(periodo)
+            tot_venda = totais_compras.get(periodo, (None, None))[0]
             for linha in linhas:
                 linha["cmv_real_pct"] = None
 
@@ -419,11 +441,91 @@ def _fechamentos(db: Session, casa_id: int, periodos: list[str] | None = None) -
             "tem_compras": tem_compras,
             "grupos": linhas,
             "total": _montar_linha("TOTAL", tot_teorico, tot_real, tot_venda),
+            "base_real": totais_compras.get(periodo, (None, None))[1] if tem_compras else None,
             # Vai junto para a rota do RF11 não precisar refazer a dedução de
             # `grupos_comparaveis` numa segunda consulta ao banco.
             "grupos_cmv": grupos_cmv,
         }
     return resultado
+
+
+def _periodo_menos(periodo: str, meses: int) -> str:
+    """('2026-09', 11) → '2025-10'."""
+    ano, mes = (int(x) for x in periodo.split("-"))
+    indice = ano * 12 + (mes - 1) - meses
+    return f"{indice // 12:04d}-{indice % 12 + 1:02d}"
+
+
+def fechamento_acumulado(db: Session, casa_id: int, periodo: str) -> dict | None:
+    """Teórico × real somados nos meses com os dois lados, até `periodo`.
+
+    É a leitura que faz sentido quando o lado real é só compras: num mês, a
+    diferença mistura desvio com o ritmo de compra e estoque; somando meses, a
+    variação de estoque se dilui e sobra o desvio. Mesmo com consumo (EI − EF
+    informado), o acumulado mostra se o mês é tendência ou ponto fora.
+
+    Soma só grupos com os dois lados no mesmo mês — senão um lado entra sem o
+    outro e o acumulado deixa de ser comparável. None quando nenhum mês da
+    janela tem os dois relatórios.
+    """
+    inicio = _periodo_menos(periodo, JANELA_ACUMULADO - 1)
+    periodos = list(
+        db.scalars(
+            select(UploadCusto.periodo)
+            .where(
+                UploadCusto.casa_id == casa_id,
+                UploadCusto.periodo >= inicio,
+                UploadCusto.periodo <= periodo,
+            )
+            .distinct()
+        ).all()
+    )
+    fechamentos = _fechamentos(db, casa_id, periodos) if periodos else {}
+    completos = sorted(p for p, f in fechamentos.items() if f["tem_cardapio"] and f["tem_compras"])
+    if not completos:
+        return None
+
+    somas: dict[str, list[float]] = {}
+    for p in completos:
+        for linha in fechamentos[p]["grupos"]:
+            if linha["custo_teorico"] is None or linha["custo_real"] is None:
+                continue
+            if not linha["venda_liquida"]:
+                continue
+            soma = somas.setdefault(linha["grupo"], [0.0, 0.0, 0.0])
+            soma[0] += linha["custo_teorico"]
+            soma[1] += linha["custo_real"]
+            soma[2] += linha["venda_liquida"]
+
+    grupos = [_montar_linha(g, t, r, v) for g, (t, r, v) in sorted(somas.items())]
+    total = _montar_linha(
+        "TOTAL",
+        sum(s[0] for s in somas.values()),
+        sum(s[1] for s in somas.values()),
+        sum(s[2] for s in somas.values()),
+    )
+    bases = {fechamentos[p]["base_real"] for p in completos}
+    base = next(
+        (b for b in (BASE_COMPRAS, BASE_DECLARADA, BASE_CONSUMO) if b in bases), BASE_DECLARADA
+    )
+    mensais = [
+        fechamentos[p]["total"]["ajuste_pp"]
+        for p in completos
+        if fechamentos[p]["total"]["ajuste_pp"] is not None
+    ]
+    return {
+        "periodo_inicio": completos[0],
+        "periodo_fim": completos[-1],
+        "meses": len(completos),
+        "periodos": completos,
+        "base_real": base,
+        "conclusivo": base != BASE_COMPRAS or len(completos) >= MESES_MINIMOS_ACUMULADO,
+        "meses_minimos": MESES_MINIMOS_ACUMULADO,
+        "ajuste_mensal_min_pp": min(mensais) if mensais else None,
+        "ajuste_mensal_max_pp": max(mensais) if mensais else None,
+        "total": total,
+        "grupos": grupos,
+    }
 
 
 def calcular_fechamento(db: Session, casa_id: int, periodo: str) -> dict | None:
@@ -451,6 +553,7 @@ def evolucao_cmv(db: Session, casa_id: int, limit: int = 24) -> list[dict]:
             "cmv_teorico_pct": fechamentos[periodo]["total"]["cmv_teorico_pct"],
             "cmv_real_pct": fechamentos[periodo]["total"]["cmv_real_pct"],
             "ajuste_pp": fechamentos[periodo]["total"]["ajuste_pp"],
+            "base_real": fechamentos[periodo]["base_real"],
         }
         for periodo in sorted(periodos)
         if periodo in fechamentos

@@ -17,6 +17,7 @@ from app import crud
 from app.deps import DbSession
 from app.schemas import (
     PERIODO_PATTERN,
+    Acumulado,
     ErroResponse,
     Explicacao,
     FechamentoResponse,
@@ -67,6 +68,21 @@ def fechamento(db: DbSession, casa_id: CasaId, periodo: Periodo) -> FechamentoRe
         total=LinhaFechamento(**resultado["total"]),
         grupos=[LinhaFechamento(**g) for g in resultado["grupos"]],
         explicacao=_explicacao(db, casa_id, periodo, resultado),
+        base_real=resultado["base_real"],
+        acumulado=_acumulado(db, casa_id, periodo),
+    )
+
+
+def _acumulado(db, casa_id: int, periodo: str) -> Acumulado | None:
+    dados = crud.fechamento_acumulado(db, casa_id, periodo)
+    if dados is None:
+        return None
+    return Acumulado(
+        **{
+            **dados,
+            "total": LinhaFechamento(**dados["total"]),
+            "grupos": [LinhaFechamento(**g) for g in dados["grupos"]],
+        }
     )
 
 
@@ -92,6 +108,7 @@ def _explicacao(db, casa_id: int, periodo: str, resultado: dict) -> Explicacao |
             )
             for tipo, grupo, subgrupo, custo, venda in linhas
         ],
+        base_real=resultado["base_real"],
     )
     return Explicacao(**dados) if dados is not None else None
 
