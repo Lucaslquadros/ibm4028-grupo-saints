@@ -180,12 +180,22 @@ Duas coisas tiveram que mudar no código para a tese parar de ser slide:
 A demonstração está **em produção**, com **quatro ramos** carregados por
 `scripts/popular_demo_generico.py` a partir de `exemplos/`:
 
-| Unidade (DEMO) | Ramo | CMV teórico | CMV real | Grupos deduzidos | Indireto excluído |
-|---|---|---|---|---|---|
-| Drogaria Central | Farmácia | 47,79% | 52,09% | MEDICAMENTOS, PERFUMARIA | EMBALAGENS |
-| Padaria Sao Jose | Padaria | 38,45% | 41,91% | CONFEITARIA, FRIOS, PANIFICACAO | MATERIAL DE LIMPEZA |
-| Pizzaria Bella | Pizzaria | 32,39% | 35,30% | BEBIDAS, PIZZAS, SOBREMESAS | DESCARTAVEIS |
-| Distribuidora Horizonte | Atacado de bebidas | 75,94% | 82,78% | CERVEJAS, DESTILADOS, NAO ALCOOLICOS | LOGISTICA |
+| Unidade (DEMO) | Ramo | CMV teórico | CMV real | Ajuste set/26 | Grupos deduzidos | Indireto excluído |
+|---|---|---|---|---|---|---|
+| Drogaria Central | Farmácia | 47,89% | 50,55% | +2,66 pp (PERFUMARIA) | MEDICAMENTOS, PERFUMARIA | EMBALAGENS |
+| Padaria Sao Jose | Padaria | 38,58% | 39,97% | +1,39 pp (FRIOS) | CONFEITARIA, FRIOS, PANIFICACAO | MATERIAL DE LIMPEZA |
+| Pizzaria Bella | Pizzaria | 32,40% | 31,60% | −0,80 pp (dentro, com compensação) | BEBIDAS, PIZZAS, SOBREMESAS | DESCARTAVEIS |
+| Distribuidora Horizonte | Atacado de bebidas | 75,83% | 79,32% | +3,49 pp (CERVEJAS) | CERVEJAS, DESTILADOS, NAO ALCOOLICOS | LOGISTICA |
+
+> **Refeito em 10/11/2026.** Até aqui o lado real das DEMO era uma cópia do
+> teórico multiplicada por um fator único por mês (+9% em set/26 em **todos** os
+> grupos de **todas** as empresas), com a mesma venda nos 6 meses. O fechamento
+> saía, mas não tinha o que explicar: nenhum grupo concentrava o desvio, não
+> havia compensação nem série para o RF07. Agora o real sai de **estoque inicial
+> + compras − estoque final** por item, as vendas variam por mês e cada desvio
+> tem causa nomeada (perda, ficha desatualizada, compra não lançada, erro de
+> contagem que volta no mês seguinte) — ver `exemplos/README.md`. Valores acima
+> conferidos numa API local; a produção só muda quando o script for rodado lá.
 
 Quatro taxonomias, **nenhuma conhecida pelo código**, e em cada uma o custo
 indireto é excluído do CMV pela própria dedução. O par Pizzaria (32%) ×

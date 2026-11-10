@@ -192,7 +192,10 @@ uv run python scripts/popular_demo_generico.py --apenas-planilhas pasta/
 ```
 
 Cria quatro unidades com 6 meses nos dois lados, a partir dos CSVs de
-`exemplos/`. Acrescentar um ramo é acrescentar dois CSVs e uma entrada no
+`exemplos/`. O lado real das DEMO é um movimento de estoque por item, e o custo
+real sai de **estoque inicial + compras − estoque final** — a mesma regra do
+cliente; cada desvio plantado tem causa nomeada em `exemplos/README.md`.
+Acrescentar um ramo é acrescentar dois CSVs e uma entrada no
 manifesto — **sem tocar Python**.
 
 **O que as DEMO provam, e o que não provam.** Provam que o **formato** e a
