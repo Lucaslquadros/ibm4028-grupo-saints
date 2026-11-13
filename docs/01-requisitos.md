@@ -65,7 +65,7 @@ Números do caso de origem, declarados pelo cliente nas Conversas 1 e 2.
 |---|---|---|
 | Tempo gasto | ~2 dias por casa por mês no fechamento; ~5 dias/mês do time de custos montando planilhas | Minutos: subir o export e ler o painel |
 | Atraso da informação | Fechamento sai perto do dia 15 do mês seguinte | No mesmo dia em que o export existe |
-| Custo da divergência | Ajuste de **−3,68 pp** entre CMV real e teórico num único mês, numa casa | Identificar e agir dentro do mês |
+| Custo da divergência | Sem inventário, compras × teórico oscila de −7,2 a +9,3 pp mês a mês na casa piloto (jun–dez/22) — o número de um mês não diz se houve desvio | Separar desvio de ritmo de estoque: CMV real com inventário, ou acumulado de vários meses sem ele |
 | Erros / retrabalho | Cruzamento manual de 3 relatórios; perdas descobertas só no fim do mês | Cruzamento automático, com o ajuste decomposto por grupo |
 | Entendimento do resultado | O ajuste chega como número; quem decide precisa da analista para interpretá-lo | Parágrafo em português que diz onde está a diferença e o que conferir (RF11) |
 
@@ -139,12 +139,13 @@ O que o cliente deixou provado, com evidência:
 | A dor existe e é caríssima em tempo | Conversa 1 e 2: ~2 dias por casa por mês montando o fechamento à mão, cruzando três módulos do Everest |
 | A dor é de dado, não de software faltando | Os exports do Everest são relatórios de impressão, não tabelas — "vem um Excel cru, sem formatação, sem nada" |
 | O sistema resolve a dor | 24 meses de CMV teórico e o fechamento de set/26 calculados a partir dos arquivos **reais**, sem tratamento manual |
-| O resultado é acionável | set/26 acusou ajuste de **−3,68 pp** entre real e teórico — a divergência que a equipe leva dois dias para encontrar. Valor absoluto fora deste documento: ver nota de confidencialidade em 1.9 |
+| O resultado é acionável | **Revisto em 10/11.** O −3,68 pp de set/26 é compras × teórico, **não** CMV real: falta a variação de estoque (ver `07-fechamento-cmv.md`, "A DRE é compras, não consumo"). Com as DREs de jun–dez/22 da planilha da equipe, o acumulado de 7 meses dá **+0,48 pp** (ALIMENTOS +5,14, BEBIDAS −3,14) — essa é a leitura acionável hoje: alimentos é onde procurar. Valor absoluto fora deste documento: ver nota de confidencialidade em 1.9 |
 
 O que **não** foi validado, e por isso não é afirmado em nenhum lugar:
 
-- Se o número de set/26 bate com a apresentação de fechamento da própria equipe
-  (o gabarito nunca chegou).
+- O CMV real de qualquer mês: falta o inventário valorizado (estoque inicial e
+  final), e o time confirmou em 10/11 que não tem acesso a ele. A planilha de
+  fechamento da equipe chegou e foi usada como **método** (ver `07`).
 - Se a equipe considera a tela utilizável no dia a dia (não houve teste de uso).
 - RF03/RF05 (pessoal/escala) seguem como hipótese, nunca validados.
 
@@ -180,12 +181,22 @@ Duas coisas tiveram que mudar no código para a tese parar de ser slide:
 A demonstração está **em produção**, com **quatro ramos** carregados por
 `scripts/popular_demo_generico.py` a partir de `exemplos/`:
 
-| Unidade (DEMO) | Ramo | CMV teórico | CMV real | Grupos deduzidos | Indireto excluído |
-|---|---|---|---|---|---|
-| Drogaria Central | Farmácia | 47,79% | 52,09% | MEDICAMENTOS, PERFUMARIA | EMBALAGENS |
-| Padaria Sao Jose | Padaria | 38,45% | 41,91% | CONFEITARIA, FRIOS, PANIFICACAO | MATERIAL DE LIMPEZA |
-| Pizzaria Bella | Pizzaria | 32,39% | 35,30% | BEBIDAS, PIZZAS, SOBREMESAS | DESCARTAVEIS |
-| Distribuidora Horizonte | Atacado de bebidas | 75,94% | 82,78% | CERVEJAS, DESTILADOS, NAO ALCOOLICOS | LOGISTICA |
+| Unidade (DEMO) | Ramo | CMV teórico | CMV real | Ajuste set/26 | Grupos deduzidos | Indireto excluído |
+|---|---|---|---|---|---|---|
+| Drogaria Central | Farmácia | 47,89% | 50,55% | +2,66 pp (PERFUMARIA) | MEDICAMENTOS, PERFUMARIA | EMBALAGENS |
+| Padaria Sao Jose | Padaria | 38,58% | 39,97% | +1,39 pp (FRIOS) | CONFEITARIA, FRIOS, PANIFICACAO | MATERIAL DE LIMPEZA |
+| Pizzaria Bella | Pizzaria | 32,40% | 31,60% | −0,80 pp (dentro, com compensação) | BEBIDAS, PIZZAS, SOBREMESAS | DESCARTAVEIS |
+| Distribuidora Horizonte | Atacado de bebidas | 75,83% | 79,32% | +3,49 pp (CERVEJAS) | CERVEJAS, DESTILADOS, NAO ALCOOLICOS | LOGISTICA |
+
+> **Refeito em 10/11/2026.** Até aqui o lado real das DEMO era uma cópia do
+> teórico multiplicada por um fator único por mês (+9% em set/26 em **todos** os
+> grupos de **todas** as empresas), com a mesma venda nos 6 meses. O fechamento
+> saía, mas não tinha o que explicar: nenhum grupo concentrava o desvio, não
+> havia compensação nem série para o RF07. Agora o real sai de **estoque inicial
+> + compras − estoque final** por item, as vendas variam por mês e cada desvio
+> tem causa nomeada (perda, ficha desatualizada, compra não lançada, erro de
+> contagem que volta no mês seguinte) — ver `exemplos/README.md`. Valores acima
+> conferidos numa API local; a produção só muda quando o script for rodado lá.
 
 Quatro taxonomias, **nenhuma conhecida pelo código**, e em cada uma o custo
 indireto é excluído do CMV pela própria dedução. O par Pizzaria (32%) ×
@@ -207,14 +218,14 @@ Declaradas aqui para não serem descobertas numa pergunta de banca.
 
 | Limitação | Detalhe |
 |---|---|
-| **Proveniência da DRE** | A DRE gerencial recebida em 23/10/2026 **não contém a casa nem o período** dentro do arquivo — só o timestamp do export no nome. O rótulo `2026-09` foi atribuído por quem rodou o importador. A evidência é circunstancial e razoável (exportada em 23/10, logo set/26 é o último mês fechado; a receita da DRE fica a ~1,6% da venda do cardápio do mesmo mês), mas **não é prova**. Um campo de casa/período no arquivo, ou a integração via API, resolveria |
+| ~~**Proveniência da DRE**~~ | ~~A DRE recebida em 23/10 não contém a casa nem o período.~~ **Confirmado pelo time em 10/11**: é da Vila Madalena, set/26. O arquivo segue sem esses campos; para os próximos envios, quem declara continua sendo o usuário |
 | Uma casa real | O dado real cobre só o Boteco São Bento - Vila Madalena. O "consolidado entre casas" do RF04 é exercitado com a unidade de demonstração, não com 14 casas reais |
-| Um mês de CMV real | 24 meses de teórico, 1 mês de real. A série de ajuste tem um ponto só |
+| **Nenhum mês de CMV real** | O lado real disponível é só **compras** (DRE), nunca consumo: falta o inventário. Há DRE de set/26 e, nas abas `ENTRADA` da planilha da equipe, de jun–dez/22 (importáveis com `scripts/importar_dre_historica.py`). Com elas o acumulado de 7 meses fica conclusivo; set/26 sozinho, não |
 | **Set/26 é o mês mais fraco da série** | A venda do cardápio em set/26 (o mês do fechamento que apresentamos) foi **75% da média** dos 24 meses, e abaixo do mínimo histórico anterior. Pode ser mês fraco real ou export tirado antes do fechamento — nada no arquivo diz. Consequências: **(a)** o CMV % não é afetado, porque é razão, e de fato 24,44% está em linha com todos os meses; **(b)** a receita da DRE equivale a ~94% da venda do cardápio desse setembro fraco, e a só ~71% da venda de um mês típico — ou seja, ela é compatível com setembro e **incompatível** com um mês normal, o que é evidência *a favor* de que os dois arquivos cobrem o mesmo período; **(c)** a previsão de demanda fica subestimada, e por isso `recomendacao-compra` emite `alerta_dado` quando detecta queda uniforme de volume em todo o catálogo |
 | Dedução de grupos precisa dos dois lados | Uma casa que nunca enviou cardápio não tem como saber que "material de consumo" não é mercadoria; o sistema então soma todos os grupos com custo, em vez de aplicar uma taxonomia que não conhece (`tests/test_fechamento.py`) |
 | **Subgrupos de cardápio e de compras são taxonomias diferentes** | No Everest, o cardápio agrupa por categoria de **venda** (PETISCOS, CHOPP) e a DRE por categoria de **insumo** (BOVINOS, HORTIFRUTI). Abaixo do grupo, só é possível comparar teórico × real quando o nome coincide (ex.: CHOPP). Nas DEMO os subgrupos são iguais nos dois lados, então a comparação parece completa lá e quase vazia na casa real. RF11 declara isso na tela em vez de inventar a granularidade |
 | **Nomes que diferem só no singular/plural não são comparados** | Achado ao conferir o RF11 em produção, 07/11: na casa piloto o lado teórico traz `AGUAS`, `ENERGETICOS`, `VINHOS`, `SOBREMESA` e o lado real traz `AGUA`, `ENERGETICO`, `VINHO`, `SOBREMESAS`. São quatro pares que um humano leria como o mesmo subgrupo e que o sistema trata como oito categorias sem par. A padronização do P0 resolve caixa e espaço, **não** flexão. Deixado assim de propósito: casar `AGUAS` com `AGUA` é heurística de linguagem, e errar nela produz um desvio inventado — pior do que a lacuna. O caminho correto é padronizar no cadastro do ERP ou mapear explicitamente, não adivinhar |
-| **O sistema não confere se o lado real é pós-inventário** | Se o usuário enviar compras sem o inventário fechado, o ajuste sai sem sentido e nada acusa. Pré-requisito declarado em `07-fechamento-cmv.md` |
+| ~~**O sistema não confere se o lado real é pós-inventário**~~ | **Tratado em 10/11:** cada upload do lado real tem uma base (`compras`, `consumo`, `declarada`). A DRE do Everest é `compras` e a tela a chama de "Compras", não de "Real"; o RF11 diz que o mês não é conclusivo. Continua sem conferência a planilha genérica só com `custo` (`declarada`) |
 | ~~**Nome de grupo sensível a maiúsculas**~~ | ~~`Alimentos` num lado e `ALIMENTOS` no outro viram grupos distintos, e o grupo sai do CMV sem erro.~~ **Corrigido em 07/11** (P0 de `11-ciclo-explicacao-do-ajuste.md`): os três tradutores padronizam nome de grupo e subgrupo na leitura — maiúsculas e espaços internos colapsados, acento mantido. Vale para uploads novos; os já carregados vieram todos em maiúsculas |
 | Sem autenticação | A API é pública. Era RNF03 da Sprint 2 e **não foi entregue** — é a lacuna mais séria do trabalho |
 | Observabilidade pela metade | Os logs do App Service foram ligados em 06/11/2026 (antes disso a regra 9 não tinha destino), mas **Application Insights não existe**: não há série histórica de requisição, latência e falha. Nível 2 da fila em `09-uso-da-nuvem.md` |
@@ -690,6 +701,8 @@ _(inserir; ver `docs/02-arquitetura.md`)_
 
 | Data | Versão | O que mudou | Motivo |
 |---|---|---|---|
+| 12/11/2026 | 1.5 | **Fechamento pela planilha-modelo (fase 1)**, ao lado do caminho do Everest: `POST /api/v1/fechamentos` recebe uma planilha com uma linha por grupo por mês (`periodo`, `grupo`, `venda_liquida`, `custo_teorico`, `estoque_inicial`, `compras`, `estoque_final`), de um ou vários meses. O lado real é EI + compras − EF (`base_real = consumo`); EI em branco = EF do mês anterior. Casa que recebe a planilha passa a ser calculada só por ela. Modelo em `GET /api/v1/modelos/fechamento`; opção "Planilha de fechamento" na tela de Upload. Detalhes em `07-fechamento-cmv.md`. Ainda **não publicado** | Sem inventário não existe CMV real, e o caminho do Everest não tem onde receber o estoque por grupo. A planilha é o mínimo de dado que fecha o mês corretamente e serve a qualquer ERP. Fase 2 (remover o que só existe para contornar a falta de estoque) depende de combinar com o time |
+| 10/11/2026 | 1.4 | **O lado real da casa piloto deixa de ser chamado de CMV real.** A DRE do Everest é compras do mês; o CMV real é compras + estoque inicial − estoque final. Cada upload do lado real ganha `base_real` (`compras` \| `consumo` \| `declarada`); a planilha genérica aceita `estoque_inicial`, `compras`, `estoque_final` e calcula o custo. O fechamento ganha `acumulado` (12 meses, conclusivo a partir de 6 com base compras). O leitor da DRE aceita o layout sem código de conta (abas `ENTRADA` da planilha da equipe) e `scripts/importar_dre_historica.py` importa jun–dez/22. Campos novos opcionais; `ajuste_pp` de set/26 continua −3,68 (mudou a leitura, não o número). Ainda **não publicado** | A planilha de fechamento da equipe (recebida em 23/10, analisada em 10/11) mostra a variação de estoque somada à parte da DRE. O −3,68 pp de set/26 estava sendo apresentado como desvio, mas está dentro da oscilação normal de compras × teórico de um mês (−7,2 a +9,3 pp em jun–dez/22). O time confirmou que não há inventário disponível, então a leitura possível é o acumulado |
 | 07/11/2026 | 1.3 | **RF11, RF12 e RF13 entregues e publicados** — backend e frontend no commit `a7fa9c5`, conferidos em produção: `/health` com o SHA novo e o fechamento de set/26 com `ajuste_pp: -3.68` e `explicacao.situacao: "abaixo"`. Roteiro de demo (`08`) reescrito com o que está no ar. Limitação nova em 1.9: nomes que diferem só no singular/plural não são comparados | Conclusão do ciclo 07–09/11. A limitação nova não é regressão: apareceu porque o RF11 passou a comparar abaixo do grupo e, com isso, tornou visível uma diferença de cadastro que antes ninguém via |
 | 07/11/2026 | 1.2 | **RF11, RF12 e RF13 implementados** (branch do ciclo, ainda não publicado): `explicacao` no fechamento com as três situações, contribuição por grupo, grupos e subgrupos sem par; aba "Fechar o mês"; tempo do primeiro envio ao resultado. **P0 entregue**: tradutores padronizam nome de grupo e subgrupo, e `GET /api/v1/modelos/{tipo}` gera a planilha-modelo. A limitação de maiúsculas em 1.9 sai da lista. Nada marcado como "entregue" ainda: pela regra do ciclo isso só vale depois do deploy conferido no `/health` | Execução do ciclo 07–09/11 na ordem da seção 2 de `11-ciclo-explicacao-do-ajuste.md`. Nenhum item precisou do corte previsto. O roteiro de demo (`08`) segue descrevendo só o que está no ar, e é atualizado junto com o deploy |
 | 07/11/2026 | 1.1 | **Voltam as Personas 1 e 2** (analista alimenta, sócio decide); Persona 3 vira hipótese de mercado futuro. **RF11** (explicação do ajuste, Must), **RF12** (fluxo guiado, Should) e **RF13** (tempo medido, Should) especificados em `11-ciclo-explicacao-do-ajuste.md`. **RF09 desce para Should.** Problema (1.1) e objetivo (1.4) reescritos: o valor é explicar o ajuste, não mostrá-lo. Contrato de entrada ("o que o usuário precisa fornecer") em `07-fechamento-cmv.md`. Três limitações novas em 1.9 | Revisão crítica (Lean Inception): o app mostrava o delta sem explicá-lo, e o ERP do cliente já tem o número. A Persona 3 tinha sido criada para generalizar a solução, mas generalizar o **formato** não exige mudar de **público** — e ela não tinha entrevista nem os dados que o cálculo exige (ficha técnica e inventário). As DEMO continuam, com o papel declarado: sem os dados das outras casas do Saints para a apresentação, provam formato e regra, não mercado |

@@ -13,11 +13,13 @@ o teste `test_modelos.py` garante, para o modelo não descolar do leitor.
 import io
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Response
+from fastapi import APIRouter, HTTPException, Path, Query, Response
 from openpyxl import Workbook
 
-from app.schemas import ErroResponse, TipoUpload
+from app.schemas import DemoFechamento, ErroResponse, TipoUpload
+from app.services import demo_fechamento
 from app.services.leitores import XLSX
+from app.services.modelo_fechamento import gerar_modelo_fechamento
 
 router = APIRouter(prefix="/api/v1/modelos", tags=["modelos"])
 
@@ -77,6 +79,121 @@ def gerar_modelo(tipo: str) -> bytes:
     buffer = io.BytesIO()
     livro.save(buffer)
     return buffer.getvalue()
+
+
+@router.get(
+    "/fechamento/demo",
+    summary="Casa de demonstração da planilha de fechamento: nome e meses",
+)
+def info_demo_fechamento() -> DemoFechamento:
+    """Para a tela de Upload saber quando oferecer a planilha da demonstração:
+    só para a casa de demonstração, nunca para uma casa real."""
+    return DemoFechamento(
+        casa_nome=demo_fechamento.CASA_DEMO["nome"],
+        periodos=demo_fechamento.PERIODOS,
+        periodos_historico=demo_fechamento.PERIODOS_HISTORICO,
+        periodo_ao_vivo=demo_fechamento.PERIODO_AO_VIVO,
+    )
+
+
+@router.get(
+    "/fechamento/demo/planilha",
+    summary="Baixar a planilha preenchida da casa de demonstração",
+    response_class=Response,
+    responses={
+        200: {"content": {XLSX: {}}, "description": "Planilha-modelo com os dados da demo"},
+        422: {"model": ErroResponse},
+    },
+)
+def baixar_planilha_demo(
+    periodo: Annotated[
+        list[str] | None,
+        Query(description="Meses (AAAA-MM). Sem nenhum, vale o mês da apresentação ao vivo"),
+    ] = None,
+) -> Response:
+    """Mesmo layout da planilha-modelo, com os números fictícios da casa de
+    demonstração. Dados em `app/services/demo_fechamento.py`."""
+    periodos = periodo or [demo_fechamento.PERIODO_AO_VIVO]
+    desconhecidos = sorted(set(periodos) - set(demo_fechamento.PERIODOS))
+    if desconhecidos:
+        raise HTTPException(
+            status_code=422,
+            detail=f"A demonstração não tem os meses {', '.join(desconhecidos)}. "
+            f"Disponíveis: {', '.join(demo_fechamento.PERIODOS)}.",
+        )
+    nome = f"demo-fechamento-{min(periodos)}" + (
+        f"-a-{max(periodos)}" if len(set(periodos)) > 1 else ""
+    )
+    return Response(
+        content=gerar_modelo_fechamento(demo_fechamento.linhas_demo(periodos)),
+        media_type=XLSX,
+        headers={"Content-Disposition": f'attachment; filename="{nome}.xlsx"'},
+    )
+
+
+@router.get(
+    "/fechamento/demo/cardapio",
+    summary="Baixar a engenharia de cardápio por item da casa de demonstração",
+    response_class=Response,
+    responses={
+        200: {"content": {XLSX: {}}, "description": "Cardápio por item, planilha genérica"},
+        422: {"model": ErroResponse},
+    },
+)
+def baixar_cardapio_demo(
+    periodo: Annotated[str, Query(description="Mês (AAAA-MM)")] = demo_fechamento.PERIODO_AO_VIVO,
+) -> Response:
+    """Venda por item do mês, para "Quanto comprar" (RF07) e "Top itens". É
+    enviada em `POST /uploads-custo` com `tipo=cardapio` e o período no
+    formulário. Os totais por grupo batem com a planilha de fechamento."""
+    if periodo not in demo_fechamento.PERIODOS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"A demonstração não tem o mês {periodo}. "
+            f"Disponíveis: {', '.join(demo_fechamento.PERIODOS)}.",
+        )
+    livro = Workbook()
+    aba = livro.active
+    aba.title = "Cardapio"
+    aba.append(
+        [
+            f"Cardápio por item da demonstração, {periodo} — dados fictícios. "
+            "Envie como Engenharia de cardápio, com este mesmo período."
+        ]
+    )
+    aba.append(demo_fechamento.CABECALHO_CARDAPIO)
+    for linha in demo_fechamento.cardapio_demo(periodo):
+        aba.append(list(linha))
+    buffer = io.BytesIO()
+    livro.save(buffer)
+    return Response(
+        content=buffer.getvalue(),
+        media_type=XLSX,
+        headers={"Content-Disposition": f'attachment; filename="demo-cardapio-{periodo}.xlsx"'},
+    )
+
+
+# Declarada ANTES de `/{tipo}`: o FastAPI casa as rotas na ordem, e
+# `/fechamento` cairia no `{tipo}` e tomaria 422 do `Literal`.
+@router.get(
+    "/fechamento",
+    summary="Baixar planilha-modelo de fechamento (venda, teórico e estoque por grupo)",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {XLSX: {}},
+            "description": "Abas Fechamento (lida pelo sistema), Instrucoes e Conferencia",
+        }
+    },
+)
+def baixar_modelo_fechamento() -> Response:
+    """Planilha de `POST /fechamentos`: uma linha por grupo por mês, com o
+    movimento de estoque que o CMV real exige. Exemplo sintético de 3 meses."""
+    return Response(
+        content=gerar_modelo_fechamento(),
+        media_type=XLSX,
+        headers={"Content-Disposition": 'attachment; filename="modelo-fechamento.xlsx"'},
+    )
 
 
 @router.get(

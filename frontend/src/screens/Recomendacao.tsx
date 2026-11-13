@@ -61,8 +61,14 @@ type Props = {
 export function Recomendacao({ casas, casaId, setCasaId, periodo, setPeriodo }: Props) {
   const [margem, setMargem] = useState(10);
   const [carregando, setCarregando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-  const [dados, setDados] = useState<RecomendacaoCompra | null>(null);
+  const [erroCalculado, setErro] = useState<string | null>(null);
+  const [dadosCalculados, setDados] = useState<RecomendacaoCompra | null>(null);
+  // Resultado e erro são de uma casa e de um mês. Guardar de qual e só mostrar
+  // se ainda for o selecionado evita exibir a mensagem de um cálculo anterior.
+  const [calculadoPara, setCalculadoPara] = useState("");
+  const atual = calculadoPara === `${casaId}|${periodo}`;
+  const erro = atual ? erroCalculado : null;
+  const dados = atual ? dadosCalculados : null;
 
   async function buscar(ev: React.FormEvent) {
     ev.preventDefault();
@@ -70,6 +76,7 @@ export function Recomendacao({ casas, casaId, setCasaId, periodo, setPeriodo }: 
     setCarregando(true);
     setErro(null);
     setDados(null);
+    setCalculadoPara(`${casaId}|${periodo}`);
     try {
       setDados(await api.recomendacaoCompra(casaId, periodo, margem, 10));
     } catch (e) {

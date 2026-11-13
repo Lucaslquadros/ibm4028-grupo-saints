@@ -11,6 +11,10 @@ fechamento (cerca de **2 dias**), cruzando exports de três módulos do Everest
 
 - **CMV teórico**, ou CMV de cardápio: vendas × custo da ficha técnica. Feito pela Joyce.
 - **CMV real**, ou CMV de compras: custo de compras **depois do inventário completo do dia 30**. Feito pelo Wellington.
+  Na planilha de fechamento da equipe (recebida em 23/10, analisada em 10/11),
+  isso é **compras do mês (DRE) + estoque inicial − estoque final** (− retiradas,
+  + bonificação AMBEV à parte). A DRE sozinha é só a parcela de compras — ver
+  "A DRE é compras, não consumo" abaixo.
 - **Ajuste teórico** = real − teórico. Quando ele é grande, "tem erro em algum lugar" (ficha técnica, contagem, perda não lançada, desvio).
 
 Quem usa: a analista de custos (Persona 1) **envia** os relatórios; o
@@ -78,7 +82,7 @@ ERP parte a série em dois sem aviso (`01-requisitos.md` 1.9).
 
 Onde a "solução genérica" pode falhar **sem dar erro**:
 
-1. **Se o lado real é pós-inventário.** Nada no arquivo indica.
+1. ~~**Se o lado real é pós-inventário.**~~ **Tratado em 10/11:** o sistema não adivinha mais — cada upload do lado real tem uma **base** (`compras`, `consumo` ou `declarada`), e só `consumo` é chamado de CMV real. A DRE do Everest é sempre `compras`. Continua sem conferência só a planilha genérica com uma coluna `custo` (`declarada`): o usuário declara.
 2. **Se o período declarado é o do arquivo.** É a limitação da DRE do caso de origem, e vale para qualquer usuário.
 3. ~~**Maiúsculas e espaços no nome do grupo.**~~ **Resolvido em 07/11** (P0 do ciclo): os três tradutores padronizam nome de grupo e subgrupo na leitura — maiúsculas e espaços internos colapsados, acento preservado por ser nome exibido. `Alimentos` e `ALIMENTOS ` passam a ser o mesmo grupo. Só vale para o que for carregado a partir daí.
 4. **Sinal e unidade dos valores.** Se o ERP exportar custo como negativo, o ajuste sai invertido.
@@ -88,7 +92,7 @@ Onde a "solução genérica" pode falhar **sem dar erro**:
 | `tipo` | Relatório do Everest | Lado do fechamento |
 |---|---|---|
 | `cardapio` | Engenharia de cardápio | CMV teórico |
-| `compras` | DRE gerencial de compras | CMV real |
+| `compras` | DRE gerencial de compras | Compras do mês (lado real **sem** estoque) |
 
 São **relatórios de impressão exportados para Excel**, não tabelas: têm
 cabeçalho de empresa, totais misturados com itens e hierarquia por posição ou
@@ -109,6 +113,7 @@ quantidade, venda líquida, custo). É isso que permite cruzar os dois com um
 
 - Cada linha tem um código de conta: `2.01` = CUSTOS, `2.01.01` = grupo (ALIMENTOS), `2.01.01.00002` = subgrupo (BOVINOS).
 - `(=) RECEITA LIQUIDA` (sem código) = receita do mês.
+- **Layout sem código** (desde 10/11): as DREs coladas nas abas `ENTRADA - <mês>` da planilha da equipe não têm coluna de código; a hierarquia está na indentação (4 espaços por nível). O leitor usa só o bloco `(-) CUSTOS` até a próxima linha de resultado e ignora contas zeradas.
 
 ## A regra do cálculo
 
@@ -116,6 +121,60 @@ quantidade, venda líquida, custo). É isso que permite cruzar os dois com um
 - **CMV % = custo ÷ venda líquida do grupo no cardápio**, com o **mesmo denominador** para teórico e real. Assim a diferença em pontos percentuais é só diferença de custo.
 - Sem cardápio no mês, o CMV real usa a receita líquida da DRE.
 - **Ajuste = real − teórico**, em R$ e em pontos percentuais.
+- O que "real" significa depende da **base** do lado real (abaixo). Com base `compras`, o ajuste do mês aparece para conferência, mas a tela e o RF11 dizem que **não é conclusivo**, e a leitura passa a ser o **acumulado**.
+
+### A DRE é compras, não consumo (10/11/2026)
+
+Até 10/11 o sistema tratava a DRE gerencial como CMV real e mostrava o ajuste
+de set/26 (**−3,68 pp**) como desvio. A planilha de fechamento da própria
+equipe (`RESULTADOS - SAO BENTO - VILA MADALENA.xls`, aba `RESULTADO` + abas
+ocultas `ENTRADA - <mês>`) mostra que a conta deles é outra:
+
+| Linha da planilha da equipe | Origem |
+|---|---|
+| CUSTOS → ALIMENTOS, BEBIDAS… | DRE colada nas abas `ENTRADA` (bate centavo a centavo) |
+| CONSUMO DE ESTOQUE | **estoque inicial − estoque final** (confere nos meses preenchidos da planilha) |
+| RESULTADO FINAL | compras − retiradas + consumo de estoque |
+| + BONIFICAÇÃO AMBEV | somada à parte |
+
+Ou seja: **CMV real = compras + EI − EF**. Sem o estoque, a diferença de um mês
+mistura desvio com ritmo de compra. Na própria casa piloto, com as DREs de
+jun–dez/22 das abas `ENTRADA` e o cardápio dos mesmos meses:
+
+| | Compras − teórico |
+|---|---:|
+| Mês a mês, jun–dez/22 | de **−7,19** a **+9,30 pp** |
+| **Somado, jun–dez/22** | **+0,48 pp** (ALIMENTOS +5,14, BEBIDAS −3,14) |
+| set/26 (o único mês de 2026 com DRE) | −3,68 pp — dentro da faixa de um mês qualquer |
+
+Uma variação de estoque de 1% da venda do mês move o ajuste em 1 pp. Para zerar
+os −3,68 pp de set/26 bastaria o estoque ter caído o equivalente a 3,7% da
+venda — menos do que a variação de um mês para o outro que a própria planilha
+da equipe registra. **Não há inventário disponível** (confirmado com o time em
+10/11), então o −3,68 pp não pode ser lido como desvio. Os valores em R$ ficam
+fora deste documento (nota de confidencialidade em `01-requisitos.md` 1.9).
+
+### Base do lado real
+
+Gravada no nome da linha `total` do upload (sem coluna nova no banco; os
+uploads de DRE já em produção são reconhecidos sem reenvio):
+
+| Base | Quando | O fechamento |
+|---|---|---|
+| `consumo` | Planilha genérica com `estoque_inicial`, `compras`, `estoque_final` — o custo é **calculado** (EI + C − EF) | É o CMV real. Mês conclusivo |
+| `compras` | DRE do Everest (com ou sem código de conta) | Coluna "Compras". Mês **não** conclusivo; RF11 avisa e pede o inventário |
+| `declarada` | Planilha genérica só com `custo` | Coluna "Real". O sistema não tem como conferir |
+
+### Acumulado
+
+`GET /metricas/fechamento` devolve `acumulado`: teórico × real somados nos meses
+com os dois lados dentro da janela de **12 meses** que termina no período, só
+com os grupos que têm os dois lados em cada mês. Traz também a faixa mês a mês
+(`ajuste_mensal_min_pp` / `max_pp`). Com base `compras`, só é `conclusivo` a
+partir de **6 meses** somados (`crud.MESES_MINIMOS_ACUMULADO`): na casa piloto o
+estoque é menor que um mês de custo, então em seis meses uma variação do
+tamanho do estoque inteiro pesa menos de 1/6 do custo somado — e, na prática,
+o estoque varia bem menos que isso.
 
 ### Quais grupos formam o CMV direto
 
@@ -162,6 +221,60 @@ por regras (sem LLM), escrito para o sócio:
 - **Compensação declarada:** um grupo acima e outro abaixo podem se anular no total; o texto diz isso.
 - **Subgrupos só onde existem nos dois lados.** No Everest, os subgrupos do cardápio são categorias de **venda** (PETISCOS) e os da DRE são categorias de **insumo** (BOVINOS). Não existe "BOVINOS teórico" sem ficha técnica explodida em insumos, que o sistema não recebe. O resto aparece como composição do custo, nunca como desvio — e a tela diz por quê.
 
+## Fechamento pela planilha-modelo (12/11/2026)
+
+Caminho novo, **ao lado** dos relatórios do Everest (fase 1: nada do caminho
+antigo foi removido). Um arquivo traz um mês ou vários, com os dois lados e o
+movimento de estoque. Com o estoque, o lado real **é** o CMV real.
+
+| Coluna (sinônimos) | Obrigatória? | Regra |
+|---|---|---|
+| `periodo` (`mes`, `competencia`) | Sim | `AAAA-MM`, `MM/AAAA` ou data do Excel |
+| `grupo` (`categoria`) | Sim | Só custo direto. Padronizado como nos outros leitores |
+| `venda_liquida` (`venda`, `receita`, `faturamento`) | Sim | Denominador do CMV % dos dois lados |
+| `custo_teorico` (`cmv teorico`) | Não | Sem ela: CMV real sem ajuste, e sem RF11 |
+| `estoque_inicial` (`ei`) | Só no 1º mês do grupo | Em branco = `estoque_final` do mesmo grupo no mês anterior |
+| `compras` | Sim | Líquidas de devoluções e transferências, sem bonificação |
+| `estoque_final` (`ef`) | Sim | Inventário do último dia. Sem ele o mês é recusado |
+
+```
+CMV real = EI + compras − EF        (base_real = "consumo", sempre)
+CMV %    = custo ÷ venda_liquida do grupo
+ajuste   = CMV real − custo_teorico
+```
+
+- **Envio:** `POST /api/v1/fechamentos` (`casa_id`, `arquivo`), sem período no formulário. O leitor (`app/services/leitor_fechamento.py`) devolve **todos** os erros com o número da linha (até 10): período inválido, valor negativo ou não numérico, coluna obrigatória vazia, grupo repetido no mês.
+- **Estoque de abertura:** o EI em branco é resolvido **na hora do cálculo**, não na gravação — corrigir um mês corrige a abertura do seguinte. No envio, mês sem EI cujo mês anterior não está no arquivo nem no banco é recusado (422). Se o mês anterior está no arquivo, o banco não conta: o arquivo substitui aquele mês inteiro.
+- **Reenvio:** cada mês do arquivo substitui o mês **inteiro** (todos os grupos). Envio que fica sem nenhum mês é apagado, com o blob.
+- **Casa que recebeu a planilha** passa a ser calculada só por ela (fechamento, evolução, acumulado). Misturar daria compras de um mês ao lado de consumo de outro na mesma série. Top itens e RF07 continuam lendo o cardápio do Everest, porque precisam de item.
+- **Grupos:** os que o usuário pôs na planilha. Não há dedução de grupos comparáveis.
+- **RF11:** decomposição só por grupo (a planilha não tem subgrupo); `conclusivo` é sempre `true`.
+- **Total:** teórico ou real do total ficam nulos se algum grupo do mês não tiver o valor. Somar só os que têm daria teórico de um grupo contra real de dois.
+- **Modelo:** `GET /api/v1/modelos/fechamento`, gerado por `app/services/modelo_fechamento.py`. Abas `Fechamento` (a única lida), `Instrucoes` e `Conferencia`, com fórmulas que refazem a conta sem `TEXT()` (que depende do idioma do Excel). O exemplo é sintético; em 2026-09, as compras de BEBIDAS ficam abaixo do teórico, mas o consumo fica acima: é o caso que mostra por que o estoque é obrigatório.
+- **Tabelas:** `uploads_fechamento` e `movimentos_grupo` (único por casa, mês e grupo). Tabela nova não precisa de migration: o `create_all` cria.
+
+### Casa de demonstração da planilha
+
+"Boteco Exemplo - Pinheiros (DEMO)", com dados fictícios em
+`app/services/demo_fechamento.py`: abr–set/26, ALIMENTOS e BEBIDAS. Cobre
+todas as telas: Fechamento (com explicação, evolução, acumulado e top itens),
+Fechar o mês, Upload e Quanto comprar.
+
+| Arquivo | Rota | Onde a tela oferece | Alimenta |
+|---|---|---|---|
+| Planilha de fechamento | `GET /modelos/fechamento/demo/planilha?periodo=` | Upload → Planilha de fechamento; Fechar o mês → Planilha de fechamento | Fechamento, explicação, evolução, acumulado |
+| Cardápio por item | `GET /modelos/fechamento/demo/cardapio?periodo=` | Upload → Engenharia de cardápio, com o período | Quanto comprar (RF07), top itens |
+
+Os dois só aparecem para essa casa (`GET /modelos/fechamento/demo` diz qual
+é). O cardápio é **derivado** da planilha: por grupo e mês, a soma dos itens é
+a venda e o custo teórico da planilha, ao centavo. Numa casa com planilha, o
+cardápio não muda o fechamento — só alimenta as telas por item.
+
+- `uv run python scripts/popular_demo_fechamento.py [--api URL]` apaga e recria **só** essa casa e carrega abr–ago/26 (planilha + cardápio). Rode antes de cada ensaio.
+- Set/26 fica para o envio ao vivo. Resultado esperado: abr–ago dentro da margem; set/26 **acima** (+1,61 pp), puxado por BEBIDAS. As compras de BEBIDAS em set/26 ficam 1,4 pp **abaixo** do teórico, porque o estoque caiu: só a DRE levaria à conclusão inversa.
+- Quanto comprar: com abr–ago (5 meses), confiança baixa e sem tendência; depois do cardápio de set/26 (6 meses), confiança média, com tendência por item.
+- O script remove `SSLKEYLOGFILE` do próprio processo: com ela definida, o Python do Windows aborta na primeira requisição (`OPENSSL_Uplink ... no OPENSSL_Applink`).
+
 ## O terceiro formato: planilha genérica
 
 Os dois tradutores acima são do Everest. O terceiro (`ler_planilha`) lê uma
@@ -192,7 +305,10 @@ uv run python scripts/popular_demo_generico.py --apenas-planilhas pasta/
 ```
 
 Cria quatro unidades com 6 meses nos dois lados, a partir dos CSVs de
-`exemplos/`. Acrescentar um ramo é acrescentar dois CSVs e uma entrada no
+`exemplos/`. O lado real das DEMO é um movimento de estoque por item, e o custo
+real sai de **estoque inicial + compras − estoque final** — a mesma regra do
+cliente; cada desvio plantado tem causa nomeada em `exemplos/README.md`.
+Acrescentar um ramo é acrescentar dois CSVs e uma entrada no
 manifesto — **sem tocar Python**.
 
 **O que as DEMO provam, e o que não provam.** Provam que o **formato** e a
@@ -219,15 +335,27 @@ uv run python scripts/importar_exports.py \
     --periodos 2026-07 2026-08 2026-09
 ```
 
+As DREs de jun–dez/22 estão nas abas ocultas `ENTRADA` da planilha de
+fechamento da equipe (`.xls`, que a API não aceita). Este script converte cada
+aba e passa pelo mesmo leitor; importe também o cardápio dos mesmos meses:
+
+```bash
+uv run python scripts/importar_exports.py --casa "Boteco São Bento - Vila Madalena"     --tipo cardapio --arquivo "dados_reais/SB VILA CMV CARDAPIO.xlsx"     --periodos 2022-06 2022-07 2022-08 2022-09 2022-10 2022-11 2022-12
+uv run --with xlrd python scripts/importar_dre_historica.py     --casa "Boteco São Bento - Vila Madalena"     --arquivo "dados_reais/RESULTADOS - SAO BENTO - VILA MADALENA.xls"     --periodos 2022-06 2022-07 2022-08 2022-09 2022-10 2022-11 2022-12
+```
+
 ## Endpoints
 
 | Método | Rota | Para quê |
 |---|---|---|
 | POST | `/api/v1/uploads-custo` | Envia um export (`casa_id`, `periodo`, `tipo`, `arquivo`). Reenviar o mesmo casa/período/tipo substitui o anterior |
-| GET | `/api/v1/metricas/fechamento` | Teórico × real × ajuste por grupo e total |
+| GET | `/api/v1/metricas/fechamento` | Teórico × real × ajuste por grupo e total, `base_real` e `acumulado` |
 | GET | `/api/v1/metricas/evolucao` | CMV teórico × real mês a mês |
 | GET | `/api/v1/metricas/top-itens` | Itens que mais pesam (`ordem=custo` ou `ordem=cmv`) |
 | GET | `/api/v1/modelos/{tipo}` | Planilha-modelo `.xlsx` (`tipo` = `cardapio` \| `compras`) gerada na hora, com linhas sintéticas |
+| POST | `/api/v1/fechamentos` | Envia a planilha-modelo de fechamento (`casa_id`, `arquivo`): um ou vários meses. Cada mês substitui o mês inteiro |
+| GET | `/api/v1/fechamentos` | Envios da planilha (paginado, filtro `casa_id`), com os meses de cada um |
+| GET | `/api/v1/modelos/fechamento` | Planilha-modelo de fechamento (abas Fechamento, Instrucoes, Conferencia) |
 
 O campo `explicacao` do fechamento (RF11) é **opcional** no contrato: o
 frontend em produção continua funcionando entre o deploy do backend e o do
@@ -239,7 +367,8 @@ Atualizado em 06/11/2026: o cliente parou de responder depois da Conversa 2, e
 tudo que depende dele está **bloqueado**, não em andamento.
 
 - ⛔ **CMV de compras dos mesmos meses do cardápio** (jul–ago/26, SB Vila), pedido à Marcela em 03/11. Sem resposta.
-- ⛔ **Proveniência da DRE recebida em 23/10:** o arquivo **não diz de qual casa nem de qual mês é** — só traz o timestamp do export no nome. O rótulo `2026-09` é uma atribuição de quem rodou o importador, apoiada em evidência circunstancial (exportada em 23/10, logo set/26 é o último mês fechado; a receita da DRE fica a ~1,6% da venda do cardápio do mês). **Não é prova.** Ver `01-requisitos.md` 1.9.
-- ⛔ Conferir os números com a apresentação de fechamento de set/26 da equipe (o gabarito nunca chegou).
+- ✅ **Proveniência da DRE recebida em 23/10:** confirmado pelo time em 10/11 que é da Vila Madalena (set/26).
+- ✅ **Gabarito:** a planilha de fechamento da equipe chegou junto com os exports e foi analisada em 10/11 (seção "A DRE é compras, não consumo"). É um modelo antigo (abas de 2019–2023, células com `#REF!`): vale como **método**, não como número de 2026.
+- ⛔ **Inventário valorizado por grupo** (estoque inicial e final do mês). Sem ele não existe CMV real de nenhum mês; o time confirmou em 10/11 que hoje não há acesso a ele.
 - **Relatório de inventário e perdas**, para decompor o ajuste em contagem + perdas + não explicado (Should) — depende de arquivo que não temos.
 - **Fora do MVP:** alertas durante o mês (divergência de estoque, oscilação de preço, pendências por WhatsApp), recebimento de mercadoria, eventos e buffet, integração via API do Everest.

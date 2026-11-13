@@ -55,6 +55,9 @@ class Casa(Base):
     uploads: Mapped[list["UploadCusto"]] = relationship(
         back_populates="casa", cascade="all, delete-orphan"
     )
+    uploads_fechamento: Mapped[list["UploadFechamento"]] = relationship(
+        back_populates="casa", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:  # pragma: no cover - conveniência de debug
         return f"<Casa id={self.id} nome={self.nome!r}>"
@@ -137,3 +140,79 @@ class LinhaCusto(Base):
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<LinhaCusto id={self.id} nivel={self.nivel!r} nome={self.nome!r}>"
+
+
+# ------------------------------------------- Fechamento pela planilha-modelo
+# Desde 12/11/2026. O caminho acima (UploadCusto + LinhaCusto) recebe os dois
+# lados em arquivos separados, um por mês, e o lado real da DRE do Everest é
+# só compras. Este recebe a planilha-modelo (`GET /modelos/fechamento`): uma
+# linha por grupo por mês com venda, custo teórico e o movimento de estoque.
+# Com o estoque, o lado real é o CMV real (EI + compras − EF) — ver
+# docs/07-fechamento-cmv.md, "Fechamento pela planilha-modelo".
+
+
+class UploadFechamento(Base):
+    """Um envio da planilha-modelo. Pode trazer um mês ou vários.
+
+    Os movimentos pertencem ao upload que os trouxe. Reenviar um mês troca os
+    movimentos daquele mês; upload que fica sem nenhum movimento é apagado.
+    """
+
+    __tablename__ = "uploads_fechamento"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    casa_id: Mapped[int] = mapped_column(ForeignKey("casas.id"), nullable=False, index=True)
+
+    nome_original: Mapped[str] = mapped_column(String(255), nullable=False)
+    blob_name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    content_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    tamanho_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    url: Mapped[str] = mapped_column(String(1000), nullable=False)
+
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    casa: Mapped["Casa"] = relationship(back_populates="uploads_fechamento")
+    movimentos: Mapped[list["MovimentoGrupo"]] = relationship(
+        back_populates="upload", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<UploadFechamento id={self.id} casa_id={self.casa_id}>"
+
+
+class MovimentoGrupo(Base):
+    """Um grupo de custo num mês: venda, custo teórico e movimento de estoque.
+
+    `estoque_inicial` é nulo quando o usuário deixou em branco: aí vale o
+    `estoque_final` do mesmo grupo no mês anterior. A resolução é feita na hora
+    do cálculo, não na gravação — assim, corrigir um mês anterior corrige
+    sozinho o estoque de abertura do seguinte.
+    """
+
+    __tablename__ = "movimentos_grupo"
+    __table_args__ = (
+        UniqueConstraint("casa_id", "periodo", "grupo", name="uq_movimento_casa_periodo_grupo"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    upload_id: Mapped[int] = mapped_column(
+        ForeignKey("uploads_fechamento.id"), nullable=False, index=True
+    )
+    # Redundante com o upload, de propósito: a unicidade (casa, mês, grupo) e
+    # as consultas do fechamento não precisam de JOIN.
+    casa_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    periodo: Mapped[str] = mapped_column(String(7), nullable=False, index=True)
+    grupo: Mapped[str] = mapped_column(String(120), nullable=False)
+
+    venda_liquida: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    custo_teorico: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
+    estoque_inicial: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
+    compras: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    estoque_final: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+
+    upload: Mapped["UploadFechamento"] = relationship(back_populates="movimentos")
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<MovimentoGrupo casa_id={self.casa_id} {self.periodo} {self.grupo!r}>"

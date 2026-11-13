@@ -7,10 +7,11 @@ equipe de custos do cliente monta à mão, cruzando três módulos do ERP, em ce
 de **2 dias por casa por mês**.
 
 O sistema lê os exports como eles saem do ERP, cruza o custo teórico (ficha
-técnica × vendas) com o custo real (compras pós-inventário) e mostra onde está
-a divergência. Na base real do cliente, o fechamento de set/26 acusou um ajuste
-de **−3,68 pp** em uma casa — uma divergência de dezenas de milhares de
-reais num único mês.
+técnica × vendas) com o custo real (estoque inicial + compras − estoque final)
+e mostra onde está a divergência. Na base real do cliente só há compras (sem
+inventário): mês a mês, compras × teórico oscila de −7,2 a +9,3 pp, e somando
+jun–dez/22 a diferença é de +0,48 pp, concentrada em alimentos. Por isso o
+sistema separa compras de consumo e mostra o acumulado.
 
 ## Está no ar
 
@@ -125,6 +126,9 @@ O grupo inteiro deve usar **o mesmo** caminho. Misturar os dois gera divergênci
 | `DELETE` | `/api/v1/casas/{id}` | **204** · 404 |
 | `POST` | `/api/v1/uploads-custo` | 201 · 404 casa · 415 tipo · 413 tamanho · 422 coluna faltando |
 | `GET` | `/api/v1/uploads-custo` | 200 — paginado |
+| `POST` | `/api/v1/fechamentos` | 201 — planilha-modelo de fechamento, um ou vários meses · 404 casa · 415 tipo · 413 tamanho · 422 com a lista de erros por linha |
+| `GET` | `/api/v1/fechamentos` | 200 — paginado |
+| `GET` | `/api/v1/modelos/fechamento` | 200 — planilha-modelo `.xlsx` |
 | `GET` | `/api/v1/metricas/fechamento?casa_id=&periodo=` | 200 — CMV teórico × real × ajuste por grupo · 404 sem dado |
 | `GET` | `/api/v1/metricas/evolucao?casa_id=` | 200 — CMV teórico × real mês a mês |
 | `GET` | `/api/v1/metricas/top-itens?casa_id=&periodo=` | 200 — itens que mais pesam no custo |

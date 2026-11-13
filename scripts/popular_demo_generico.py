@@ -55,40 +55,57 @@ XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 EXEMPLOS = Path(__file__).resolve().parent.parent / "exemplos"
 
 
-def carregar_catalogo() -> tuple[list[tuple[str, float]], list[dict]]:
+TITULOS_TEORICO = ["grupo", "subgrupo", "item", "quantidade", "venda_liquida", "custo"]
+TITULOS_REAL = ["grupo", "subgrupo", "item", "estoque_inicial", "compras", "estoque_final"]
+
+
+def carregar_catalogo() -> tuple[list[str], list[dict]]:
     """Lê `exemplos/`: (meses, empresas). Nada de dado embutido no script.
 
     O dado fica em CSV versionado em vez de .xlsx porque o `.gitignore` bloqueia
     `*.xlsx` para planilha de cliente nunca entrar no Git — abrir exceção criaria
     um furo nessa proteção. O .xlsx é gerado aqui, na hora.
+
+    Cada empresa tem dois CSVs, ambos com uma coluna `periodo`:
+
+      - `<slug>-teorico.csv`: o relatório de vendas × ficha técnica de cada mês
+        (grupo, subgrupo, item, quantidade, venda_liquida, custo).
+      - `<slug>-real.csv`: o movimento de estoque de cada mês, a custo
+        (grupo, subgrupo, item, estoque_inicial, compras, estoque_final).
+        O custo real sai da regra do cliente, por item:
+        **estoque inicial + compras − estoque final**.
+
+    Os desvios entre os dois lados estão nos números, não num multiplicador:
+    cada um tem causa nomeada em `exemplos/README.md`.
     """
     manifesto = json.loads((EXEMPLOS / "empresas.json").read_text(encoding="utf-8"))
-    meses = [(m["periodo"], m["fator_real"]) for m in manifesto["meses"]]
 
-    empresas = []
+    empresas, meses = [], set()
     for e in manifesto["empresas"]:
-        empresas.append(
-            {
-                **e,
-                "teorico": _ler_csv(EXEMPLOS / f"{e['slug']}-teorico.csv"),
-                "real": _ler_csv(EXEMPLOS / f"{e['slug']}-real.csv"),
-            }
-        )
-    return meses, empresas
+        teorico = _ler_csv(EXEMPLOS / f"{e['slug']}-teorico.csv", TITULOS_TEORICO)
+        real = _ler_csv(EXEMPLOS / f"{e['slug']}-real.csv", TITULOS_REAL)
+        _conferir_estoque(e["slug"], real)
+        meses |= set(teorico) | set(real)
+        empresas.append({**e, "teorico": teorico, "real": real})
+    return sorted(meses), empresas
 
 
-def _ler_csv(caminho: Path) -> tuple[list[str], list[list]]:
-    """(títulos, linhas). Números viram float; o resto fica texto."""
+def _ler_csv(caminho: Path, esperados: list[str]) -> dict[str, list[dict]]:
+    """{periodo: [linha como dict]}. Números viram float; o resto fica texto."""
     with caminho.open(encoding="utf-8", newline="") as f:
-        linhas = list(csv.reader(f))
-    if not linhas:
+        leitor = csv.DictReader(f)
+        faltam = set(esperados + ["periodo"]) - set(leitor.fieldnames or [])
+        if faltam:
+            raise SystemExit(f"{caminho.name}: faltam as colunas {', '.join(sorted(faltam))}")
+        por_mes: dict[str, list[dict]] = {}
+        for linha in leitor:
+            if not (linha.get("periodo") or "").strip():
+                continue
+            dados = {c: _talvez_numero(linha[c]) for c in esperados}
+            por_mes.setdefault(linha["periodo"].strip(), []).append(dados)
+    if not por_mes:
         raise SystemExit(f"{caminho.name} está vazio")
-    titulos, corpo = linhas[0], []
-    for linha in linhas[1:]:
-        if not any(c.strip() for c in linha):
-            continue
-        corpo.append([_talvez_numero(c) for c in linha])
-    return titulos, corpo
+    return por_mes
 
 
 def _talvez_numero(valor: str):
@@ -98,21 +115,40 @@ def _talvez_numero(valor: str):
         return valor
 
 
-def _escalar_custo(titulos: list[str], linhas: list[list], fator: float) -> list[list]:
-    """Multiplica só a coluna de custo. O fator move o custo REAL sem mover a
-    venda, para o ajuste variar mês a mês e o gráfico ter forma, não uma reta."""
-    try:
-        idx = [t.strip().lower() for t in titulos].index("custo")
-    except ValueError as exc:
-        raise SystemExit(f"CSV sem coluna 'custo': {titulos}") from exc
+def _conferir_estoque(slug: str, real: dict[str, list[dict]]) -> None:
+    """O estoque inicial de um mês tem que ser o estoque final do mês anterior.
 
-    escaladas = []
+    É o que torna o "real" pós-inventário de verdade: se a contagem de um mês
+    está errada, o erro aparece com sinal trocado no mês seguinte — e o
+    fechamento mostra isso, em vez de esconder.
+    """
+    anterior: dict[tuple, float] = {}
+    for periodo in sorted(real):
+        for linha in real[periodo]:
+            chave = (linha["grupo"], linha["subgrupo"], linha["item"])
+            if chave in anterior and abs(anterior[chave] - linha["estoque_inicial"]) > 0.01:
+                raise SystemExit(
+                    f"{slug} {periodo} {linha['item']}: estoque inicial "
+                    f"{linha['estoque_inicial']} ≠ estoque final do mês anterior {anterior[chave]}"
+                )
+            anterior[chave] = linha["estoque_final"]
+
+
+def planilha_teorico(linhas: list[dict]) -> bytes:
+    return _xlsx(TITULOS_TEORICO, [[linha[c] for c in TITULOS_TEORICO] for linha in linhas])
+
+
+def planilha_real(linhas: list[dict]) -> bytes:
+    """Movimento de estoque + a coluna `custo` = EI + compras − EF.
+
+    As três colunas de estoque vão junto para quem abrir o arquivo conferir a
+    conta; o leitor genérico ignora colunas que não conhece e usa só `custo`.
+    """
+    corpo = []
     for linha in linhas:
-        copia = list(linha)
-        if isinstance(copia[idx], float):
-            copia[idx] = round(copia[idx] * fator, 2)
-        escaladas.append(copia)
-    return escaladas
+        custo = linha["estoque_inicial"] + linha["compras"] - linha["estoque_final"]
+        corpo.append([linha[c] for c in TITULOS_REAL] + [round(custo, 2)])
+    return _xlsx(TITULOS_REAL + ["custo"], corpo)
 
 
 def _xlsx(titulos: list[str], linhas: list[list]) -> bytes:
@@ -221,13 +257,21 @@ def main() -> None:
 
     if args.apenas_planilhas:
         args.apenas_planilhas.mkdir(parents=True, exist_ok=True)
-        ultimo_fator = meses[-1][1]
+        gravadas = 0
         for e in empresas:
-            (args.apenas_planilhas / f"{e['slug']}-teorico.xlsx").write_bytes(_xlsx(*e["teorico"]))
-            (args.apenas_planilhas / f"{e['slug']}-real.xlsx").write_bytes(
-                _xlsx(e["real"][0], _escalar_custo(*e["real"], ultimo_fator))
-            )
-        print(f"{len(empresas) * 2} planilhas gravadas em {args.apenas_planilhas}")
+            for periodo in meses:
+                destino = args.apenas_planilhas / f"{e['slug']}-{periodo}"
+                if periodo in e["teorico"]:
+                    destino.with_name(destino.name + "-teorico.xlsx").write_bytes(
+                        planilha_teorico(e["teorico"][periodo])
+                    )
+                    gravadas += 1
+                if periodo in e["real"]:
+                    destino.with_name(destino.name + "-real.xlsx").write_bytes(
+                        planilha_real(e["real"][periodo])
+                    )
+                    gravadas += 1
+        print(f"{gravadas} planilhas gravadas em {args.apenas_planilhas}")
         return
 
     api = args.api.rstrip("/")
@@ -238,27 +282,26 @@ def main() -> None:
     for e in empresas:
         print(f"{e['nome']}  [{e['ramo']}]")
         casa_id = garantir_casa(api, e)
-        teorico = _xlsx(*e["teorico"])
-        total = 0
-        for periodo, fator in meses:
-            total += enviar(api, casa_id, periodo, "cardapio", teorico)
-            total += enviar(
-                api,
-                casa_id,
-                periodo,
-                "compras",
-                _xlsx(e["real"][0], _escalar_custo(*e["real"], fator)),
-            )
-        print(f"  {len(meses) * 2} uploads, {total} linhas\n")
+        total = uploads = 0
+        for periodo in meses:
+            if periodo in e["teorico"]:
+                total += enviar(
+                    api, casa_id, periodo, "cardapio", planilha_teorico(e["teorico"][periodo])
+                )
+                uploads += 1
+            if periodo in e["real"]:
+                total += enviar(api, casa_id, periodo, "compras", planilha_real(e["real"][periodo]))
+                uploads += 1
+        print(f"  {uploads} uploads, {total} linhas\n")
         resumo.append((e["nome"], e["ramo"], casa_id))
 
     print("Pronto. Unidades carregadas:")
     for nome, ramo, casa_id in resumo:
         print(f"  id {casa_id:<4} {ramo:<26} {nome}")
     print(
-        f"\nConfira o fechamento de {meses[-1][0]} de qualquer uma:\n"
-        f"  {api}/api/v1/metricas/fechamento?casa_id=<id>&periodo={meses[-1][0]}\n"
-        f"  {api}/api/v1/metricas/recomendacao-compra?casa_id=<id>&periodo={meses[-1][0]}"
+        f"\nConfira o fechamento de {meses[-1]} de qualquer uma:\n"
+        f"  {api}/api/v1/metricas/fechamento?casa_id=<id>&periodo={meses[-1]}\n"
+        f"  {api}/api/v1/metricas/recomendacao-compra?casa_id=<id>&periodo={meses[-1]}"
     )
 
 

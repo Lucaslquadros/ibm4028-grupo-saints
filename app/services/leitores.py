@@ -7,7 +7,12 @@ mesma estrutura — é isso que deixa o resto do sistema ignorar o formato de
 origem.
 
     cardápio (engenharia de cardápio) → CMV teórico
-    compras  (DRE gerencial)          → CMV real
+    compras  (DRE gerencial)          → compras do mês (lado real, SEM inventário)
+
+A DRE gerencial do Everest é **compras**, não consumo: a planilha de fechamento
+da própria equipe soma a variação de estoque (estoque inicial − estoque final)
+à parte. Por isso cada extração do lado real diz em que **base** está
+(`BASE_*` abaixo), e o fechamento só chama de "CMV real" o que é consumo.
 
 Qualquer formato inesperado vira `ErroLeitura`, que a rota transforma em 422
 com uma mensagem que o usuário consegue entender. Dado que vem de fora nunca é
@@ -44,6 +49,30 @@ CODIGO_CONTA = re.compile(r"^\d+(\.\d+)*$")
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 """O único formato de arquivo que a API aceita (e o que ela gera em /modelos)."""
+
+
+# Base do lado real. Fica gravada no NOME da linha `total` do upload para não
+# exigir coluna nova no banco (o projeto não tem migrations): os uploads de DRE
+# que já estão em produção têm a linha total "RECEITA LIQUIDA / CUSTOS" e por
+# isso são reconhecidos como compras sem precisar de reenvio.
+BASE_COMPRAS = "compras"
+"""Só as compras do mês (DRE). Falta estoque inicial − estoque final."""
+BASE_CONSUMO = "consumo"
+"""Estoque inicial + compras − estoque final: o CMV real pela regra do cliente."""
+BASE_DECLARADA = "declarada"
+"""Planilha genérica com uma coluna `custo` só: o usuário declara que é o real."""
+
+TOTAL_COMPRAS = "RECEITA LIQUIDA / CUSTOS"
+TOTAL_CONSUMO = "TOTAL CONSUMO (EI + COMPRAS - EF)"
+
+
+def base_do_total(nome_total: str | None) -> str:
+    """Nome da linha `total` de um upload do lado real → base dele."""
+    if nome_total == TOTAL_COMPRAS:
+        return BASE_COMPRAS
+    if nome_total == TOTAL_CONSUMO:
+        return BASE_CONSUMO
+    return BASE_DECLARADA
 
 
 class ErroLeitura(ValueError):  # noqa: N818 - nome em português, como o resto do domínio
@@ -271,13 +300,23 @@ def _linha_total_cardapio(bloco: list[tuple], colunas: dict[str, int]) -> Linha 
 
 # ---------------------------------------------------------- compras → real
 def ler_compras(conteudo: bytes, periodo: str) -> Extracao:
-    """DRE gerencial do Everest → CMV real (de compras, pós-inventário).
+    """DRE gerencial do Everest → compras do mês (lado real, sem inventário).
 
-    Layout: cada linha tem um código de conta e a descrição indentada.
+    Dois layouts do mesmo relatório.
+
+    Com código de conta (export atual):
       '(=) RECEITA LIQUIDA'  sem código  → receita do mês
       '2.01'      CUSTOS                 → total de custos
       '2.01.01'   ALIMENTOS              → grupo   (3 níveis)
       '2.01.01.00002' BOVINOS            → subgrupo (4 níveis)
+
+    Sem código, com a hierarquia na indentação (4 espaços por nível). É assim
+    que as DREs estão coladas nas abas `ENTRADA - <mês>` da planilha de
+    fechamento da equipe. Só vale o bloco '(-) CUSTOS', que termina na
+    próxima linha de resultado ('(=) LUCRO BRUTO'):
+      '(-) CUSTOS'                         → total de custos
+      '            ALIMENTOS'      12 esp. → grupo
+      '                BOLINHOS'   16 esp. → subgrupo
     """
     livro = _abrir(conteudo)
     try:
@@ -289,24 +328,39 @@ def ler_compras(conteudo: bytes, periodo: str) -> Extracao:
     receita: float | None = None
     custo_total: float | None = None
     grupo: str | None = None
+    decompostas = [_decompor_linha_dre(linha) for linha in linhas]
+    tem_codigo = any(codigo for codigo, _, _ in decompostas)
+    no_bloco_custos = False
 
-    for linha in linhas:
-        codigo, descricao, valor = _decompor_linha_dre(linha)
+    for codigo, descricao, valor in decompostas:
         if descricao is None or valor is None:
             continue
+        rotulo = _normalizar(descricao)
 
-        if codigo is None:
-            if "RECEITA LIQUIDA" in _normalizar(descricao):
-                receita = valor
+        if codigo is None and "RECEITA LIQUIDA" in rotulo:
+            receita = valor
             continue
 
-        niveis = codigo.split(".")
-        if len(niveis) == 2 and _normalizar(descricao) == "CUSTOS":
+        if tem_codigo:
+            if codigo is None:
+                continue
+            niveis = len(codigo.split("."))
+        else:
+            if descricao.lstrip().startswith("("):
+                no_bloco_custos = descricao.lstrip().startswith("(-)") and rotulo == "CUSTOS"
+                if no_bloco_custos:
+                    custo_total = valor
+                continue
+            if not no_bloco_custos or valor == 0:
+                continue  # fora do bloco, ou conta zerada do plano de contas
+            niveis = (len(descricao) - len(descricao.lstrip(" "))) // 4
+
+        if niveis == 2 and rotulo == "CUSTOS":
             custo_total = valor
-        elif len(niveis) == 3:
+        elif niveis == 3:
             grupo = _padronizar(descricao)
             extracao.linhas.append(Linha(nivel="grupo", grupo=grupo, nome=grupo, custo=valor))
-        elif len(niveis) == 4 and grupo:
+        elif niveis == 4 and grupo:
             subgrupo = _padronizar(descricao)
             extracao.linhas.append(
                 Linha(nivel="subgrupo", grupo=grupo, subgrupo=subgrupo, nome=subgrupo, custo=valor)
@@ -315,7 +369,7 @@ def ler_compras(conteudo: bytes, periodo: str) -> Extracao:
     if not extracao.por_nivel("grupo"):
         raise ErroLeitura(
             "Não reconheci este arquivo como DRE de compras: não encontrei contas de custo "
-            "com código (ex.: '2.01.01 ALIMENTOS')."
+            "com código (ex.: '2.01.01 ALIMENTOS') nem o bloco '(-) CUSTOS'."
         )
 
     if custo_total is None:
@@ -325,7 +379,7 @@ def ler_compras(conteudo: bytes, periodo: str) -> Extracao:
         Linha(
             nivel="total",
             grupo="TOTAL",
-            nome="RECEITA LIQUIDA / CUSTOS",
+            nome=TOTAL_COMPRAS,
             custo=custo_total,
             venda_liquida=receita,
         ),
@@ -347,7 +401,7 @@ def _decompor_linha_dre(linha: tuple) -> tuple[str | None, str | None, float | N
                 codigo = texto
                 continue
             if isinstance(celula, str) and texto:
-                descricao = texto
+                descricao = str(celula).rstrip()  # indentação = nível no layout sem código
             continue
         valor = _numero(celula)
         break
@@ -364,8 +418,14 @@ COLUNAS_PLANILHA = {
     "quantidade": ("QUANTIDADE", "QTD", "Q VENDA"),
     "venda_liquida": ("VENDA LIQUIDA", "VENDA", "RECEITA", "FATURAMENTO"),
     "custo": ("CUSTO", "CUSTO TOTAL"),
+    "estoque_inicial": ("ESTOQUE INICIAL",),
+    "compras": ("COMPRAS",),
+    "estoque_final": ("ESTOQUE FINAL",),
 }
 OBRIGATORIAS_PLANILHA = ("grupo", "custo")
+MOVIMENTO_ESTOQUE = ("estoque_inicial", "compras", "estoque_final")
+"""Com as três, o custo é **calculado** (EI + compras − EF) e o upload fica na
+base consumo — o único lado real que o fechamento chama de CMV real."""
 
 
 def ler_planilha(conteudo: bytes, periodo: str) -> Extracao:
@@ -383,6 +443,12 @@ def ler_planilha(conteudo: bytes, periodo: str) -> Extracao:
     Só `grupo` e `custo` são obrigatórios — um relatório de compras não tem
     venda, e um relatório sem detalhe de item traz só o nível de grupo.
 
+    No lado real, `custo` pode ser trocado pelo movimento de estoque
+    (`estoque_inicial`, `compras`, `estoque_final`). Aí o custo de cada linha é
+    **calculado** — EI + compras − EF, a regra do cliente — e o upload é
+    marcado como consumo (`TOTAL_CONSUMO`). Com `custo` sozinho, a base é
+    "declarada": o sistema não tem como saber se houve inventário.
+
     A hierarquia é **calculada**, não lida: o arquivo traz as linhas planas e
     aqui somamos subgrupo, grupo e total. É o que permite a mesma planilha
     alimentar o fechamento sem o usuário ter que replicar os totais do Everest.
@@ -397,6 +463,7 @@ def ler_planilha(conteudo: bytes, periodo: str) -> Extracao:
         livro.close()
 
     cabecalho_idx, colunas = _achar_cabecalho_planilha(linhas)
+    movimento = all(c in colunas for c in MOVIMENTO_ESTOQUE)
 
     # Somas acumuladas: a planilha é plana, a hierarquia nasce daqui.
     por_grupo: dict[str, list[float | None]] = {}
@@ -405,7 +472,10 @@ def ler_planilha(conteudo: bytes, periodo: str) -> Extracao:
 
     for linha in linhas[cabecalho_idx + 1 :]:
         grupo = _celula_texto(linha, colunas.get("grupo"))
-        custo = _celula_numero(linha, colunas.get("custo"))
+        if movimento:
+            custo = _custo_por_movimento(linha, colunas)
+        else:
+            custo = _celula_numero(linha, colunas.get("custo"))
         if not grupo or custo is None:
             continue  # linha em branco ou rodapé
 
@@ -446,7 +516,7 @@ def ler_planilha(conteudo: bytes, periodo: str) -> Extracao:
         Linha(
             nivel="total",
             grupo="TOTAL",
-            nome="TOTAL",
+            nome=TOTAL_CONSUMO if movimento else "TOTAL",
             custo=custo_total,
             venda_liquida=sum(vendas) if vendas else None,
         )
@@ -477,6 +547,14 @@ def _acumular(destino: dict, chave, custo: float, venda: float | None) -> None:
         soma[1] = (soma[1] or 0.0) + venda
 
 
+def _custo_por_movimento(linha: tuple, colunas: dict[str, int]) -> float | None:
+    """EI + compras − EF. Célula vazia conta como zero; linha toda vazia, None."""
+    ei, compras, ef = (_celula_numero(linha, colunas[c]) for c in MOVIMENTO_ESTOQUE)
+    if ei is None and compras is None and ef is None:
+        return None
+    return round((ei or 0.0) + (compras or 0.0) - (ef or 0.0), 2)
+
+
 def _celula_texto(linha: tuple, idx: int | None) -> str | None:
     return None if idx is None else _texto(linha, idx)
 
@@ -494,11 +572,16 @@ def _achar_cabecalho_planilha(linhas: list[tuple]) -> tuple[int, dict[str, int]]
             chave: next((titulos[a] for a in aceitos if a in titulos), None)
             for chave, aceitos in COLUNAS_PLANILHA.items()
         }
-        if all(achadas[c] is not None for c in OBRIGATORIAS_PLANILHA):
+        tem_custo = all(achadas[c] is not None for c in OBRIGATORIAS_PLANILHA)
+        tem_movimento = achadas["grupo"] is not None and all(
+            achadas[c] is not None for c in MOVIMENTO_ESTOQUE
+        )
+        if tem_custo or tem_movimento:
             return idx, {chave: i for chave, i in achadas.items() if i is not None}
     raise ErroLeitura(
         "Não reconheci este arquivo como planilha genérica: a primeira linha precisa "
-        "ter ao menos as colunas 'grupo' e 'custo'."
+        "ter ao menos as colunas 'grupo' e 'custo' (ou 'grupo', 'estoque_inicial', "
+        "'compras' e 'estoque_final')."
     )
 
 

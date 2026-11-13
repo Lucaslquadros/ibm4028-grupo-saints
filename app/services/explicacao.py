@@ -20,6 +20,11 @@ Três cuidados que o ciclo tornou obrigatórios:
    "principalmente em Y" a medida é a contribuição em pontos do total.
 3. **Não inventar granularidade.** Abaixo do grupo só se compara subgrupo que
    existe nos **dois** lados; o resto é composição de custo, nunca desvio.
+4. **Compras não é consumo** (10/11/2026). A DRE do Everest traz o que foi
+   comprado no mês; o CMV real precisa da variação de estoque (estoque
+   inicial − estoque final), que a equipe soma à parte. Com o lado real em
+   base "compras", o texto diz isso e não afirma desvio: em jun–dez/22 a
+   diferença mês a mês na casa piloto foi de −7,2 a +9,3 pp e, somada, +0,5 pp.
 """
 
 from __future__ import annotations
@@ -306,6 +311,38 @@ def _subgrupo_suspeito(comparados: list[dict], grupo: str, ajuste_pp: float) -> 
     return candidatos[0] if candidatos else None
 
 
+def _resumo_compras(
+    *, periodo: str, situacao: str, ajuste_pp: float, ajuste: float, venda_total: float
+) -> str:
+    """O texto do mês quando o lado real é só compras: diz o que o número é, o
+    que falta e quanto o estoque mexe nele — sem afirmar desvio."""
+    if situacao == "dentro":
+        posicao = (
+            f"ficaram perto do CMV previsto pelas fichas técnicas "
+            f"({_pp_com_sinal(ajuste_pp)} pp, R$ {_numero_br(ajuste)})"
+        )
+    else:
+        sentido = "acima" if situacao == "acima" else "abaixo"
+        posicao = (
+            f"ficaram {_numero_br(ajuste_pp)} pontos {sentido} do CMV previsto pelas "
+            f"fichas técnicas (R$ {_numero_br(ajuste)})"
+        )
+    return (
+        f"Em {periodo}, as compras do mês {posicao}. Isso ainda não é o CMV real: a DRE "
+        "mostra o que foi comprado, e o que foi consumido depende da variação do estoque "
+        "(estoque inicial − estoque final), que não veio. Cada R$ "
+        f"{_numero_br(venda_total / 100, 0)} de variação de estoque muda o resultado em 1 "
+        "ponto, então um mês isolado não indica desvio. Veja o acumulado de vários meses."
+    )
+
+
+SUGESTOES_COMPRAS = [
+    "Enviar o inventário valorizado por grupo (estoque inicial e final do mês): com ele, "
+    "o sistema calcula o CMV real (estoque inicial + compras − estoque final).",
+    "Até lá, decidir pelo acumulado de vários meses, não pelo mês isolado.",
+]
+
+
 # --------------------------------------------------------------------- entrada
 def explicar(
     *,
@@ -313,12 +350,17 @@ def explicar(
     total: dict,
     grupos: list[dict],
     subgrupos: list[LinhaSubgrupo] | None = None,
+    base_real: str | None = "consumo",
 ) -> dict[str, Any] | None:
     """A explicação do mês, ou None quando não há ajuste para explicar.
 
     `total` e `grupos` são as linhas do fechamento (`crud._montar_linha`).
     None quando falta um dos lados: a tela já avisa qual relatório falta, e
     gerar texto sobre um ajuste inexistente seria inventar diagnóstico.
+
+    Com `base_real == "compras"` o resumo e as sugestões mudam (cuidado 4) e
+    `conclusivo` vai False; a decomposição continua, porque mostrar onde a
+    compra ficou longe do teórico ainda ajuda a conferir lançamentos.
     """
     ajuste_pp = total.get("ajuste_pp")
     ajuste = total.get("ajuste")
@@ -334,7 +376,8 @@ def explicar(
         subgrupos or [], {c["grupo"] for c in contribuicoes} | set(grupos_sem_par)
     )
 
-    return {
+    so_compras = base_real == "compras"
+    resultado = {
         "situacao": situacao,
         "limiar_pp": LIMIAR_PP,
         "resumo": _resumo(
@@ -361,4 +404,15 @@ def explicar(
         "subgrupos_comparados": comparados,
         "subgrupos_sem_par": sem_par,
         "limite_dado": LIMITE_DADO,
+        "conclusivo": not so_compras,
     }
+    if so_compras:
+        resultado["resumo"] = _resumo_compras(
+            periodo=periodo,
+            situacao=situacao,
+            ajuste_pp=ajuste_pp,
+            ajuste=ajuste,
+            venda_total=venda_total,
+        )
+        resultado["sugestoes"] = list(SUGESTOES_COMPRAS)
+    return resultado

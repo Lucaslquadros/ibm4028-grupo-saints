@@ -17,6 +17,7 @@ from app import crud
 from app.deps import DbSession
 from app.schemas import (
     PERIODO_PATTERN,
+    Acumulado,
     ErroResponse,
     Explicacao,
     FechamentoResponse,
@@ -67,6 +68,21 @@ def fechamento(db: DbSession, casa_id: CasaId, periodo: Periodo) -> FechamentoRe
         total=LinhaFechamento(**resultado["total"]),
         grupos=[LinhaFechamento(**g) for g in resultado["grupos"]],
         explicacao=_explicacao(db, casa_id, periodo, resultado),
+        base_real=resultado["base_real"],
+        acumulado=_acumulado(db, casa_id, periodo),
+    )
+
+
+def _acumulado(db, casa_id: int, periodo: str) -> Acumulado | None:
+    dados = crud.fechamento_acumulado(db, casa_id, periodo)
+    if dados is None:
+        return None
+    return Acumulado(
+        **{
+            **dados,
+            "total": LinhaFechamento(**dados["total"]),
+            "grupos": [LinhaFechamento(**g) for g in dados["grupos"]],
+        }
     )
 
 
@@ -79,8 +95,14 @@ def _explicacao(db, casa_id: int, periodo: str, resultado: dict) -> Explicacao |
     if not (resultado["tem_cardapio"] and resultado["tem_compras"]):
         return None
 
-    linhas = crud.subgrupos_por_lado(
-        db, casa_id=casa_id, periodo=periodo, grupos=resultado["grupos_cmv"]
+    # A planilha-modelo é por grupo: sem subgrupo, a decomposição fica no grupo.
+    # Buscar subgrupos aqui traria os de uploads antigos do Everest da casa.
+    linhas = (
+        []
+        if resultado.get("fonte") == "planilha"
+        else crud.subgrupos_por_lado(
+            db, casa_id=casa_id, periodo=periodo, grupos=resultado["grupos_cmv"]
+        )
     )
     dados = servico_explicacao.explicar(
         periodo=periodo,
@@ -92,6 +114,7 @@ def _explicacao(db, casa_id: int, periodo: str, resultado: dict) -> Explicacao |
             )
             for tipo, grupo, subgrupo, custo, venda in linhas
         ],
+        base_real=resultado["base_real"],
     )
     return Explicacao(**dados) if dados is not None else None
 
@@ -129,12 +152,18 @@ def recomendacao_compra(
     casa = _casa_ou_404(db, casa_id)
     linhas = crud.historico_itens(db, casa_id=casa_id, periodo=periodo, limit_itens=limit)
     if not linhas:
+        # Casa que fecha pela planilha tem venda por GRUPO, não por item: o
+        # usuário precisa saber que falta outro arquivo, não que falta dado.
+        motivo = (
+            " Esta casa fecha pela planilha de fechamento, que é por grupo: a recomendação "
+            "precisa da venda por item. Envie a engenharia de cardápio (Upload → Engenharia "
+            "de cardápio) dos meses que quiser usar."
+            if crud.usa_planilha_fechamento(db, casa_id)
+            else " Envie ao menos um relatório de cardápio."
+        )
         raise HTTPException(
             status_code=404,
-            detail=(
-                f"Sem histórico de venda por item para a casa {casa_id} até {periodo}. "
-                "Envie ao menos um relatório de cardápio."
-            ),
+            detail=f"Sem histórico de venda por item para a casa {casa_id} até {periodo}.{motivo}",
         )
 
     # Agrupa a série de cada item preservando a ordem de relevância do banco.

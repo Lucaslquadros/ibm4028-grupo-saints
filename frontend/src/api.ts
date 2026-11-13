@@ -49,6 +49,28 @@ export interface UploadCusto {
   substituiu_anterior: boolean;
 }
 
+/** Um envio da planilha-modelo de fechamento: um ou vários meses, com os dois
+ * lados e o movimento de estoque. O período vem no arquivo. */
+export interface UploadFechamento {
+  id: number;
+  casa_id: number;
+  nome_original: string;
+  url: string;
+  criado_em: string;
+  periodos: string[];
+  linhas_importadas: number;
+  /** Meses do arquivo que já existiam e foram trocados por inteiro. */
+  meses_substituidos: string[];
+}
+
+/** A casa de demonstração da planilha de fechamento (dados fictícios). */
+export interface DemoFechamento {
+  casa_nome: string;
+  periodos: string[];
+  periodos_historico: string[];
+  periodo_ao_vivo: string;
+}
+
 export interface LinhaFechamento {
   grupo: string;
   venda_liquida: number | null;
@@ -103,6 +125,30 @@ export interface Explicacao {
   subgrupos_comparados: SubgrupoComparado[];
   subgrupos_sem_par: SubgrupoSemPar[];
   limite_dado: string;
+  /** false quando o lado real é só compras (sem estoque): aí a situação não é
+   * diagnóstico do mês. Opcional: backend antigo não manda. */
+  conclusivo?: boolean;
+}
+
+/** Em que base está o lado real.
+ * - consumo: estoque inicial + compras − estoque final — o CMV real
+ * - compras: só as compras do mês (DRE do Everest), falta o estoque
+ * - declarada: planilha com uma coluna "custo"; o usuário declara que é o real */
+export type BaseReal = "consumo" | "compras" | "declarada";
+
+/** Teórico × real somados nos meses com os dois lados (janela de 12 meses). */
+export interface Acumulado {
+  periodo_inicio: string;
+  periodo_fim: string;
+  meses: number;
+  periodos: string[];
+  base_real: BaseReal;
+  conclusivo: boolean;
+  meses_minimos: number;
+  ajuste_mensal_min_pp: number | null;
+  ajuste_mensal_max_pp: number | null;
+  total: LinhaFechamento;
+  grupos: LinhaFechamento[];
 }
 
 export interface Fechamento {
@@ -116,6 +162,9 @@ export interface Fechamento {
   /** RF11. Opcional de propósito: entre o deploy do backend e o do front, a
    * resposta em produção pode não ter este campo — a tela não pode quebrar. */
   explicacao?: Explicacao | null;
+  /** Opcionais pelo mesmo motivo de `explicacao`. */
+  base_real?: BaseReal | null;
+  acumulado?: Acumulado | null;
 }
 
 export interface PontoEvolucao {
@@ -123,6 +172,7 @@ export interface PontoEvolucao {
   cmv_teorico_pct: number | null;
   cmv_real_pct: number | null;
   ajuste_pp: number | null;
+  base_real?: BaseReal | null;
 }
 
 export interface ItemCardapio {
@@ -173,7 +223,7 @@ export interface RecomendacaoCompra {
 export const api = {
   /** Link direto para a planilha-modelo. Não passa por `pedido`: a API
    * devolve um arquivo com Content-Disposition, não JSON. */
-  urlModelo: (tipo: TipoUpload) => `${BASE_URL}/api/v1/modelos/${tipo}`,
+  urlModelo: (tipo: TipoUpload | "fechamento") => `${BASE_URL}/api/v1/modelos/${tipo}`,
 
   listarCasas: (params: { ativa?: boolean; busca?: string } = {}) => {
     const q = new URLSearchParams();
@@ -203,6 +253,26 @@ export const api = {
     form.set("arquivo", dados.arquivo);
     return pedido<UploadCusto>("/api/v1/uploads-custo", { method: "POST", body: form });
   },
+
+  demoFechamento: () => pedido<DemoFechamento>("/api/v1/modelos/fechamento/demo"),
+
+  /** Planilha preenchida da casa de demonstração, do mês pedido. */
+  urlPlanilhaDemo: (periodo: string) =>
+    `${BASE_URL}/api/v1/modelos/fechamento/demo/planilha?periodo=${periodo}`,
+
+  /** Engenharia de cardápio por item da casa de demonstração, do mês pedido. */
+  urlCardapioDemo: (periodo: string) =>
+    `${BASE_URL}/api/v1/modelos/fechamento/demo/cardapio?periodo=${periodo}`,
+
+  enviarPlanilhaFechamento: (dados: { casa_id: number; arquivo: File }) => {
+    const form = new FormData();
+    form.set("casa_id", String(dados.casa_id));
+    form.set("arquivo", dados.arquivo);
+    return pedido<UploadFechamento>("/api/v1/fechamentos", { method: "POST", body: form });
+  },
+
+  listarPlanilhasFechamento: (casaId: number) =>
+    pedido<Pagina<UploadFechamento>>(`/api/v1/fechamentos?casa_id=${casaId}&limit=100`),
 
   listarUploads: (casaId: number) =>
     pedido<Pagina<UploadCusto>>(`/api/v1/uploads-custo?casa_id=${casaId}&limit=200`),
