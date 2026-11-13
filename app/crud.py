@@ -4,11 +4,12 @@ Separar assim deixa a regra testável sem subir servidor HTTP e evita que
 `routers/` vire um arquivão com SQL no meio.
 """
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.models import Casa, LinhaCusto, UploadCusto
+from app.models import Casa, LinhaCusto, MovimentoGrupo, UploadCusto, UploadFechamento
 from app.schemas import CasaCreate, CasaUpdate
+from app.services.leitor_fechamento import MovimentoLido, primeiros_meses_sem_estoque_inicial
 from app.services.leitores import BASE_COMPRAS, BASE_CONSUMO, BASE_DECLARADA, Linha, base_do_total
 
 JANELA_ACUMULADO = 12
@@ -204,6 +205,153 @@ def listar_uploads_custo(
     return total, [(upload, n) for upload, n in db.execute(stmt).all()]
 
 
+# ------------------------------------- Upload da planilha-modelo de fechamento
+def meses_sem_estoque_inicial(
+    db: Session, casa_id: int, movimentos: list[MovimentoLido]
+) -> list[MovimentoLido]:
+    """Os movimentos sem `estoque_inicial` que não têm de onde tirá-lo.
+
+    O estoque de abertura de um mês em branco é o `estoque_final` do mês
+    anterior: no próprio arquivo ou num envio anterior. Envio anterior só vale
+    se o mês anterior **não** está no arquivo — se está, o arquivo substitui o
+    mês inteiro, e o grupo que faltar nele some do banco.
+    """
+    candidatos = primeiros_meses_sem_estoque_inicial(movimentos)
+    if not candidatos:
+        return []
+    meses_no_arquivo = {m.periodo for m in movimentos}
+    anteriores = {_periodo_menos(m.periodo, 1) for m in candidatos} - meses_no_arquivo
+    no_banco = (
+        set(
+            db.execute(
+                select(MovimentoGrupo.periodo, MovimentoGrupo.grupo).where(
+                    MovimentoGrupo.casa_id == casa_id,
+                    MovimentoGrupo.periodo.in_(anteriores),
+                )
+            )
+            .tuples()
+            .all()
+        )
+        if anteriores
+        else set()
+    )
+    return [m for m in candidatos if (_periodo_menos(m.periodo, 1), m.grupo) not in no_banco]
+
+
+def registrar_upload_fechamento(
+    db: Session,
+    *,
+    casa_id: int,
+    nome_original: str,
+    blob_name: str,
+    content_type: str,
+    tamanho_bytes: int,
+    url: str,
+    movimentos: list[MovimentoLido],
+) -> tuple[UploadFechamento, list[str], list[str]]:
+    """Grava o envio e devolve (upload, meses substituídos, blobs a apagar).
+
+    Cada mês do arquivo substitui o mês **inteiro** no banco — todos os grupos,
+    não só os que vieram. É a mesma regra do reenvio do caminho antigo, e é a
+    que o usuário espera: "mandei setembro de novo" quer dizer "esqueça o
+    setembro anterior". Envio anterior que fica sem nenhum mês é apagado;
+    quem apaga o blob dele é a rota, depois do commit.
+    """
+    meses = sorted({m.periodo for m in movimentos})
+    substituidos = sorted(
+        db.scalars(
+            select(MovimentoGrupo.periodo)
+            .where(MovimentoGrupo.casa_id == casa_id, MovimentoGrupo.periodo.in_(meses))
+            .distinct()
+        ).all()
+    )
+    db.execute(
+        delete(MovimentoGrupo).where(
+            MovimentoGrupo.casa_id == casa_id, MovimentoGrupo.periodo.in_(meses)
+        )
+    )
+
+    upload = UploadFechamento(
+        casa_id=casa_id,
+        nome_original=nome_original,
+        blob_name=blob_name,
+        content_type=content_type,
+        tamanho_bytes=tamanho_bytes,
+        url=url,
+    )
+    upload.movimentos = [
+        MovimentoGrupo(
+            casa_id=casa_id,
+            periodo=m.periodo,
+            grupo=m.grupo,
+            venda_liquida=m.venda_liquida,
+            custo_teorico=m.custo_teorico,
+            estoque_inicial=m.estoque_inicial,
+            compras=m.compras,
+            estoque_final=m.estoque_final,
+        )
+        for m in movimentos
+    ]
+    db.add(upload)
+    db.flush()
+
+    vazios = list(
+        db.scalars(
+            select(UploadFechamento).where(
+                UploadFechamento.casa_id == casa_id,
+                UploadFechamento.id != upload.id,
+                ~select(MovimentoGrupo.id)
+                .where(MovimentoGrupo.upload_id == UploadFechamento.id)
+                .exists(),
+            )
+        ).all()
+    )
+    blobs_orfaos = [u.blob_name for u in vazios]
+    for antigo in vazios:
+        db.delete(antigo)
+
+    db.commit()
+    db.refresh(upload)
+    return upload, substituidos, blobs_orfaos
+
+
+def stmt_periodos_por_upload_fechamento(upload_ids: list[int]):
+    """[(upload_id, periodo, nº de grupos)] — statement isolado para ser
+    compilado no dialeto do SQL Server (`tests/test_dialeto_sql.py`)."""
+    return (
+        select(MovimentoGrupo.upload_id, MovimentoGrupo.periodo, func.count(MovimentoGrupo.id))
+        .where(MovimentoGrupo.upload_id.in_(upload_ids))
+        .group_by(MovimentoGrupo.upload_id, MovimentoGrupo.periodo)
+        .order_by(MovimentoGrupo.upload_id, MovimentoGrupo.periodo)
+    )
+
+
+def listar_uploads_fechamento(
+    db: Session, *, casa_id: int | None = None, limit: int = 50, offset: int = 0
+) -> tuple[int, list[tuple[UploadFechamento, list[str], int]]]:
+    """Devolve (total, [(upload, meses, nº de linhas)]), do mais recente ao mais antigo."""
+    filtros = [UploadFechamento.casa_id == casa_id] if casa_id is not None else []
+    total = db.scalar(select(func.count(UploadFechamento.id)).where(*filtros)) or 0
+    uploads = list(
+        db.scalars(
+            select(UploadFechamento)
+            .where(*filtros)
+            .order_by(UploadFechamento.id.desc())
+            .limit(limit)
+            .offset(offset)
+        ).all()
+    )
+    if not uploads:
+        return total, []
+
+    meses: dict[int, list[str]] = {u.id: [] for u in uploads}
+    linhas: dict[int, int] = dict.fromkeys(meses, 0)
+    for upload_id, periodo, n in db.execute(stmt_periodos_por_upload_fechamento(list(meses))).all():
+        meses[upload_id].append(periodo)
+        linhas[upload_id] += n
+    return total, [(u, meses[u.id], linhas[u.id]) for u in uploads]
+
+
 # --------------------------------------------------------- Fechamento de CMV
 def grupos_comparaveis(db: Session, casa_id: int) -> list[str]:
     """Os grupos que formam o CMV direto desta casa — **deduzidos do dado**.
@@ -397,7 +545,14 @@ def _fechamentos(db: Session, casa_id: int, periodos: list[str] | None = None) -
                 percentuais seja só diferença de custo. Sem cardápio no mês,
                 usa a receita líquida da DRE.
       ajuste  = real − teórico
+
+    Casa que já recebeu a planilha-modelo é calculada só por ela
+    (`_fechamentos_movimento`): misturar os dois caminhos na mesma casa poria
+    compras de um mês ao lado de consumo de outro na mesma série.
     """
+    if _usa_planilha_fechamento(db, casa_id):
+        return _fechamentos_movimento(db, casa_id, periodos)
+
     grupos_cmv = grupos_comparaveis(db, casa_id)
     if not grupos_cmv:
         return {}
@@ -449,6 +604,95 @@ def _fechamentos(db: Session, casa_id: int, periodos: list[str] | None = None) -
     return resultado
 
 
+def _usa_planilha_fechamento(db: Session, casa_id: int) -> bool:
+    """A casa já recebeu a planilha-modelo de fechamento?"""
+    return (
+        db.scalar(select(MovimentoGrupo.id).where(MovimentoGrupo.casa_id == casa_id).limit(1))
+        is not None
+    )
+
+
+def _coluna_periodo(db: Session, casa_id: int):
+    """De onde vêm os meses da casa: da planilha-modelo, se ela já foi enviada,
+    senão dos uploads do Everest. Mesma regra de `_fechamentos`."""
+    if _usa_planilha_fechamento(db, casa_id):
+        return MovimentoGrupo.periodo
+    return UploadCusto.periodo
+
+
+def _filtro_casa(coluna, casa_id: int):
+    tabela = MovimentoGrupo if coluna is MovimentoGrupo.periodo else UploadCusto
+    return tabela.casa_id == casa_id
+
+
+def _soma_completa(valores: list[float | None]) -> float | None:
+    """Soma só quando nenhum grupo ficou sem valor. Somar os que têm daria um
+    total teórico de um grupo contra um total real de dois — ajuste falso."""
+    if not valores or any(v is None for v in valores):
+        return None
+    return sum(valores)
+
+
+def _fechamentos_movimento(db: Session, casa_id: int, periodos: list[str] | None) -> dict:
+    """Mesmo formato de `_fechamentos`, a partir da planilha-modelo.
+
+      teórico  = custo_teorico informado (nulo se a coluna veio vazia)
+      real     = EI + compras − EF, com EI vazio = EF do mês anterior. É o CMV
+                 real, por isso `base_real` é sempre "consumo"
+      CMV %    = custo ÷ venda_liquida do grupo, igual nos dois lados
+
+    Os grupos são os que o usuário pôs na planilha: ele já declara o que é
+    custo direto, então não há o que deduzir (`grupos_comparaveis` não entra).
+    """
+    stmt = select(MovimentoGrupo).where(MovimentoGrupo.casa_id == casa_id)
+    if periodos is not None:
+        alvo = set(periodos) | {_periodo_menos(p, 1) for p in periodos}
+        stmt = stmt.where(MovimentoGrupo.periodo.in_(alvo))
+    movimentos = list(db.scalars(stmt).all())
+
+    estoque_final = {(m.periodo, m.grupo): float(m.estoque_final) for m in movimentos}
+    por_mes: dict[str, list[MovimentoGrupo]] = {}
+    for m in movimentos:
+        if periodos is None or m.periodo in periodos:
+            por_mes.setdefault(m.periodo, []).append(m)
+
+    resultado = {}
+    for periodo, lista in por_mes.items():
+        linhas, teoricos, reais, vendas = [], [], [], []
+        for m in sorted(lista, key=lambda x: x.grupo):
+            ei = (
+                float(m.estoque_inicial)
+                if m.estoque_inicial is not None
+                else estoque_final.get((_periodo_menos(periodo, 1), m.grupo))
+            )
+            # EI irresolúvel só acontece se o mês anterior foi substituído sem
+            # este grupo depois do envio: o grupo fica sem real, sem inventar.
+            real = (
+                round(ei + float(m.compras) - float(m.estoque_final), 2) if ei is not None else None
+            )
+            teorico = float(m.custo_teorico) if m.custo_teorico is not None else None
+            venda = float(m.venda_liquida)
+            linhas.append(_montar_linha(m.grupo, teorico, real, venda))
+            teoricos.append(teorico)
+            reais.append(real)
+            vendas.append(venda)
+
+        resultado[periodo] = {
+            "tem_cardapio": any(t is not None for t in teoricos),
+            "tem_compras": any(r is not None for r in reais),
+            "grupos": linhas,
+            "total": _montar_linha(
+                "TOTAL", _soma_completa(teoricos), _soma_completa(reais), sum(vendas)
+            ),
+            "base_real": BASE_CONSUMO,
+            "grupos_cmv": [linha["grupo"] for linha in linhas],
+            # Sem subgrupo na planilha-modelo: a rota do RF11 não busca
+            # subgrupos de uploads antigos do Everest para esta casa.
+            "fonte": "planilha",
+        }
+    return resultado
+
+
 def _periodo_menos(periodo: str, meses: int) -> str:
     """('2026-09', 11) → '2025-10'."""
     ano, mes = (int(x) for x in periodo.split("-"))
@@ -469,14 +713,11 @@ def fechamento_acumulado(db: Session, casa_id: int, periodo: str) -> dict | None
     janela tem os dois relatórios.
     """
     inicio = _periodo_menos(periodo, JANELA_ACUMULADO - 1)
+    coluna = _coluna_periodo(db, casa_id)
     periodos = list(
         db.scalars(
-            select(UploadCusto.periodo)
-            .where(
-                UploadCusto.casa_id == casa_id,
-                UploadCusto.periodo >= inicio,
-                UploadCusto.periodo <= periodo,
-            )
+            select(coluna)
+            .where(_filtro_casa(coluna, casa_id), coluna >= inicio, coluna <= periodo)
             .distinct()
         ).all()
     )
@@ -535,12 +776,13 @@ def calcular_fechamento(db: Session, casa_id: int, periodo: str) -> dict | None:
 
 def evolucao_cmv(db: Session, casa_id: int, limit: int = 24) -> list[dict]:
     """Os últimos `limit` meses com dado, em ordem cronológica."""
+    coluna = _coluna_periodo(db, casa_id)
     periodos = list(
         db.scalars(
-            select(UploadCusto.periodo)
-            .where(UploadCusto.casa_id == casa_id)
+            select(coluna)
+            .where(_filtro_casa(coluna, casa_id))
             .distinct()
-            .order_by(UploadCusto.periodo.desc())
+            .order_by(coluna.desc())
             .limit(limit)
         ).all()
     )

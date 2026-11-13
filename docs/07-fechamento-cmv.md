@@ -221,6 +221,38 @@ por regras (sem LLM), escrito para o sócio:
 - **Compensação declarada:** um grupo acima e outro abaixo podem se anular no total; o texto diz isso.
 - **Subgrupos só onde existem nos dois lados.** No Everest, os subgrupos do cardápio são categorias de **venda** (PETISCOS) e os da DRE são categorias de **insumo** (BOVINOS). Não existe "BOVINOS teórico" sem ficha técnica explodida em insumos, que o sistema não recebe. O resto aparece como composição do custo, nunca como desvio — e a tela diz por quê.
 
+## Fechamento pela planilha-modelo (12/11/2026)
+
+Caminho novo, **ao lado** dos relatórios do Everest (fase 1: nada do caminho
+antigo foi removido). Um arquivo traz um mês ou vários, com os dois lados e o
+movimento de estoque. Com o estoque, o lado real **é** o CMV real.
+
+| Coluna (sinônimos) | Obrigatória? | Regra |
+|---|---|---|
+| `periodo` (`mes`, `competencia`) | Sim | `AAAA-MM`, `MM/AAAA` ou data do Excel |
+| `grupo` (`categoria`) | Sim | Só custo direto. Padronizado como nos outros leitores |
+| `venda_liquida` (`venda`, `receita`, `faturamento`) | Sim | Denominador do CMV % dos dois lados |
+| `custo_teorico` (`cmv teorico`) | Não | Sem ela: CMV real sem ajuste, e sem RF11 |
+| `estoque_inicial` (`ei`) | Só no 1º mês do grupo | Em branco = `estoque_final` do mesmo grupo no mês anterior |
+| `compras` | Sim | Líquidas de devoluções e transferências, sem bonificação |
+| `estoque_final` (`ef`) | Sim | Inventário do último dia. Sem ele o mês é recusado |
+
+```
+CMV real = EI + compras − EF        (base_real = "consumo", sempre)
+CMV %    = custo ÷ venda_liquida do grupo
+ajuste   = CMV real − custo_teorico
+```
+
+- **Envio:** `POST /api/v1/fechamentos` (`casa_id`, `arquivo`), sem período no formulário. O leitor (`app/services/leitor_fechamento.py`) devolve **todos** os erros com o número da linha (até 10): período inválido, valor negativo ou não numérico, coluna obrigatória vazia, grupo repetido no mês.
+- **Estoque de abertura:** o EI em branco é resolvido **na hora do cálculo**, não na gravação — corrigir um mês corrige a abertura do seguinte. No envio, mês sem EI cujo mês anterior não está no arquivo nem no banco é recusado (422). Se o mês anterior está no arquivo, o banco não conta: o arquivo substitui aquele mês inteiro.
+- **Reenvio:** cada mês do arquivo substitui o mês **inteiro** (todos os grupos). Envio que fica sem nenhum mês é apagado, com o blob.
+- **Casa que recebeu a planilha** passa a ser calculada só por ela (fechamento, evolução, acumulado). Misturar daria compras de um mês ao lado de consumo de outro na mesma série. Top itens e RF07 continuam lendo o cardápio do Everest, porque precisam de item.
+- **Grupos:** os que o usuário pôs na planilha. Não há dedução de grupos comparáveis.
+- **RF11:** decomposição só por grupo (a planilha não tem subgrupo); `conclusivo` é sempre `true`.
+- **Total:** teórico ou real do total ficam nulos se algum grupo do mês não tiver o valor. Somar só os que têm daria teórico de um grupo contra real de dois.
+- **Modelo:** `GET /api/v1/modelos/fechamento`, gerado por `app/services/modelo_fechamento.py`. Abas `Fechamento` (a única lida), `Instrucoes` e `Conferencia`, com fórmulas que refazem a conta sem `TEXT()` (que depende do idioma do Excel). O exemplo é sintético; em 2026-09, as compras de BEBIDAS ficam abaixo do teórico, mas o consumo fica acima: é o caso que mostra por que o estoque é obrigatório.
+- **Tabelas:** `uploads_fechamento` e `movimentos_grupo` (único por casa, mês e grupo). Tabela nova não precisa de migration: o `create_all` cria.
+
 ## O terceiro formato: planilha genérica
 
 Os dois tradutores acima são do Everest. O terceiro (`ler_planilha`) lê uma
@@ -299,6 +331,9 @@ uv run --with xlrd python scripts/importar_dre_historica.py     --casa "Boteco S
 | GET | `/api/v1/metricas/evolucao` | CMV teórico × real mês a mês |
 | GET | `/api/v1/metricas/top-itens` | Itens que mais pesam (`ordem=custo` ou `ordem=cmv`) |
 | GET | `/api/v1/modelos/{tipo}` | Planilha-modelo `.xlsx` (`tipo` = `cardapio` \| `compras`) gerada na hora, com linhas sintéticas |
+| POST | `/api/v1/fechamentos` | Envia a planilha-modelo de fechamento (`casa_id`, `arquivo`): um ou vários meses. Cada mês substitui o mês inteiro |
+| GET | `/api/v1/fechamentos` | Envios da planilha (paginado, filtro `casa_id`), com os meses de cada um |
+| GET | `/api/v1/modelos/fechamento` | Planilha-modelo de fechamento (abas Fechamento, Instrucoes, Conferencia) |
 
 O campo `explicacao` do fechamento (RF11) é **opcional** no contrato: o
 frontend em produção continua funcionando entre o deploy do backend e o do

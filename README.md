@@ -126,6 +126,9 @@ O grupo inteiro deve usar **o mesmo** caminho. Misturar os dois gera divergênci
 | `DELETE` | `/api/v1/casas/{id}` | **204** · 404 |
 | `POST` | `/api/v1/uploads-custo` | 201 · 404 casa · 415 tipo · 413 tamanho · 422 coluna faltando |
 | `GET` | `/api/v1/uploads-custo` | 200 — paginado |
+| `POST` | `/api/v1/fechamentos` | 201 — planilha-modelo de fechamento, um ou vários meses · 404 casa · 415 tipo · 413 tamanho · 422 com a lista de erros por linha |
+| `GET` | `/api/v1/fechamentos` | 200 — paginado |
+| `GET` | `/api/v1/modelos/fechamento` | 200 — planilha-modelo `.xlsx` |
 | `GET` | `/api/v1/metricas/fechamento?casa_id=&periodo=` | 200 — CMV teórico × real × ajuste por grupo · 404 sem dado |
 | `GET` | `/api/v1/metricas/evolucao?casa_id=` | 200 — CMV teórico × real mês a mês |
 | `GET` | `/api/v1/metricas/top-itens?casa_id=&periodo=` | 200 — itens que mais pesam no custo |

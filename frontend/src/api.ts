@@ -49,6 +49,20 @@ export interface UploadCusto {
   substituiu_anterior: boolean;
 }
 
+/** Um envio da planilha-modelo de fechamento: um ou vários meses, com os dois
+ * lados e o movimento de estoque. O período vem no arquivo. */
+export interface UploadFechamento {
+  id: number;
+  casa_id: number;
+  nome_original: string;
+  url: string;
+  criado_em: string;
+  periodos: string[];
+  linhas_importadas: number;
+  /** Meses do arquivo que já existiam e foram trocados por inteiro. */
+  meses_substituidos: string[];
+}
+
 export interface LinhaFechamento {
   grupo: string;
   venda_liquida: number | null;
@@ -201,7 +215,7 @@ export interface RecomendacaoCompra {
 export const api = {
   /** Link direto para a planilha-modelo. Não passa por `pedido`: a API
    * devolve um arquivo com Content-Disposition, não JSON. */
-  urlModelo: (tipo: TipoUpload) => `${BASE_URL}/api/v1/modelos/${tipo}`,
+  urlModelo: (tipo: TipoUpload | "fechamento") => `${BASE_URL}/api/v1/modelos/${tipo}`,
 
   listarCasas: (params: { ativa?: boolean; busca?: string } = {}) => {
     const q = new URLSearchParams();
@@ -231,6 +245,16 @@ export const api = {
     form.set("arquivo", dados.arquivo);
     return pedido<UploadCusto>("/api/v1/uploads-custo", { method: "POST", body: form });
   },
+
+  enviarPlanilhaFechamento: (dados: { casa_id: number; arquivo: File }) => {
+    const form = new FormData();
+    form.set("casa_id", String(dados.casa_id));
+    form.set("arquivo", dados.arquivo);
+    return pedido<UploadFechamento>("/api/v1/fechamentos", { method: "POST", body: form });
+  },
+
+  listarPlanilhasFechamento: (casaId: number) =>
+    pedido<Pagina<UploadFechamento>>(`/api/v1/fechamentos?casa_id=${casaId}&limit=100`),
 
   listarUploads: (casaId: number) =>
     pedido<Pagina<UploadCusto>>(`/api/v1/uploads-custo?casa_id=${casaId}&limit=200`),

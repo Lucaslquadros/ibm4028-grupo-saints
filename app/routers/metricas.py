@@ -95,8 +95,14 @@ def _explicacao(db, casa_id: int, periodo: str, resultado: dict) -> Explicacao |
     if not (resultado["tem_cardapio"] and resultado["tem_compras"]):
         return None
 
-    linhas = crud.subgrupos_por_lado(
-        db, casa_id=casa_id, periodo=periodo, grupos=resultado["grupos_cmv"]
+    # A planilha-modelo é por grupo: sem subgrupo, a decomposição fica no grupo.
+    # Buscar subgrupos aqui traria os de uploads antigos do Everest da casa.
+    linhas = (
+        []
+        if resultado.get("fonte") == "planilha"
+        else crud.subgrupos_por_lado(
+            db, casa_id=casa_id, periodo=periodo, grupos=resultado["grupos_cmv"]
+        )
     )
     dados = servico_explicacao.explicar(
         periodo=periodo,

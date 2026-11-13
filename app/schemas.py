@@ -101,6 +101,39 @@ class UploadCustoPage(BaseModel):
     items: list[UploadCustoResponse]
 
 
+# ------------------------------------- Upload da planilha-modelo de fechamento
+class UploadFechamentoResponse(BaseModel):
+    """Um envio da planilha-modelo (`GET /modelos/fechamento`)."""
+
+    id: int
+    casa_id: int
+    nome_original: str
+    blob_name: str
+    content_type: str
+    tamanho_bytes: int
+    url: str
+    criado_em: datetime
+    periodos: list[str] = Field(
+        description="Meses que este envio traz e que ainda valem (um reenvio posterior "
+        "de um mês tira o mês daqui)"
+    )
+    linhas_importadas: int = Field(description="Linhas (grupo × mês) gravadas")
+    meses_substituidos: list[str] = Field(
+        default_factory=list,
+        description="Meses do arquivo que já existiam e foram trocados por inteiro. "
+        "Só preenchido na resposta do envio",
+    )
+
+
+class UploadFechamentoPage(BaseModel):
+    """Resposta paginada. Nunca devolva uma tabela inteira sem limite."""
+
+    total: int
+    limit: int
+    offset: int
+    items: list[UploadFechamentoResponse]
+
+
 # ------------------------------------------------------- Fechamento de CMV
 class LinhaFechamento(BaseModel):
     """Uma linha do fechamento: um grupo (ALIMENTOS, BEBIDAS) ou o TOTAL.
