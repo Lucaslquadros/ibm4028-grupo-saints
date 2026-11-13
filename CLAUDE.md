@@ -32,6 +32,7 @@ técnica e inventário mensal — o contrato de entrada está em
 - Ordem executada: P0 (nomes de grupo + planilha-modelo) → RF11 backend → RF11 tela → RF12 → RF13.
 - O ajuste da casa real é **negativo** (−3,68 pp): todo texto tem três ramos (acima / dentro / abaixo). Negativo **não** é economia.
 - **Desde 10/11: a DRE é compras, não CMV real** (`docs/07`, "A DRE é compras, não consumo"). O −3,68 pp é compras × teórico de um mês, não conclusivo; o lado real tem `base_real` e o fechamento tem `acumulado`. Não há inventário do cliente.
+- **Desde 12/11: fechamento pela planilha-modelo** (`POST /api/v1/fechamentos`, tabelas `uploads_fechamento`/`movimentos_grupo`), ao lado do caminho do Everest. Com estoque por grupo, o lado real é CMV real. Casa com planilha é calculada só por ela (`crud._fechamentos_movimento`). Regra em `docs/07`, "Fechamento pela planilha-modelo".
 - Abaixo do grupo, só se compara subgrupo que existe nos dois lados. Não inventar granularidade.
 - Campos novos na API são **opcionais**: o frontend em produção não pode quebrar entre deploys. Backend primeiro, depois front.
 - Nunca usar a casa piloto em 09/2026 para testar envio: reenvio **substitui** o dado real.

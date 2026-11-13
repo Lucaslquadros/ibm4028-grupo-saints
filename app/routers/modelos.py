@@ -18,6 +18,7 @@ from openpyxl import Workbook
 
 from app.schemas import ErroResponse, TipoUpload
 from app.services.leitores import XLSX
+from app.services.modelo_fechamento import gerar_modelo_fechamento
 
 router = APIRouter(prefix="/api/v1/modelos", tags=["modelos"])
 
@@ -77,6 +78,29 @@ def gerar_modelo(tipo: str) -> bytes:
     buffer = io.BytesIO()
     livro.save(buffer)
     return buffer.getvalue()
+
+
+# Declarada ANTES de `/{tipo}`: o FastAPI casa as rotas na ordem, e
+# `/fechamento` cairia no `{tipo}` e tomaria 422 do `Literal`.
+@router.get(
+    "/fechamento",
+    summary="Baixar planilha-modelo de fechamento (venda, teórico e estoque por grupo)",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {XLSX: {}},
+            "description": "Abas Fechamento (lida pelo sistema), Instrucoes e Conferencia",
+        }
+    },
+)
+def baixar_modelo_fechamento() -> Response:
+    """Planilha de `POST /fechamentos`: uma linha por grupo por mês, com o
+    movimento de estoque que o CMV real exige. Exemplo sintético de 3 meses."""
+    return Response(
+        content=gerar_modelo_fechamento(),
+        media_type=XLSX,
+        headers={"Content-Disposition": 'attachment; filename="modelo-fechamento.xlsx"'},
+    )
 
 
 @router.get(

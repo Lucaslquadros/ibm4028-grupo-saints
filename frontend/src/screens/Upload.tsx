@@ -1,10 +1,34 @@
 import { useEffect, useRef, useState } from "react";
-import { api, ApiError, type Casa, type TipoUpload, type UploadCusto } from "../api";
+import {
+  api,
+  ApiError,
+  type Casa,
+  type TipoUpload,
+  type UploadCusto,
+  type UploadFechamento,
+} from "../api";
 
-const RECEITAS: Record<TipoUpload, { rotulo: string; detalhe: string }> = {
+// "fechamento" é a planilha-modelo (12/11/2026): um arquivo com os dois lados
+// e o estoque, de um ou vários meses. O período vem no arquivo, não no form.
+type Modo = TipoUpload | "fechamento";
+
+const RECEITAS: Record<Modo, { rotulo: string; detalhe: string }> = {
   cardapio: { rotulo: "Engenharia de cardápio", detalhe: "CMV teórico" },
-  compras: { rotulo: "DRE de compras", detalhe: "CMV real" },
+  compras: { rotulo: "DRE de compras", detalhe: "compras do mês, sem estoque" },
+  fechamento: { rotulo: "Planilha de fechamento", detalhe: "teórico + CMV real com estoque" },
 };
+
+const mesAno = (periodo: string) => {
+  const [ano, mes] = periodo.split("-");
+  return `${mes}/${ano.slice(2)}`;
+};
+
+const intervalo = (periodos: string[]) =>
+  periodos.length === 0
+    ? "nenhum mês"
+    : periodos.length === 1
+      ? mesAno(periodos[0])
+      : `${mesAno(periodos[0])} a ${mesAno(periodos[periodos.length - 1])}`;
 
 type Props = {
   casas: Casa[];
@@ -15,13 +39,15 @@ type Props = {
 };
 
 export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props) {
-  const [tipo, setTipo] = useState<TipoUpload>("cardapio");
+  const [tipo, setTipo] = useState<Modo>("cardapio");
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [arrastando, setArrastando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [resultado, setResultado] = useState<UploadCusto | null>(null);
+  const [resultadoPlanilha, setResultadoPlanilha] = useState<UploadFechamento | null>(null);
   const [uploadsCasa, setUploadsCasa] = useState<UploadCusto[]>([]);
+  const [planilhasCasa, setPlanilhasCasa] = useState<UploadFechamento[]>([]);
   const inputArquivoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -30,15 +56,25 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
       .listarUploads(casaId)
       .then((p) => setUploadsCasa(p.items))
       .catch(() => setUploadsCasa([]));
-  }, [casaId, resultado]);
+    api
+      .listarPlanilhasFechamento(casaId)
+      .then((p) => setPlanilhasCasa(p.items))
+      .catch(() => setPlanilhasCasa([]));
+  }, [casaId, resultado, resultadoPlanilha]);
 
+  const ehPlanilha = tipo === "fechamento";
   const existente =
-    casaId !== "" && uploadsCasa.find((u) => u.periodo === periodo && u.tipo === tipo);
-  const podeEnviar = casaId !== "" && periodo !== "" && arquivo !== null && !enviando;
+    casaId !== "" &&
+    !ehPlanilha &&
+    uploadsCasa.find((u) => u.periodo === periodo && u.tipo === tipo);
+  const mesesComPlanilha = [...new Set(planilhasCasa.flatMap((p) => p.periodos))].sort();
+  const podeEnviar =
+    casaId !== "" && (ehPlanilha || periodo !== "") && arquivo !== null && !enviando;
 
   function escolherArquivo(f: File | null) {
     setArquivo(f);
     setResultado(null);
+    setResultadoPlanilha(null);
   }
 
   async function enviar(ev: React.FormEvent) {
@@ -47,9 +83,15 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
     setEnviando(true);
     setErro(null);
     setResultado(null);
+    setResultadoPlanilha(null);
     try {
-      const upload = await api.enviarUpload({ casa_id: casaId, periodo, tipo, arquivo });
-      setResultado(upload);
+      if (tipo === "fechamento") {
+        setResultadoPlanilha(
+          await api.enviarPlanilhaFechamento({ casa_id: casaId, arquivo }),
+        );
+      } else {
+        setResultado(await api.enviarUpload({ casa_id: casaId, periodo, tipo, arquivo }));
+      }
       setArquivo(null);
       if (inputArquivoRef.current) inputArquivoRef.current.value = "";
     } catch (e) {
@@ -62,8 +104,11 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
   return (
     <section className="tela">
       <header className="tela-cabecalho">
-        <h2>Upload de export do Everest</h2>
-        <p className="ajuda">Envie o export como sai do Everest, em .xlsx — sem precisar arrumar nada.</p>
+        <h2>Upload</h2>
+        <p className="ajuda">
+          Envie o export como sai do Everest, ou a planilha de fechamento preenchida — sempre em
+          .xlsx.
+        </p>
       </header>
 
       <form className="glass form-upload" onSubmit={enviar}>
@@ -84,21 +129,23 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
             </select>
           </label>
 
-          <label className="campo">
-            <span className="campo-rotulo">Período</span>
-            <input
-              type="month"
-              value={periodo}
-              onChange={(e) => setPeriodo(e.target.value)}
-              required
-            />
-          </label>
+          {!ehPlanilha && (
+            <label className="campo">
+              <span className="campo-rotulo">Período</span>
+              <input
+                type="month"
+                value={periodo}
+                onChange={(e) => setPeriodo(e.target.value)}
+                required
+              />
+            </label>
+          )}
         </div>
 
         <div className="campo">
           <span className="campo-rotulo">Tipo de relatório</span>
           <div className="segmentado" role="radiogroup">
-            {(Object.keys(RECEITAS) as TipoUpload[]).map((k) => (
+            {(Object.keys(RECEITAS) as Modo[]).map((k) => (
               <button
                 type="button"
                 key={k}
@@ -113,6 +160,26 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
             ))}
           </div>
         </div>
+
+        {ehPlanilha && (
+          <div className="ajuda">
+            <p>
+              Uma linha por grupo por mês, com venda, custo teórico, compras e o estoque do
+              inventário. O mês vem na planilha: um envio pode trazer um mês ou o histórico
+              inteiro. Reenviar um mês substitui esse mês por inteiro.
+            </p>
+            <a className="botao-secundario" href={api.urlModelo("fechamento")} download>
+              Baixar planilha-modelo
+            </a>
+            {casaId !== "" && mesesComPlanilha.length > 0 && (
+              <p>
+                Esta casa já tem {mesesComPlanilha.length}{" "}
+                {mesesComPlanilha.length === 1 ? "mês" : "meses"} pela planilha (
+                {intervalo(mesesComPlanilha)}).
+              </p>
+            )}
+          </div>
+        )}
 
         {existente && (
           <p className="aviso aviso-substituicao">
@@ -158,6 +225,18 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
         </label>
 
         {erro && <p className="erro">{erro}</p>}
+        {resultadoPlanilha && (
+          <p className="ok">
+            Enviado: {resultadoPlanilha.linhas_importadas} linhas de{" "}
+            {resultadoPlanilha.periodos.length}{" "}
+            {resultadoPlanilha.periodos.length === 1 ? "mês" : "meses"} (
+            {intervalo(resultadoPlanilha.periodos)})
+            {resultadoPlanilha.meses_substituidos.length > 0
+              ? `; substituiu ${resultadoPlanilha.meses_substituidos.map(mesAno).join(", ")}`
+              : ""}
+            .
+          </p>
+        )}
         {resultado && (
           <p className="ok">
             Enviado: {resultado.linhas_importadas} linhas importadas
@@ -166,7 +245,7 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
         )}
 
         <button type="submit" className="botao-primario" disabled={!podeEnviar}>
-          {enviando ? "Enviando…" : "Enviar export"}
+          {enviando ? "Enviando…" : ehPlanilha ? "Enviar planilha" : "Enviar export"}
         </button>
       </form>
     </section>
