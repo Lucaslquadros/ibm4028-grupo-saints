@@ -3,6 +3,7 @@ import {
   api,
   ApiError,
   type Casa,
+  type DemoFechamento,
   type TipoUpload,
   type UploadCusto,
   type UploadFechamento,
@@ -48,6 +49,7 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
   const [resultadoPlanilha, setResultadoPlanilha] = useState<UploadFechamento | null>(null);
   const [uploadsCasa, setUploadsCasa] = useState<UploadCusto[]>([]);
   const [planilhasCasa, setPlanilhasCasa] = useState<UploadFechamento[]>([]);
+  const [demo, setDemo] = useState<DemoFechamento | null>(null);
   const inputArquivoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -62,7 +64,19 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
       .catch(() => setPlanilhasCasa([]));
   }, [casaId, resultado, resultadoPlanilha]);
 
+  // Backend antigo não tem a rota: sem ela, simplesmente não há planilha de demo.
+  useEffect(() => {
+    api
+      .demoFechamento()
+      .then(setDemo)
+      .catch(() => setDemo(null));
+  }, []);
+
   const ehPlanilha = tipo === "fechamento";
+  // Só para a casa de demonstração: a planilha dela em outra casa misturaria
+  // dado fictício com dado real.
+  const casaEhDemo =
+    demo !== null && casas.some((c) => c.id === casaId && c.nome === demo.casa_nome);
   const existente =
     casaId !== "" &&
     !ehPlanilha &&
@@ -170,7 +184,16 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
             </p>
             <a className="botao-secundario" href={api.urlModelo("fechamento")} download>
               Baixar planilha-modelo
-            </a>
+            </a>{" "}
+            {casaEhDemo && demo && (
+              <a
+                className="botao-secundario"
+                href={api.urlPlanilhaDemo(demo.periodo_ao_vivo)}
+                download
+              >
+                Baixar planilha da demonstração ({mesAno(demo.periodo_ao_vivo)}, dados fictícios)
+              </a>
+            )}
             {casaId !== "" && mesesComPlanilha.length > 0 && (
               <p>
                 Esta casa já tem {mesesComPlanilha.length}{" "}

@@ -134,6 +134,17 @@ class UploadFechamentoPage(BaseModel):
     items: list[UploadFechamentoResponse]
 
 
+class DemoFechamento(BaseModel):
+    """A casa de demonstração da planilha de fechamento (dados fictícios)."""
+
+    casa_nome: str = Field(description="Nome exato da casa, com '(DEMO)'")
+    periodos: list[str] = Field(description="Todos os meses que a demonstração tem")
+    periodos_historico: list[str] = Field(
+        description="Meses carregados antes, por scripts/popular_demo_fechamento.py"
+    )
+    periodo_ao_vivo: str = Field(description="Mês enviado durante a apresentação")
+
+
 # ------------------------------------------------------- Fechamento de CMV
 class LinhaFechamento(BaseModel):
     """Uma linha do fechamento: um grupo (ALIMENTOS, BEBIDAS) ou o TOTAL.

@@ -13,10 +13,11 @@ o teste `test_modelos.py` garante, para o modelo não descolar do leitor.
 import io
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Response
+from fastapi import APIRouter, HTTPException, Path, Query, Response
 from openpyxl import Workbook
 
-from app.schemas import ErroResponse, TipoUpload
+from app.schemas import DemoFechamento, ErroResponse, TipoUpload
+from app.services import demo_fechamento
 from app.services.leitores import XLSX
 from app.services.modelo_fechamento import gerar_modelo_fechamento
 
@@ -78,6 +79,56 @@ def gerar_modelo(tipo: str) -> bytes:
     buffer = io.BytesIO()
     livro.save(buffer)
     return buffer.getvalue()
+
+
+@router.get(
+    "/fechamento/demo",
+    summary="Casa de demonstração da planilha de fechamento: nome e meses",
+)
+def info_demo_fechamento() -> DemoFechamento:
+    """Para a tela de Upload saber quando oferecer a planilha da demonstração:
+    só para a casa de demonstração, nunca para uma casa real."""
+    return DemoFechamento(
+        casa_nome=demo_fechamento.CASA_DEMO["nome"],
+        periodos=demo_fechamento.PERIODOS,
+        periodos_historico=demo_fechamento.PERIODOS_HISTORICO,
+        periodo_ao_vivo=demo_fechamento.PERIODO_AO_VIVO,
+    )
+
+
+@router.get(
+    "/fechamento/demo/planilha",
+    summary="Baixar a planilha preenchida da casa de demonstração",
+    response_class=Response,
+    responses={
+        200: {"content": {XLSX: {}}, "description": "Planilha-modelo com os dados da demo"},
+        422: {"model": ErroResponse},
+    },
+)
+def baixar_planilha_demo(
+    periodo: Annotated[
+        list[str] | None,
+        Query(description="Meses (AAAA-MM). Sem nenhum, vale o mês da apresentação ao vivo"),
+    ] = None,
+) -> Response:
+    """Mesmo layout da planilha-modelo, com os números fictícios da casa de
+    demonstração. Dados em `app/services/demo_fechamento.py`."""
+    periodos = periodo or [demo_fechamento.PERIODO_AO_VIVO]
+    desconhecidos = sorted(set(periodos) - set(demo_fechamento.PERIODOS))
+    if desconhecidos:
+        raise HTTPException(
+            status_code=422,
+            detail=f"A demonstração não tem os meses {', '.join(desconhecidos)}. "
+            f"Disponíveis: {', '.join(demo_fechamento.PERIODOS)}.",
+        )
+    nome = f"demo-fechamento-{min(periodos)}" + (
+        f"-a-{max(periodos)}" if len(set(periodos)) > 1 else ""
+    )
+    return Response(
+        content=gerar_modelo_fechamento(demo_fechamento.linhas_demo(periodos)),
+        media_type=XLSX,
+        headers={"Content-Disposition": f'attachment; filename="{nome}.xlsx"'},
+    )
 
 
 # Declarada ANTES de `/{tipo}`: o FastAPI casa as rotas na ordem, e

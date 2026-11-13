@@ -253,6 +253,16 @@ ajuste   = CMV real − custo_teorico
 - **Modelo:** `GET /api/v1/modelos/fechamento`, gerado por `app/services/modelo_fechamento.py`. Abas `Fechamento` (a única lida), `Instrucoes` e `Conferencia`, com fórmulas que refazem a conta sem `TEXT()` (que depende do idioma do Excel). O exemplo é sintético; em 2026-09, as compras de BEBIDAS ficam abaixo do teórico, mas o consumo fica acima: é o caso que mostra por que o estoque é obrigatório.
 - **Tabelas:** `uploads_fechamento` e `movimentos_grupo` (único por casa, mês e grupo). Tabela nova não precisa de migration: o `create_all` cria.
 
+### Casa de demonstração da planilha
+
+"Boteco Exemplo - Pinheiros (DEMO)", com dados fictícios em
+`app/services/demo_fechamento.py`: abr–set/26, ALIMENTOS e BEBIDAS.
+
+- `uv run python scripts/popular_demo_fechamento.py [--api URL]` apaga e recria **só** essa casa e carrega abr–ago/26. Pode rodar antes de cada ensaio.
+- Set/26 fica para o envio ao vivo. Na tela de Upload, com essa casa e "Planilha de fechamento", aparece **"Baixar planilha da demonstração"** (`GET /api/v1/modelos/fechamento/demo/planilha`). O botão só aparece para essa casa (`GET /api/v1/modelos/fechamento/demo` diz qual é).
+- Resultado esperado: abr–ago dentro da margem; set/26 **acima** (+1,61 pp), puxado por BEBIDAS. As compras de BEBIDAS em set/26 ficam 1,4 pp **abaixo** do teórico, porque o estoque caiu: só a DRE levaria à conclusão inversa.
+- O script remove `SSLKEYLOGFILE` do próprio processo: com ela definida, o Python do Windows aborta na primeira requisição (`OPENSSL_Uplink ... no OPENSSL_Applink`).
+
 ## O terceiro formato: planilha genérica
 
 Os dois tradutores acima são do Everest. O terceiro (`ler_planilha`) lê uma
