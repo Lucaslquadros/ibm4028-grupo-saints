@@ -256,11 +256,23 @@ ajuste   = CMV real − custo_teorico
 ### Casa de demonstração da planilha
 
 "Boteco Exemplo - Pinheiros (DEMO)", com dados fictícios em
-`app/services/demo_fechamento.py`: abr–set/26, ALIMENTOS e BEBIDAS.
+`app/services/demo_fechamento.py`: abr–set/26, ALIMENTOS e BEBIDAS. Cobre
+todas as telas: Fechamento (com explicação, evolução, acumulado e top itens),
+Fechar o mês, Upload e Quanto comprar.
 
-- `uv run python scripts/popular_demo_fechamento.py [--api URL]` apaga e recria **só** essa casa e carrega abr–ago/26. Pode rodar antes de cada ensaio.
-- Set/26 fica para o envio ao vivo. Na tela de Upload, com essa casa e "Planilha de fechamento", aparece **"Baixar planilha da demonstração"** (`GET /api/v1/modelos/fechamento/demo/planilha`). O botão só aparece para essa casa (`GET /api/v1/modelos/fechamento/demo` diz qual é).
-- Resultado esperado: abr–ago dentro da margem; set/26 **acima** (+1,61 pp), puxado por BEBIDAS. As compras de BEBIDAS em set/26 ficam 1,4 pp **abaixo** do teórico, porque o estoque caiu: só a DRE levaria à conclusão inversa.
+| Arquivo | Rota | Onde a tela oferece | Alimenta |
+|---|---|---|---|
+| Planilha de fechamento | `GET /modelos/fechamento/demo/planilha?periodo=` | Upload → Planilha de fechamento; Fechar o mês → Planilha de fechamento | Fechamento, explicação, evolução, acumulado |
+| Cardápio por item | `GET /modelos/fechamento/demo/cardapio?periodo=` | Upload → Engenharia de cardápio, com o período | Quanto comprar (RF07), top itens |
+
+Os dois só aparecem para essa casa (`GET /modelos/fechamento/demo` diz qual
+é). O cardápio é **derivado** da planilha: por grupo e mês, a soma dos itens é
+a venda e o custo teórico da planilha, ao centavo. Numa casa com planilha, o
+cardápio não muda o fechamento — só alimenta as telas por item.
+
+- `uv run python scripts/popular_demo_fechamento.py [--api URL]` apaga e recria **só** essa casa e carrega abr–ago/26 (planilha + cardápio). Rode antes de cada ensaio.
+- Set/26 fica para o envio ao vivo. Resultado esperado: abr–ago dentro da margem; set/26 **acima** (+1,61 pp), puxado por BEBIDAS. As compras de BEBIDAS em set/26 ficam 1,4 pp **abaixo** do teórico, porque o estoque caiu: só a DRE levaria à conclusão inversa.
+- Quanto comprar: com abr–ago (5 meses), confiança baixa e sem tendência; depois do cardápio de set/26 (6 meses), confiança média, com tendência por item.
 - O script remove `SSLKEYLOGFILE` do próprio processo: com ela definida, o Python do Windows aborta na primeira requisição (`OPENSSL_Uplink ... no OPENSSL_Applink`).
 
 ## O terceiro formato: planilha genérica

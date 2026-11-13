@@ -260,6 +260,10 @@ export const api = {
   urlPlanilhaDemo: (periodo: string) =>
     `${BASE_URL}/api/v1/modelos/fechamento/demo/planilha?periodo=${periodo}`,
 
+  /** Engenharia de cardápio por item da casa de demonstração, do mês pedido. */
+  urlCardapioDemo: (periodo: string) =>
+    `${BASE_URL}/api/v1/modelos/fechamento/demo/cardapio?periodo=${periodo}`,
+
   enviarPlanilhaFechamento: (dados: { casa_id: number; arquivo: File }) => {
     const form = new FormData();
     form.set("casa_id", String(dados.casa_id));

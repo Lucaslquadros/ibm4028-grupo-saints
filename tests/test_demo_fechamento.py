@@ -128,3 +128,84 @@ def test_so_o_primeiro_mes_tem_estoque_inicial():
     primeiro = demo_fechamento.PERIODOS[0]
     for periodo, grupo, *_resto, ei, _compras, _ef in demo_fechamento.LINHAS:
         assert (ei is not None) == (periodo == primeiro), (periodo, grupo)
+
+
+# --------------------------------------------- cardápio por item (RF07, top itens)
+CARDAPIO = "/api/v1/modelos/fechamento/demo/cardapio"
+UPLOADS = "/api/v1/uploads-custo"
+RECOMENDACAO = "/api/v1/metricas/recomendacao-compra"
+TOP_ITENS = "/api/v1/metricas/top-itens"
+
+
+def _enviar_cardapio(client, casa_id, periodo):
+    resposta = client.post(
+        UPLOADS,
+        data={"casa_id": casa_id, "periodo": periodo, "tipo": "cardapio"},
+        files={
+            "arquivo": (
+                "cardapio.xlsx",
+                io.BytesIO(client.get(CARDAPIO, params={"periodo": periodo}).content),
+                XLSX,
+            )
+        },
+    )
+    assert resposta.status_code == 201, resposta.text
+
+
+def _preparar_como_o_script(client, casa_id):
+    """O que `scripts/popular_demo_fechamento.py` faz, pela mesma API."""
+    _carregar_historico(client, casa_id)
+    for periodo in demo_fechamento.PERIODOS_HISTORICO:
+        _enviar_cardapio(client, casa_id, periodo)
+
+
+@pytest.mark.parametrize("periodo", demo_fechamento.PERIODOS)
+def test_cardapio_soma_exatamente_a_planilha(periodo):
+    """As duas fontes da demo nunca se contradizem: por grupo, a soma dos
+    itens é a venda e o custo teórico da planilha, ao centavo."""
+    itens = demo_fechamento.cardapio_demo(periodo)
+    for _p, grupo, venda, teorico, *_resto in demo_fechamento.linhas_demo([periodo]):
+        do_grupo = [i for i in itens if i[0] == grupo]
+        assert round(sum(i[4] for i in do_grupo), 2) == venda
+        assert round(sum(i[5] for i in do_grupo), 2) == teorico
+
+
+def test_cardapio_de_mes_fora_da_demo_devolve_422(client):
+    assert client.get(CARDAPIO, params={"periodo": "2025-01"}).status_code == 422
+
+
+def test_demo_preparada_mostra_quanto_comprar_e_top_itens(client, casa_demo):
+    _preparar_como_o_script(client, casa_demo)
+
+    recomendacao = client.get(RECOMENDACAO, params={"casa_id": casa_demo, "periodo": "2026-08"})
+    assert recomendacao.status_code == 200, recomendacao.text
+    corpo = recomendacao.json()
+    assert corpo["periodo_alvo"] == "2026-09"
+    assert len(corpo["itens"]) == 10
+    assert all(i["meses_com_dado"] == 5 for i in corpo["itens"])
+
+    top = client.get(TOP_ITENS, params={"casa_id": casa_demo, "periodo": "2026-08"}).json()
+    assert len(top) == 10
+
+
+def test_envio_ao_vivo_do_cardapio_nao_muda_o_fechamento_da_planilha(client, casa_demo):
+    _preparar_como_o_script(client, casa_demo)
+    _enviar(client, casa_demo, client.get(PLANILHA).content)
+
+    _enviar_cardapio(client, casa_demo, "2026-09")
+
+    setembro = _fechamento(client, casa_demo, "2026-09")
+    assert setembro["base_real"] == "consumo"
+    assert setembro["total"]["ajuste"] == 8780
+    assert setembro["total"]["custo_teorico"] == 141150
+    top = client.get(TOP_ITENS, params={"casa_id": casa_demo, "periodo": "2026-09"}).json()
+    assert top[0]["nome"] == "CHOPP 300ML"
+
+
+def test_quanto_comprar_explica_quando_a_casa_so_tem_a_planilha(client, casa_demo):
+    _carregar_historico(client, casa_demo)
+
+    resposta = client.get(RECOMENDACAO, params={"casa_id": casa_demo, "periodo": "2026-08"})
+
+    assert resposta.status_code == 404
+    assert "planilha de fechamento, que é por grupo" in resposta.json()["detail"]

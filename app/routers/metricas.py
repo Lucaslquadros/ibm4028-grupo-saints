@@ -152,12 +152,18 @@ def recomendacao_compra(
     casa = _casa_ou_404(db, casa_id)
     linhas = crud.historico_itens(db, casa_id=casa_id, periodo=periodo, limit_itens=limit)
     if not linhas:
+        # Casa que fecha pela planilha tem venda por GRUPO, não por item: o
+        # usuário precisa saber que falta outro arquivo, não que falta dado.
+        motivo = (
+            " Esta casa fecha pela planilha de fechamento, que é por grupo: a recomendação "
+            "precisa da venda por item. Envie a engenharia de cardápio (Upload → Engenharia "
+            "de cardápio) dos meses que quiser usar."
+            if crud.usa_planilha_fechamento(db, casa_id)
+            else " Envie ao menos um relatório de cardápio."
+        )
         raise HTTPException(
             status_code=404,
-            detail=(
-                f"Sem histórico de venda por item para a casa {casa_id} até {periodo}. "
-                "Envie ao menos um relatório de cardápio."
-            ),
+            detail=f"Sem histórico de venda por item para a casa {casa_id} até {periodo}.{motivo}",
         )
 
     # Agrupa a série de cada item preservando a ordem de relevância do banco.

@@ -131,6 +131,48 @@ def baixar_planilha_demo(
     )
 
 
+@router.get(
+    "/fechamento/demo/cardapio",
+    summary="Baixar a engenharia de cardápio por item da casa de demonstração",
+    response_class=Response,
+    responses={
+        200: {"content": {XLSX: {}}, "description": "Cardápio por item, planilha genérica"},
+        422: {"model": ErroResponse},
+    },
+)
+def baixar_cardapio_demo(
+    periodo: Annotated[str, Query(description="Mês (AAAA-MM)")] = demo_fechamento.PERIODO_AO_VIVO,
+) -> Response:
+    """Venda por item do mês, para "Quanto comprar" (RF07) e "Top itens". É
+    enviada em `POST /uploads-custo` com `tipo=cardapio` e o período no
+    formulário. Os totais por grupo batem com a planilha de fechamento."""
+    if periodo not in demo_fechamento.PERIODOS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"A demonstração não tem o mês {periodo}. "
+            f"Disponíveis: {', '.join(demo_fechamento.PERIODOS)}.",
+        )
+    livro = Workbook()
+    aba = livro.active
+    aba.title = "Cardapio"
+    aba.append(
+        [
+            f"Cardápio por item da demonstração, {periodo} — dados fictícios. "
+            "Envie como Engenharia de cardápio, com este mesmo período."
+        ]
+    )
+    aba.append(demo_fechamento.CABECALHO_CARDAPIO)
+    for linha in demo_fechamento.cardapio_demo(periodo):
+        aba.append(list(linha))
+    buffer = io.BytesIO()
+    livro.save(buffer)
+    return Response(
+        content=buffer.getvalue(),
+        media_type=XLSX,
+        headers={"Content-Disposition": f'attachment; filename="demo-cardapio-{periodo}.xlsx"'},
+    )
+
+
 # Declarada ANTES de `/{tipo}`: o FastAPI casa as rotas na ordem, e
 # `/fechamento` cairia no `{tipo}` e tomaria 422 do `Literal`.
 @router.get(
