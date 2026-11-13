@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   api,
   ApiError,
   type Casa,
+  type DemoFechamento,
   type Fechamento as FechamentoDto,
   type TipoUpload,
   type UploadCusto,
+  type UploadFechamento,
 } from "../api";
 import { PainelFechamento } from "./Fechamento";
 
@@ -63,12 +65,34 @@ const LADOS: Record<
   },
 };
 
-const PASSOS = ["Casa e período", "Lado teórico", "Lado real", "Resultado"];
+// Dois jeitos de fechar (12/11/2026): os dois relatórios do Everest, ou a
+// planilha de fechamento, que traz os dois lados e o estoque num arquivo só.
+type Modo = "everest" | "planilha";
 
-function Passos({ atual }: { atual: number }) {
+const PASSOS: Record<Modo, string[]> = {
+  everest: ["Casa e período", "Lado teórico", "Lado real", "Resultado"],
+  planilha: ["Casa e período", "Planilha de fechamento", "Resultado"],
+};
+
+const COLUNAS_PLANILHA: Coluna[] = [
+  { nome: "periodo", regra: "Obrigatória — AAAA-MM; o arquivo pode trazer vários meses" },
+  { nome: "grupo", regra: "Obrigatória — só custo direto (ALIMENTOS, BEBIDAS…)" },
+  { nome: "venda_liquida", regra: "Obrigatória" },
+  { nome: "custo_teorico", regra: "Opcional; sem ela não há ajuste" },
+  { nome: "estoque_inicial", regra: "Só no 1º mês; depois vem do estoque final anterior" },
+  { nome: "compras", regra: "Obrigatória — líquidas de devoluções" },
+  { nome: "estoque_final", regra: "Obrigatória — inventário do último dia do mês" },
+];
+
+const mesAno = (periodo: string) => {
+  const [ano, mes] = periodo.split("-");
+  return `${mes}/${ano.slice(2)}`;
+};
+
+function Passos({ rotulos, atual }: { rotulos: string[]; atual: number }) {
   return (
     <ol className="passos">
-      {PASSOS.map((rotulo, i) => (
+      {rotulos.map((rotulo, i) => (
         <li
           key={rotulo}
           className={i === atual ? "passo passo-ativo" : i < atual ? "passo passo-feito" : "passo"}
@@ -227,9 +251,168 @@ function PassoEnvio({
   );
 }
 
+function PassoPlanilha({
+  casaId,
+  periodo,
+  existente,
+  urlDemo,
+  onPronto,
+  onComecouEnvio,
+}: {
+  casaId: number;
+  periodo: string;
+  /** Envio da planilha que já traz este mês, se houver. */
+  existente: UploadFechamento | undefined;
+  /** Só para a casa de demonstração, e só se a demo tem este mês. */
+  urlDemo: string | null;
+  onPronto: () => void;
+  onComecouEnvio: () => void;
+}) {
+  const [substituir, setSubstituir] = useState(false);
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const mostrarEnvio = existente === undefined || substituir;
+
+  async function enviar() {
+    if (!arquivo) return;
+    setEnviando(true);
+    setErro(null);
+    onComecouEnvio();
+    try {
+      const envio = await api.enviarPlanilhaFechamento({ casa_id: casaId, arquivo });
+      // A planilha diz os próprios meses: se não trouxe o mês do fluxo, não
+      // há resultado a mostrar — melhor dizer isso do que um 404 genérico.
+      if (!envio.periodos.includes(periodo)) {
+        setErro(
+          `Planilha enviada, mas ela não traz ${mesAno(periodo)}: traz ` +
+            `${envio.periodos.map(mesAno).join(", ")}. Escolha um desses meses ou envie ` +
+            "outra planilha.",
+        );
+        return;
+      }
+      onPronto();
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : "Não foi possível enviar a planilha.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="glass passo-painel">
+      <h3>Planilha de fechamento</h3>
+      <p className="ajuda">
+        Os dois lados e o estoque num arquivo só. Com o estoque, o lado real é o CMV real:
+        estoque inicial + compras − estoque final.
+      </p>
+
+      <table className="tabela tabela-colunas">
+        <thead>
+          <tr>
+            <th>Coluna</th>
+            <th>Regra</th>
+          </tr>
+        </thead>
+        <tbody>
+          {COLUNAS_PLANILHA.map((c) => (
+            <tr key={c.nome}>
+              <td>
+                <code>{c.nome}</code>
+              </td>
+              <td>{c.regra}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="passo-acoes">
+        <a className="botao-secundario" href={api.urlModelo("fechamento")} download>
+          Baixar planilha-modelo
+        </a>
+        {urlDemo && (
+          <a className="botao-secundario" href={urlDemo} download>
+            Baixar planilha da demonstração ({mesAno(periodo)}, dados fictícios)
+          </a>
+        )}
+      </div>
+
+      {existente !== undefined && !substituir && (
+        <>
+          <p className="ok">
+            {mesAno(periodo)} já veio na planilha enviada em{" "}
+            {new Date(existente.criado_em).toLocaleDateString("pt-BR")}.
+          </p>
+          <div className="passo-acoes">
+            <button type="button" className="botao-primario" onClick={onPronto}>
+              Usar o já enviado
+            </button>
+            <button type="button" className="botao-secundario" onClick={() => setSubstituir(true)}>
+              Enviar outro arquivo
+            </button>
+          </div>
+        </>
+      )}
+
+      {existente !== undefined && substituir && (
+        <p className="aviso aviso-substituicao">
+          Cada mês da planilha nova <strong>substitui</strong> o mesmo mês enviado antes, com
+          todos os grupos. Não tem como desfazer.
+        </p>
+      )}
+
+      {mostrarEnvio && (
+        <>
+          <label className="dropzone">
+            <input
+              type="file"
+              accept=".xlsx"
+              onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
+            />
+            {arquivo ? (
+              <span className="dropzone-arquivo">
+                <strong>{arquivo.name}</strong>
+                <span>{(arquivo.size / 1024).toFixed(0)} KB — pronto pra enviar</span>
+              </span>
+            ) : (
+              <span className="dropzone-vazio">
+                <strong>Escolha o .xlsx</strong>
+                <span>a planilha de fechamento preenchida</span>
+              </span>
+            )}
+          </label>
+          {erro && <p className="erro">{erro}</p>}
+          <div className="passo-acoes">
+            <button
+              type="button"
+              className="botao-primario"
+              disabled={!arquivo || enviando}
+              onClick={enviar}
+            >
+              {enviando ? "Enviando…" : "Enviar e ver o resultado"}
+            </button>
+            {existente !== undefined && (
+              <button
+                type="button"
+                className="botao-secundario"
+                onClick={() => setSubstituir(false)}
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Props) {
   const [passo, setPasso] = useState(0);
+  const [modo, setModo] = useState<Modo>("everest");
   const [uploads, setUploads] = useState<UploadCusto[]>([]);
+  const [planilhas, setPlanilhas] = useState<UploadFechamento[]>([]);
+  const [demo, setDemo] = useState<DemoFechamento | null>(null);
   const [fechamento, setFechamento] = useState<FechamentoDto | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [calculando, setCalculando] = useState(false);
@@ -240,13 +423,36 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
   const [inicio, setInicio] = useState<number | null>(null);
   const [segundos, setSegundos] = useState<number | null>(null);
 
+  // Backend antigo não tem a rota: sem ela, simplesmente não há planilha de demo.
+  useEffect(() => {
+    api
+      .demoFechamento()
+      .then(setDemo)
+      .catch(() => setDemo(null));
+  }, []);
+
   async function recarregarUploads(id: number) {
     try {
       setUploads((await api.listarUploads(id)).items);
     } catch {
       setUploads([]);
     }
+    try {
+      setPlanilhas((await api.listarPlanilhasFechamento(id)).items);
+    } catch {
+      setPlanilhas([]);
+    }
   }
+
+  const planilhaDoPeriodo = planilhas.find((p) => p.periodos.includes(periodo));
+  // A planilha de demonstração só aparece para a casa de demonstração, e só
+  // para um mês que a demo tem: em outra casa, misturaria dado fictício com real.
+  const urlDemo =
+    demo !== null &&
+    casas.some((c) => c.id === casaId && c.nome === demo.casa_nome) &&
+    demo.periodos.includes(periodo)
+      ? api.urlPlanilhaDemo(periodo)
+      : null;
 
   const doPeriodo = (tipo: TipoUpload) =>
     uploads.find((u) => u.periodo === periodo && u.tipo === tipo);
@@ -258,6 +464,11 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
       setPasso(2);
       return;
     }
+    await calcular();
+  }
+
+  async function calcular() {
+    if (casaId === "") return;
     setCalculando(true);
     setErro(null);
     try {
@@ -293,7 +504,8 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
         </p>
       </header>
 
-      <Passos atual={passo} />
+      {/* O resultado é sempre o passo 3; no modo planilha ele é o 3º rótulo. */}
+      <Passos rotulos={PASSOS[modo]} atual={modo === "planilha" && passo === 3 ? 2 : passo} />
 
       {passo === 0 && (
         <form
@@ -329,13 +541,50 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
               required
             />
           </label>
+          <div className="campo">
+            <span className="campo-rotulo">Como vai enviar</span>
+            <div className="segmentado" role="radiogroup">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={modo === "everest"}
+                className={modo === "everest" ? "segmento segmento-ativo" : "segmento"}
+                onClick={() => setModo("everest")}
+              >
+                <strong>Relatórios do Everest</strong>
+                <span>dois arquivos: teórico e real</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={modo === "planilha"}
+                className={modo === "planilha" ? "segmento segmento-ativo" : "segmento"}
+                onClick={() => setModo("planilha")}
+              >
+                <strong>Planilha de fechamento</strong>
+                <span>um arquivo, com o estoque</span>
+              </button>
+            </div>
+          </div>
           <button type="submit" className="botao-primario">
             Começar
           </button>
         </form>
       )}
 
-      {passo === 1 && casaId !== "" && (
+      {passo === 1 && casaId !== "" && modo === "planilha" && (
+        <PassoPlanilha
+          key={`planilha-${casaId}-${periodo}`}
+          casaId={casaId}
+          periodo={periodo}
+          existente={planilhaDoPeriodo}
+          urlDemo={urlDemo}
+          onPronto={calcular}
+          onComecouEnvio={marcarInicio}
+        />
+      )}
+
+      {passo === 1 && casaId !== "" && modo === "everest" && (
         <PassoEnvio
           key={`cardapio-${casaId}-${periodo}`}
           tipo="cardapio"

@@ -14,6 +14,8 @@ O que faz
    execução volta ao estado de antes da apresentação.
 2. Baixa da própria API a planilha do histórico (abr–ago/26) e envia em
    `POST /api/v1/fechamentos`, exatamente como a tela faria.
+3. Envia o cardápio por item de abr–ago/26 (`POST /api/v1/uploads-custo`,
+   tipo cardapio), que alimenta "Quanto comprar" e "Top itens".
 
 O mês da apresentação (set/26) fica de fora: ele é enviado ao vivo pela tela
 de Upload, com a planilha que a própria tela oferece para baixar. Os dados são
@@ -114,11 +116,30 @@ def preparar(api: str) -> None:
     corpo, tipo = _multipart({"casa_id": str(casa["id"])}, "historico-demo.xlsx", planilha)
     envio = json.loads(_requisicao(f"{api}/api/v1/fechamentos", corpo, tipo, "POST"))
     print(
-        f"Histórico enviado: {', '.join(envio['periodos'])} ({envio['linhas_importadas']} linhas)."
+        f"Planilha de fechamento enviada: {', '.join(envio['periodos'])} "
+        f"({envio['linhas_importadas']} linhas)."
     )
+
+    # Cardápio por item, mês a mês (o período vai no formulário): é o que
+    # alimenta "Quanto comprar" e "Top itens", que a planilha não cobre.
+    for periodo in info["periodos_historico"]:
+        cardapio = _requisicao(f"{api}/api/v1/modelos/fechamento/demo/cardapio?periodo={periodo}")
+        corpo, tipo = _multipart(
+            {"casa_id": str(casa["id"]), "periodo": periodo, "tipo": "cardapio"},
+            f"cardapio-demo-{periodo}.xlsx",
+            cardapio,
+        )
+        _requisicao(f"{api}/api/v1/uploads-custo", corpo, tipo, "POST")
+    print(f"Cardápio por item enviado: {', '.join(info['periodos_historico'])}.")
+
+    ao_vivo = info["periodo_ao_vivo"]
+    print()
+    print(f"Pronto. {ao_vivo} fica para a apresentação, com os arquivos que a tela oferece:")
+    print("  - Upload → Planilha de fechamento → 'Baixar planilha da demonstração'")
+    print("    (ou Fechar o mês → Planilha de fechamento)")
     print(
-        f"\nPronto. Na apresentação: aba Upload → casa '{nome}' → "
-        f"'Planilha de fechamento' → baixar a planilha de {info['periodo_ao_vivo']} → enviar."
+        f"  - Upload → Engenharia de cardápio, período {ao_vivo} → "
+        "'Baixar cardápio da demonstração'"
     )
 
 

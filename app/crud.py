@@ -550,7 +550,7 @@ def _fechamentos(db: Session, casa_id: int, periodos: list[str] | None = None) -
     (`_fechamentos_movimento`): misturar os dois caminhos na mesma casa poria
     compras de um mês ao lado de consumo de outro na mesma série.
     """
-    if _usa_planilha_fechamento(db, casa_id):
+    if usa_planilha_fechamento(db, casa_id):
         return _fechamentos_movimento(db, casa_id, periodos)
 
     grupos_cmv = grupos_comparaveis(db, casa_id)
@@ -604,7 +604,7 @@ def _fechamentos(db: Session, casa_id: int, periodos: list[str] | None = None) -
     return resultado
 
 
-def _usa_planilha_fechamento(db: Session, casa_id: int) -> bool:
+def usa_planilha_fechamento(db: Session, casa_id: int) -> bool:
     """A casa já recebeu a planilha-modelo de fechamento?"""
     return (
         db.scalar(select(MovimentoGrupo.id).where(MovimentoGrupo.casa_id == casa_id).limit(1))
@@ -615,7 +615,7 @@ def _usa_planilha_fechamento(db: Session, casa_id: int) -> bool:
 def _coluna_periodo(db: Session, casa_id: int):
     """De onde vêm os meses da casa: da planilha-modelo, se ela já foi enviada,
     senão dos uploads do Everest. Mesma regra de `_fechamentos`."""
-    if _usa_planilha_fechamento(db, casa_id):
+    if usa_planilha_fechamento(db, casa_id):
         return MovimentoGrupo.periodo
     return UploadCusto.periodo
 

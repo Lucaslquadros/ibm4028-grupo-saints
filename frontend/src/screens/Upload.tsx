@@ -204,6 +204,21 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
           </div>
         )}
 
+        {tipo === "cardapio" && casaEhDemo && demo && (
+          <div className="ajuda">
+            {demo.periodos.includes(periodo) ? (
+              <a className="botao-secundario" href={api.urlCardapioDemo(periodo)} download>
+                Baixar cardápio da demonstração ({mesAno(periodo)}, dados fictícios)
+              </a>
+            ) : (
+              <p>
+                O cardápio da demonstração existe de {intervalo(demo.periodos)}: escolha um
+                desses meses no período.
+              </p>
+            )}
+          </div>
+        )}
+
         {existente && (
           <p className="aviso aviso-substituicao">
             Já existe um upload de <strong>{RECEITAS[tipo].rotulo.toLowerCase()}</strong> para este
