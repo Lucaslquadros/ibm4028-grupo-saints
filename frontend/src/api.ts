@@ -63,6 +63,14 @@ export interface UploadFechamento {
   meses_substituidos: string[];
 }
 
+/** A casa de demonstração da planilha de fechamento (dados fictícios). */
+export interface DemoFechamento {
+  casa_nome: string;
+  periodos: string[];
+  periodos_historico: string[];
+  periodo_ao_vivo: string;
+}
+
 export interface LinhaFechamento {
   grupo: string;
   venda_liquida: number | null;
@@ -245,6 +253,12 @@ export const api = {
     form.set("arquivo", dados.arquivo);
     return pedido<UploadCusto>("/api/v1/uploads-custo", { method: "POST", body: form });
   },
+
+  demoFechamento: () => pedido<DemoFechamento>("/api/v1/modelos/fechamento/demo"),
+
+  /** Planilha preenchida da casa de demonstração, do mês pedido. */
+  urlPlanilhaDemo: (periodo: string) =>
+    `${BASE_URL}/api/v1/modelos/fechamento/demo/planilha?periodo=${periodo}`,
 
   enviarPlanilhaFechamento: (dados: { casa_id: number; arquivo: File }) => {
     const form = new FormData();

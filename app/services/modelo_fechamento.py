@@ -164,10 +164,15 @@ _PCT = "0.00%"
 _PP = '+0.00" pp";-0.00" pp";0.00" pp"'
 
 
-def gerar_modelo_fechamento() -> bytes:
-    """Monta o `.xlsx` em memória. Função pura: nada de disco, nada de banco."""
+def gerar_modelo_fechamento(linhas: list[tuple] | None = None) -> bytes:
+    """Monta o `.xlsx` em memória. Função pura: nada de disco, nada de banco.
+
+    `linhas` troca o exemplo por outros dados no mesmo layout (periodo, grupo,
+    venda_liquida, custo_teorico, estoque_inicial, compras, estoque_final) —
+    é o que gera a planilha da casa de demonstração (`demo_fechamento.py`).
+    """
     livro = Workbook()
-    _aba_fechamento(livro.active)
+    _aba_fechamento(livro.active, EXEMPLO if linhas is None else linhas)
     _aba_instrucoes(livro.create_sheet("Instrucoes"))
     _aba_conferencia(livro.create_sheet("Conferencia"))
     buffer = io.BytesIO()
@@ -186,10 +191,10 @@ def _cabecalho(aba, titulos: list[tuple[str, int, PatternFill]]) -> None:
     aba.freeze_panes = "A2"
 
 
-def _aba_fechamento(aba) -> None:
+def _aba_fechamento(aba, linhas: list[tuple]) -> None:
     aba.title = "Fechamento"
     _cabecalho(aba, [(n, w, _AZUL if obrig else _OPCIONAL) for n, w, obrig in COLUNAS])
-    for r, linha in enumerate(EXEMPLO, start=2):
+    for r, linha in enumerate(linhas, start=2):
         for i, valor in enumerate(linha, start=1):
             c = aba.cell(row=r, column=i, value=valor)
             c.border = _BORDA
