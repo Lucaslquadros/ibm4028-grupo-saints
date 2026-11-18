@@ -524,8 +524,16 @@ pela matriz de Kasavana & Smith (1982):
   estrela (popular, margem alta) · burro de carga (popular, margem baixa) ·
   quebra-cabeça (pouco, margem alta) · cão (pouco, margem baixa)
 A tela mostra a matriz, a ação de cada quadrante e, antes de tudo, os itens
-vendidos abaixo do custo da ficha. Itens sem unidade ou sem venda ficam fora.
-Paginado, filtra por grupo e quadrante.
+vendidos abaixo do custo da ficha. Paginado, filtra por grupo e quadrante.
+Duas réguas, conferidas contra a casa piloto em 18/11:
+  - a MATRIZ usa só os grupos de CMV (os mesmos do fechamento — SERVICOS e
+    OUTRAS VENDAS ficam fora) e só itens com venda >= R$ 500 no mês. Sem isso,
+    os 243 itens de BEBIDAS da piloto derrubavam o corte de popularidade para
+    0,3% e punham 167 itens em "quebra-cabeça";
+  - o ALERTA de abaixo do custo olha TODOS os itens desses grupos, menos preço
+    simbólico (< R$ 1, cortesia). Na piloto, set/26: 20 itens, quase R$ 3,5 mil
+    no mês — a jarra de limão sozinha, −R$ 987. Esses itens vendem pouco e
+    ficariam escondidos pela régua da matriz.
 Origem: substitui o RF07 (seção 7). Usa só o que aconteceu no mês — nenhuma
 previsão — e o método é o que dá nome ao relatório que o cliente já exporta do
 Everest. Na casa piloto, set/26: Picanha Floriano e Costela do Pecado são

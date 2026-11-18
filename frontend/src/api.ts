@@ -200,8 +200,9 @@ export interface ItemEngenharia {
   margem_unitaria: number;
   margem_total: number;
   cmv_pct: number;
-  popularidade_pct: number;
-  classe: ClasseCardapio;
+  /** Nulo para item fora da matriz por volume (venda abaixo da venda mínima). */
+  popularidade_pct: number | null;
+  classe: ClasseCardapio | null;
   abaixo_do_custo: boolean;
 }
 
@@ -216,6 +217,7 @@ export interface GrupoEngenharia {
   burro_de_carga: number;
   quebra_cabeca: number;
   cao: number;
+  fora_da_matriz?: number;
 }
 
 export interface EngenhariaCardapio extends Pagina<ItemEngenharia> {
@@ -224,6 +226,9 @@ export interface EngenhariaCardapio extends Pagina<ItemEngenharia> {
   periodo: string;
   grupos: GrupoEngenharia[];
   abaixo_do_custo: ItemEngenharia[];
+  abaixo_do_custo_total?: number;
+  abaixo_do_custo_prejuizo?: number;
+  venda_minima?: number;
   metodo: string;
   aviso: string;
 }

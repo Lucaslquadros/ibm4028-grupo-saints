@@ -33,6 +33,17 @@ from app.services.margem import ItemMes
 FATOR_POPULARIDADE = 0.7
 """A regra dos 70% de Kasavana & Smith."""
 
+VENDA_MINIMA = 500.0
+"""Item com venda abaixo disso no mês fica fora da MATRIZ (mesma régua da margem
+por item). Sem ele, os 243 itens de BEBIDAS da casa piloto — muitos uma garrafa
+vendida uma vez — derrubam o corte de popularidade para 0,3% e jogam dois
+terços do cardápio em "quebra-cabeça". Esses itens continuam contando para o
+alerta de abaixo do custo, que é sobre dinheiro perdido, não sobre volume."""
+
+PRECO_SIMBOLICO = 1.0
+"""Preço médio abaixo disso é cortesia lançada com valor simbólico (porção de
+arroz a R$ 0,01): custo maior que o preço ali não é prejuízo de cardápio."""
+
 ESTRELA = "estrela"
 BURRO_DE_CARGA = "burro_de_carga"
 QUEBRA_CABECA = "quebra_cabeca"
@@ -58,13 +69,15 @@ def _classe(popular: bool, margem_alta: bool) -> str:
     return QUEBRA_CABECA if margem_alta else CAO
 
 
-def classificar(itens: list[ItemMes]) -> tuple[list[Corte], list[dict]]:
+def classificar(
+    itens: list[ItemMes], *, venda_minima: float = VENDA_MINIMA
+) -> tuple[list[Corte], list[dict]]:
     """(cortes por grupo, itens classificados).
 
-    Ficam fora itens sem unidade ou sem venda no mês (cortesia, devolução): sem
-    eles não há preço médio nem margem por unidade.
+    Entram na matriz os itens com unidade e com venda de pelo menos
+    `venda_minima` no mês.
     """
-    validos = [i for i in itens if i.quantidade > 0 and i.venda > 0]
+    validos = [i for i in itens if i.quantidade > 0 and i.venda >= max(venda_minima, 0.01)]
     cortes: list[Corte] = []
     linhas: list[dict] = []
     for grupo in sorted({i.grupo for i in validos}):
@@ -87,26 +100,61 @@ def classificar(itens: list[ItemMes]) -> tuple[list[Corte], list[dict]]:
             margem_unit = (item.venda - item.custo) / item.quantidade
             popularidade = item.quantidade / unidades
             linhas.append(
-                {
-                    "nome": item.nome,
-                    "grupo": grupo,
-                    "subgrupo": item.subgrupo,
-                    "quantidade": round(item.quantidade, 3),
-                    "venda_liquida": round(item.venda, 2),
-                    "custo": round(item.custo, 2),
-                    "preco_medio": round(item.venda / item.quantidade, 2),
-                    "custo_unitario": round(item.custo / item.quantidade, 2),
-                    "margem_unitaria": round(margem_unit, 2),
-                    "margem_total": round(item.venda - item.custo, 2),
-                    "cmv_pct": round(item.custo / item.venda * 100, 2),
-                    "popularidade_pct": round(popularidade * 100, 2),
-                    "classe": _classe(popularidade >= limiar, margem_unit >= media),
-                    "abaixo_do_custo": item.custo > item.venda,
-                }
+                _linha(
+                    item,
+                    popularidade=popularidade,
+                    classe=_classe(popularidade >= limiar, margem_unit >= media),
+                )
             )
     # Dentro de cada grupo, o que mais pesa na margem primeiro.
     linhas.sort(key=lambda linha: (linha["grupo"], -linha["margem_total"], linha["nome"]))
     return cortes, linhas
+
+
+def _linha(item: ItemMes, *, popularidade: float | None, classe: str | None) -> dict:
+    return {
+        "nome": item.nome,
+        "grupo": item.grupo,
+        "subgrupo": item.subgrupo,
+        "quantidade": round(item.quantidade, 3),
+        "venda_liquida": round(item.venda, 2),
+        "custo": round(item.custo, 2),
+        "preco_medio": round(item.venda / item.quantidade, 2),
+        "custo_unitario": round(item.custo / item.quantidade, 2),
+        "margem_unitaria": round((item.venda - item.custo) / item.quantidade, 2),
+        "margem_total": round(item.venda - item.custo, 2),
+        "cmv_pct": round(item.custo / item.venda * 100, 2),
+        "popularidade_pct": round(popularidade * 100, 2) if popularidade is not None else None,
+        "classe": classe,
+        "abaixo_do_custo": item.custo > item.venda,
+    }
+
+
+def abaixo_do_custo(itens: list[ItemMes], classificados: list[dict]) -> list[dict]:
+    """Itens vendidos abaixo do custo da ficha, do maior prejuízo ao menor.
+
+    Olha TODOS os itens do mês, não só os da matriz: a jarra de limão da casa
+    piloto vende pouco, mas perde R$ 27 por unidade. Fica fora só o preço
+    simbólico (cortesia). Quem está na matriz vem com o quadrante.
+    """
+    classe = {linha["nome"]: linha["classe"] for linha in classificados}
+    popularidade = {linha["nome"]: linha["popularidade_pct"] / 100 for linha in classificados}
+    linhas = [
+        _linha(i, popularidade=popularidade.get(i.nome), classe=classe.get(i.nome))
+        for i in itens
+        if i.quantidade > 0
+        and i.venda > 0
+        and i.venda / i.quantidade >= PRECO_SIMBOLICO
+        and i.custo > i.venda
+    ]
+    return sorted(linhas, key=lambda linha: (linha["margem_total"], linha["nome"]))
+
+
+def fora_da_matriz(itens: list[ItemMes], grupo: str, *, venda_minima: float = VENDA_MINIMA) -> int:
+    """Itens do grupo vendidos no mês que ficaram fora da matriz por volume."""
+    return sum(
+        1 for i in itens if i.grupo == grupo and i.quantidade > 0 and 0 < i.venda < venda_minima
+    )
 
 
 def contagem(linhas: list[dict], grupo: str) -> dict[str, int]:

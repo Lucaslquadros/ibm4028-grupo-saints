@@ -453,8 +453,12 @@ class ItemEngenharia(BaseModel):
     margem_unitaria: float = Field(description="Preço médio − custo da ficha, por unidade")
     margem_total: float
     cmv_pct: float
-    popularidade_pct: float = Field(description="Fatia das unidades vendidas no grupo")
-    classe: ClasseCardapio
+    popularidade_pct: float | None = Field(
+        description="Fatia das unidades vendidas no grupo (nulo fora da matriz)"
+    )
+    classe: ClasseCardapio | None = Field(
+        description="Quadrante; nulo para item fora da matriz por volume (venda < venda_minima)"
+    )
     abaixo_do_custo: bool = Field(description="Custo da ficha maior que a venda do item")
 
 
@@ -471,6 +475,7 @@ class GrupoEngenharia(BaseModel):
     burro_de_carga: int
     quebra_cabeca: int
     cao: int
+    fora_da_matriz: int = Field(default=0, description="Itens vendidos com venda < venda_minima")
 
 
 class EngenhariaCardapioResponse(BaseModel):
@@ -481,8 +486,14 @@ class EngenhariaCardapioResponse(BaseModel):
     periodo: str
     grupos: list[GrupoEngenharia]
     abaixo_do_custo: list[ItemEngenharia] = Field(
-        description="Itens vendidos abaixo do custo da ficha no mês (até 20)"
+        description="Itens vendidos abaixo do custo da ficha no mês, maior prejuízo primeiro "
+        "(até 20)"
     )
+    abaixo_do_custo_total: int = Field(default=0, description="Quantos são, sem o limite de 20")
+    abaixo_do_custo_prejuizo: float = Field(
+        default=0, description="Soma da margem negativa desses itens no mês"
+    )
+    venda_minima: float = Field(default=0, description="Venda mínima no mês para entrar na matriz")
     metodo: str
     aviso: str
     total: int
