@@ -531,17 +531,24 @@ Duas réguas, conferidas contra a casa piloto em 18/11:
     os 243 itens de BEBIDAS da piloto derrubavam o corte de popularidade para
     0,3% e punham 167 itens em "quebra-cabeça";
   - o ALERTA de abaixo do custo olha TODOS os itens desses grupos, menos preço
-    simbólico (< R$ 1, cortesia). Na piloto, set/26: 20 itens, quase R$ 3,5 mil
-    no mês — a jarra de limão sozinha, −R$ 987. Esses itens vendem pouco e
-    ficariam escondidos pela régua da matriz.
+    simbólico (< R$ 1). Na piloto, set/26: 4 itens, R$ 277 no mês.
+    ⚠️ Antes do filtro de preço simbólico o alerta mostrava 20 itens e quase
+    R$ 3,5 mil (jarra de limão −R$ 987, fruta morango −R$ 800). Era falso: são
+    COMPLEMENTOS lançados a R$ 0,00–0,01 (a fruta escolhida na caipirinha) —
+    a venda fica no drink, o custo no complemento. Não é prejuízo.
 Origem: substitui o RF07 (seção 7). Usa só o que aconteceu no mês — nenhuma
 previsão — e o método é o que dá nome ao relatório que o cliente já exporta do
-Everest. Na casa piloto, set/26: Picanha Floriano e Costela do Pecado são
-estrelas; o Bolinho de costela é burro de carga (12,6% das unidades de
-ALIMENTOS, margem abaixo da média); a jarra de limão espremido é vendida
-abaixo do custo.
+Everest. Na casa piloto, set/26 (conferido em produção): Picanha Floriano e
+Costela do Pecado são estrelas (margem acima de R$ 135 por unidade); o Chopp
+Claro é o maior burro de carga — 43% das unidades de BEBIDAS, margem de
+R$ 10,82 contra média de R$ 15,97; o Bolinho de costela também (9,5% das
+unidades de ALIMENTOS). A Original 600 ml é burro de carga E perdeu margem no
+ano (RF15): as duas telas apontam o mesmo item.
 ⚠️ Mesma ressalva do RF15: o custo é o da ficha técnica do mês. Comparar
 dentro de BEBIDAS junta chopp e destilado; refinar por subgrupo fica para depois.
+⚠️ Complementos a R$ 0 (acima) também distorcem o drink: a caipirinha aparece
+com CMV de 3% porque o custo da fruta está no complemento. A margem dos drinks
+com complemento está superestimada até o ERP ligar complemento ao item.
 Regra: `app/services/engenharia.py`. Testes: `tests/test_engenharia_cardapio.py`.
 ```
 
