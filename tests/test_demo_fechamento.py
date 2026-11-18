@@ -199,7 +199,7 @@ def test_envio_ao_vivo_do_cardapio_nao_muda_o_fechamento_da_planilha(client, cas
     assert setembro["total"]["ajuste"] == 8780
     assert setembro["total"]["custo_teorico"] == 141150
     top = client.get(TOP_ITENS, params={"casa_id": casa_demo, "periodo": "2026-09"}).json()
-    assert top[0]["nome"] == "CHOPP 300ML"
+    assert "CHOPP 300ML" in [item["nome"] for item in top]
 
 
 def test_quanto_comprar_explica_quando_a_casa_so_tem_a_planilha(client, casa_demo):

@@ -18,10 +18,14 @@ from app.deps import DbSession, PaginacaoDep
 from app.schemas import (
     PERIODO_PATTERN,
     Acumulado,
+    ClasseCardapio,
+    EngenhariaCardapioResponse,
     ErroResponse,
     Explicacao,
     FechamentoResponse,
+    GrupoEngenharia,
     ItemCardapioResponse,
+    ItemEngenharia,
     LinhaFechamento,
     MargemItem,
     MargemItensResponse,
@@ -31,6 +35,7 @@ from app.schemas import (
     PrevisaoItem,
     RecomendacaoCompraResponse,
 )
+from app.services import engenharia as servico_engenharia
 from app.services import explicacao as servico_explicacao
 from app.services import margem as servico_margem
 from app.services import previsao as servico_previsao
@@ -343,4 +348,79 @@ def margem_itens(
             )
             for linha in pagina
         ],
+    )
+
+
+LIMITE_ABAIXO_DO_CUSTO = 20
+
+
+@router.get(
+    "/engenharia-cardapio",
+    summary="Engenharia de cardápio: cada item no seu quadrante de popularidade × margem",
+)
+def engenharia_cardapio(
+    db: DbSession,
+    casa_id: CasaId,
+    periodo: Periodo,
+    pag: PaginacaoDep,
+    grupo: Annotated[str | None, Query(description="Só os itens deste grupo")] = None,
+    classe: Annotated[
+        ClasseCardapio | None, Query(description="Só os itens deste quadrante")
+    ] = None,
+) -> EngenhariaCardapioResponse:
+    """Matriz de Kasavana & Smith sobre o cardápio do mês, por grupo: estrela,
+    burro de carga, quebra-cabeça e cão. Usa só o cardápio (venda e custo da
+    ficha de cada item). Regra em `app/services/engenharia.py`.
+    """
+    casa = _casa_ou_404(db, casa_id)
+    itens = crud.itens_do_mes(db, casa_id=casa_id, periodo=periodo)
+    if not itens:
+        raise HTTPException(
+            status_code=404,
+            detail=f"A casa {casa_id} não tem engenharia de cardápio em {periodo}",
+        )
+    cortes, linhas = servico_engenharia.classificar(list(itens.values()))
+    if grupo is not None and grupo not in {c.grupo for c in cortes}:
+        raise HTTPException(status_code=404, detail=f"Grupo {grupo} sem itens em {periodo}")
+
+    filtradas = [
+        linha
+        for linha in linhas
+        if (grupo is None or linha["grupo"] == grupo)
+        and (classe is None or linha["classe"] == classe)
+    ]
+    abaixo = sorted(
+        (linha for linha in linhas if linha["abaixo_do_custo"]),
+        key=lambda linha: linha["margem_total"],
+    )
+    return EngenhariaCardapioResponse(
+        casa_id=casa.id,
+        casa_nome=casa.nome,
+        periodo=periodo,
+        grupos=[
+            GrupoEngenharia(
+                grupo=c.grupo,
+                itens=c.itens,
+                unidades=c.unidades,
+                margem_total=c.margem_total,
+                margem_media_unitaria=c.margem_media_unitaria,
+                limiar_popularidade_pct=c.limiar_popularidade_pct,
+                **servico_engenharia.contagem(linhas, c.grupo),
+            )
+            for c in cortes
+        ],
+        abaixo_do_custo=[ItemEngenharia(**linha) for linha in abaixo[:LIMITE_ABAIXO_DO_CUSTO]],
+        metodo=(
+            "Matriz de Kasavana & Smith, dentro de cada grupo. Margem alta = margem por "
+            "unidade (preço − custo da ficha) acima da média ponderada do grupo. Popular = "
+            "vende pelo menos 70% da fatia que teria se todos os itens vendessem igual."
+        ),
+        aviso=(
+            "A margem usa o custo da ficha técnica do mês. Se a ficha não acompanha o preço "
+            "de compra do insumo, a margem do item pode estar defasada."
+        ),
+        total=len(filtradas),
+        limit=pag.limit,
+        offset=pag.offset,
+        items=[ItemEngenharia(**linha) for linha in filtradas[pag.offset : pag.offset + pag.limit]],
     )

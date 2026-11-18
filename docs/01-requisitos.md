@@ -6,7 +6,7 @@
 |---|---|
 | **Grupo** | _(nomes)_ |
 | **Cliente (papel de PO)** | Grupo Saints (grupo de bares/restaurantes, [gruposaints.com.br](https://www.gruposaints.com.br/)). **Desde 06/11/2026 o cliente é caso de estudo, não PO ativo** — ver 1.7 |
-| **Versão** | 1.7 — RF15 (margem por item) publicado; RF13 (cronômetro) retirado |
+| **Versão** | 1.8 — RF16 (engenharia de cardápio) no lugar do RF07 (quanto comprar) |
 | **Última atualização** | 18/11/2026 |
 
 ## Ambiente em produção
@@ -92,7 +92,8 @@ e venda. O que o usuário precisa fornecer está em `07-fechamento-cmv.md`.
 - ~~Tempo medido do primeiro envio ao resultado~~ (RF13 — entregue em 07/11, **retirado em 18/11**)
 - Margem por item: cada item do cardápio contra ele mesmo num mês anterior, ordenado pelo custo extra em R$ (RF15 — **no ar desde 18/11**, Should)
 - Dashboard com fechamento, evolução mensal e itens que mais pesam (RF04)
-- Recomendação de quantidade de compra a partir do histórico (RF07)
+- ~~Recomendação de quantidade de compra a partir do histórico~~ (RF07 — **retirado do menu em 18/11**; ver seção 7)
+- Engenharia de cardápio: cada item no quadrante popularidade × margem, com a ação de cada quadrante (RF16 — **no ar desde 18/11**, Should)
 - Leitura de **três formatos**: dois relatórios do Everest e uma planilha
   genérica, que qualquer ERP exporta
 
@@ -342,12 +343,13 @@ pessoal (RF03/RF05) continua fora: nunca saiu de hipótese.
 | RF03 | Cadastro e consulta de funcionários ativos por casa (CRUD) | Must | **Adiado — pendente Conversa 2** | Persona 2 (Sócio/Diretor) |
 | RF05 | Alerta de escala fora do padrão esperado por casa | Should | **Adiado — pendente Conversa 2** | Persona 2 |
 | RF06 | Geração automática de DRE consolidada entre casas | **Won't** | **Fora de escopo desde 06/11** — sem dado das outras casas | Persona 2 |
-| RF07 | Recomendação de quantidade de compra a partir do histórico de vendas | **Must** | **Entregue 06/11** — endpoint + tela "Quanto comprar" | Persona 1 / Persona 2 (era Persona 3 até 07/11) |
+| ~~RF07~~ | ~~Recomendação de quantidade de compra a partir do histórico de vendas~~ | **Won't** (era Must) | **Retirado do menu em 18/11** — a rota da API continua; a tela "Quanto comprar" saiu. Motivo na seção 7 | — |
 | ~~RF09~~ | ~~Anexo de nota fiscal fotografada ao custo do período~~ | **Won't** (era Should) | **Abandonado em 18/11** — especificação mantida em `10-anexos-de-imagem.md`, sem previsão. Motivo na seção 7 | — |
 | **RF11** | **Explicação do ajuste**: contribuição por grupo, subgrupos comparáveis, resumo em linguagem simples e até 2 sugestões, por regras | **Must** | **Entregue 07/11** — campo `explicacao` no fechamento + tela (`11-ciclo-explicacao-do-ajuste.md` §3) | Persona 2 (lê) / Persona 1 (confere) |
 | **RF12** | Fluxo guiado "Fechar o mês" (unidade → teórico → real → resultado) com planilha-modelo | Should | **Entregue 07/11** — aba "Fechar o mês" (§5); não precisou do corte | Persona 1 |
 | ~~RF13~~ | ~~Tempo medido do primeiro envio ao resultado~~ | **Won't** (era Should) | **Retirado em 18/11** — entregue em 07/11, removido da aba "Fechar o mês" a pedido do time | — |
 | **RF15** | **Margem por item**: o mesmo item do cardápio no mês e num mês-base (padrão: o mesmo mês do ano anterior), com CMV, custo e preço por unidade e o custo extra em R$, ordenado por ele | Should | **No ar desde 18/11** — `GET /api/v1/metricas/margem-itens` + aba "Margem por item" | Persona 2 |
+| **RF16** | **Engenharia de cardápio**: matriz popularidade × margem (Kasavana & Smith) por grupo no mês — estrela, burro de carga, quebra-cabeça, cão — com a ação de cada quadrante e os itens vendidos abaixo do custo | Should | **No ar desde 18/11** — `GET /api/v1/metricas/engenharia-cardapio` + aba "Engenharia de cardápio" | Persona 2 |
 | ~~RF10~~ | ~~Cadastro de produto com foto como âncora de identidade~~ | — | **Retirado em 06/11** — a foto não fazia o trabalho de identidade e o recurso duplicaria a agregação. Motivo em `10-anexos-de-imagem.md` | — |
 
 > **Nota de retomada (09/10/2026):** RF03 e RF05 continuam como hipótese e ficam
@@ -431,8 +433,8 @@ Origem: entrevista em 01/09/2026 — "eu tenho que baixar 15 planilhas, jogar
 pra minha planilha [...] e aí comer de novo"; o próprio cliente chamou de
 "muito simples de fazer" (possível quick win, ver H4 no discovery).
 
-RF07 — Recomendação de quantidade de compra a partir do histórico de vendas
-Prioridade: Must (era Could até 06/11/2026)
+RF07 — Recomendação de quantidade de compra a partir do histórico de vendas — RETIRADO EM 18/11
+Prioridade: Won't desde 18/11/2026 (era Must; Could até 06/11). Motivo na seção 7.
 Persona: desde 07/11/2026, Personas 1 e 2 — a fala de origem ("você parte do
 senso do chefe") é da Conversa 1, do caso Saints. O texto abaixo sobre a
 Persona 3 é o motivo histórico da subida para Must.
@@ -505,12 +507,34 @@ premissa do RF11) e quanto isso custou no mês. Itens com venda < R$ 500 em
 qualquer dos dois meses ficam fora. Paginado.
 Origem: o fechamento por grupo diz QUE um grupo saiu do previsto, mas a decisão
 do sócio é por item (preço, fornecedor, receita, cardápio), e a categoria
-esconde o item. Na casa piloto, set/25 × set/26: 17 dos 40 itens de maior custo
-perderam margem, R$ 5,7 mil no mês; a Original 600 ml sozinha, R$ 1,4 mil.
+esconde o item. Na casa piloto, set/25 × set/26: 49 dos 131 itens comparados
+perderam margem, R$ 7,6 mil no mês (conferido em produção em 18/11); a Original 600 ml sozinha, R$ 1,4 mil.
 Usa só o cardápio: não depende de estoque nem do lado real.
 ⚠️ O custo é o da ficha técnica de cada mês. Se o ERP não atualiza a ficha com
 o preço de compra, o custo do item pode estar defasado — a tela diz isso.
 Regra: `app/services/margem.py`. Testes: `tests/test_margem_itens.py`.
+
+RF16 — Engenharia de cardápio
+Prioridade: Should
+Descrição: No mês, cada item do cardápio é classificado DENTRO do seu grupo
+pela matriz de Kasavana & Smith (1982):
+  margem por unidade = preço médio − custo da ficha; corte = média ponderada
+  do grupo (margem total ÷ unidades)
+  popularidade = fatia das unidades do grupo; corte = 70% de 1/N
+  estrela (popular, margem alta) · burro de carga (popular, margem baixa) ·
+  quebra-cabeça (pouco, margem alta) · cão (pouco, margem baixa)
+A tela mostra a matriz, a ação de cada quadrante e, antes de tudo, os itens
+vendidos abaixo do custo da ficha. Itens sem unidade ou sem venda ficam fora.
+Paginado, filtra por grupo e quadrante.
+Origem: substitui o RF07 (seção 7). Usa só o que aconteceu no mês — nenhuma
+previsão — e o método é o que dá nome ao relatório que o cliente já exporta do
+Everest. Na casa piloto, set/26: Picanha Floriano e Costela do Pecado são
+estrelas; o Bolinho de costela é burro de carga (12,6% das unidades de
+ALIMENTOS, margem abaixo da média); a jarra de limão espremido é vendida
+abaixo do custo.
+⚠️ Mesma ressalva do RF15: o custo é o da ficha técnica do mês. Comparar
+dentro de BEBIDAS junta chopp e destilado; refinar por subgrupo fica para depois.
+Regra: `app/services/engenharia.py`. Testes: `tests/test_engenharia_cardapio.py`.
 ```
 
 ---
@@ -619,15 +643,26 @@ está na primeira linha do histórico.
 
 | Nível | Requisitos | Estado |
 |---|---|---|
-| **Must** — o MVP | RF08 (CRUD de unidade) · RF01 (upload do export) · RF02 (CMV teórico × real) · RF04 (dashboard) · RF07 (recomendação de compra) · **RF11 (explicação do ajuste)** | **Todos no ar**, com tela |
-| **Should** | **RF12 (fluxo guiado)** · **RF15 (margem por item)** · RNF03 autenticação · registro de perda com foto · decomposição do ajuste em contagem + perdas + não explicado · **tratamento da deriva de nome de item** (ver 1.9) | RF12 entregue em 07/11 e no ar; RF15 no ar desde 18/11 (PR #26); demais não entregues |
+| **Must** — o MVP | RF08 (CRUD de unidade) · RF01 (upload do export) · RF02 (CMV teórico × real) · RF04 (dashboard) · **RF11 (explicação do ajuste)** | **Todos no ar**, com tela |
+| **Should** | **RF12 (fluxo guiado)** · **RF15 (margem por item)** · **RF16 (engenharia de cardápio)** · RNF03 autenticação · registro de perda com foto · decomposição do ajuste em contagem + perdas + não explicado · **tratamento da deriva de nome de item** (ver 1.9) | RF12 entregue em 07/11 e no ar; RF15 e RF16 no ar desde 18/11; demais não entregues |
 | **Could** | Alerta de variação de custo unitário por item · curva ABC de concentração de custo · OCR de nota fiscal | Nenhum iniciado |
-| **Won't** (documentado) | RF03 (funcionários) · RF05 (alerta de escala) · **RF06 (DRE consolidada entre casas)** · integração via API do Everest · **RF09 (nota fiscal fotografada)** e **RF14 (baixar o arquivo original, "de onde veio este número")**, abandonados em 18/11 · **RF13 (cronômetro)**, retirado da tela em 18/11 | Fora de escopo, com motivo |
+| **Won't** (documentado) | RF03 (funcionários) · RF05 (alerta de escala) · **RF06 (DRE consolidada entre casas)** · integração via API do Everest · **RF09 (nota fiscal fotografada)** e **RF14 (baixar o arquivo original, "de onde veio este número")**, abandonados em 18/11 · **RF13 (cronômetro)**, retirado da tela em 18/11 · **RF07 (quanto comprar)**, retirado do menu em 18/11 | Fora de escopo, com motivo |
 
 **Por que RF11 entra como Must:** o ERP do cliente já tem os números; mostrar o
 ajuste formatado agrega pouco. O valor está em dizer onde está a diferença e o
 que conferir. Sem RF11, o produto é um relatório mais rápido; com ele, encurta o
 diagnóstico.
+
+**Por que RF07 saiu do menu (18/11):** testado contra o histórico real da
+casa piloto — 9 itens × os 12 meses mais recentes, cada previsão feita só com
+os meses anteriores —, o "Quanto comprar" errou 21% em média (mediana 18%),
+contra 20% (mediana 15%) de simplesmente repetir a venda do mês passado; foi
+melhor que esse atalho em só 42% dos casos, e em 24% dos meses a venda real
+passou da sugestão mesmo com 10% de margem. Além disso a sugestão sai em
+pratos e copos vendidos, não no insumo que se compra — sem a ficha técnica
+explodida não vira pedido de compra. Uma tela de "recomendação" que não bate o
+atalho mais simples enfraquecia o resto. O lugar dela ficou com o RF16, que não
+prevê nada. A rota `GET /api/v1/metricas/recomendacao-compra` continua na API.
 
 **Por que RF09 e RF14 foram abandonados (18/11):** os dois reforçam a
 *confiança* no número do fechamento — baixar o arquivo que o gerou (RF14,
@@ -726,6 +761,7 @@ _(inserir; ver `docs/02-arquitetura.md`)_
 
 | Data | Versão | O que mudou | Motivo |
 |---|---|---|---|
+| 18/11/2026 | 1.8 | **RF16 — engenharia de cardápio** (Should): `GET /api/v1/metricas/engenharia-cardapio` e aba "Engenharia de cardápio", no lugar de "Quanto comprar". **RF07 vira Won't** e sai do menu (a rota da API fica). Casa de demonstração ganha CALDO DE FEIJAO e LIMONADA JARRA (vendida abaixo do custo) para ter os quatro quadrantes | Teste do RF07 contra o histórico real (seção 7): não previa melhor que repetir o mês passado e a sugestão não chega ao insumo. A engenharia de cardápio usa só fatos do mês e um método estabelecido |
 | 18/11/2026 | 1.7 | **RF13 retirado**: a linha "Do primeiro envio ao resultado: X s" e a ressalva saem da aba "Fechar o mês" (código, CSS, roteiro e deck). A métrica de tempo em 1.6 volta a "não medido pelo sistema". **RF15 publicado** junto, no merge do PR #26 | Decisão do time em 18/11, na véspera da apresentação ao cliente. _(Registrar aqui o motivo, se houver um além da decisão.)_ |
 | 18/11/2026 | 1.6 | **RF15 — margem por item** (Should; RF15 e não RF14 porque o RF14 já está especificado na branch `docs/rf14-rf09-proximos-passos`, "de onde veio este número"): `GET /api/v1/metricas/margem-itens` e aba "Margem por item", entre Fechamento e Quanto comprar. A casa de demonstração ganha custo da ficha subindo em três itens (GIN TONICA, REFRIGERANTE LATA, PICANHA NA CHAPA) sem mudar o total de cada grupo — o fechamento continua +1,61 pp —, e o script de preparo passa a carregar o cardápio de set/26. Ainda **não publicado** | Revisão de valor antes da apresentação de 19/11: o fechamento por grupo diz onde procurar, mas não dá ao sócio uma decisão. Com o cardápio que já existe (39 meses na piloto), dá para dizer qual item perdeu margem e quanto custou. Implementado para validar com o cliente, não por pedido dele. No mesmo dia, **RF09 e RF14 abandonados** (Won't; motivo na seção 7) para concentrar o esforço no RF15 |
 | 12/11/2026 | 1.5 | **Fechamento pela planilha-modelo (fase 1)**, ao lado do caminho do Everest: `POST /api/v1/fechamentos` recebe uma planilha com uma linha por grupo por mês (`periodo`, `grupo`, `venda_liquida`, `custo_teorico`, `estoque_inicial`, `compras`, `estoque_final`), de um ou vários meses. O lado real é EI + compras − EF (`base_real = consumo`); EI em branco = EF do mês anterior. Casa que recebe a planilha passa a ser calculada só por ela. Modelo em `GET /api/v1/modelos/fechamento`; opção "Planilha de fechamento" na tela de Upload. Detalhes em `07-fechamento-cmv.md`. Ainda **não publicado** | Sem inventário não existe CMV real, e o caminho do Everest não tem onde receber o estoque por grupo. A planilha é o mínimo de dado que fecha o mês corretamente e serve a qualquer ERP. Fase 2 (remover o que só existe para contornar a falta de estoque) depende de combinar com o time |

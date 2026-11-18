@@ -60,7 +60,7 @@ porte não importa; o dado, sim.
 | `custo` (`custo total`) | **Obrigatória** | **Obrigatória** | Tudo |
 | `venda_liquida` (`venda`, `receita`, `faturamento`) | **Na prática obrigatória**: é o denominador do CMV % dos dois lados | Opcional; usada só se o mês não tiver lado teórico | CMV %, ajuste em pp |
 | `subgrupo` (`subcategoria`) | Opcional | Opcional | Detalhamento (ver "Explicação do ajuste") |
-| `item` (`produto`, `descricao`) + `quantidade` (`qtd`) | Opcional no fechamento; **obrigatória para "Quanto comprar"** | Ignorada | Top itens, RF07 |
+| `item` (`produto`, `descricao`) + `quantidade` (`qtd`) | Opcional no fechamento; **obrigatória para "Margem por item" e "Engenharia de cardápio"** | Ignorada | Top itens, RF07 |
 
 Colunas achadas pelo nome, em qualquer ordem; colunas a mais são ignoradas;
 números no formato `1.234,56` são aceitos. Os dois relatórios do Everest
@@ -258,7 +258,7 @@ ajuste   = CMV real − custo_teorico
 "Boteco Exemplo - Pinheiros (DEMO)", com dados fictícios em
 `app/services/demo_fechamento.py`: abr–set/26, ALIMENTOS e BEBIDAS. Cobre
 todas as telas: Fechamento (com explicação, evolução, acumulado e top itens),
-Fechar o mês, Upload, Margem por item e Quanto comprar.
+Fechar o mês, Upload, Margem por item e Engenharia de cardápio.
 
 | Arquivo | Rota | Onde a tela oferece | Alimenta |
 |---|---|---|---|
@@ -272,8 +272,8 @@ cardápio não muda o fechamento — só alimenta as telas por item.
 
 - `uv run python scripts/popular_demo_fechamento.py [--api URL]` apaga e recria **só** essa casa e carrega a planilha de abr–ago/26 e o cardápio de abr–set/26. Rode antes de cada ensaio. O cardápio de set/26 não preenche o fechamento de set/26: casa com planilha é calculada só por ela.
 - Set/26 fica para o envio ao vivo. Resultado esperado: abr–ago dentro da margem; set/26 **acima** (+1,61 pp), puxado por BEBIDAS. As compras de BEBIDAS em set/26 ficam 1,4 pp **abaixo** do teórico, porque o estoque caiu: só a DRE levaria à conclusão inversa.
-- Quanto comprar: 6 meses de cardápio (abr–set), com tendência por item; sem sazonalidade, que exige um ano.
-- Margem por item (18/11): GIN TONICA, REFRIGERANTE LATA e PICANHA NA CHAPA têm o CMV da ficha subindo mês a mês com o preço parado. Set/26 × abr/26: 3 de 10 itens perderam margem, custo extra de R$ 6.317. O CMV de cada **grupo** continua o da planilha (BEBIDAS 25% todo mês): os outros itens do grupo ficam mais baratos e compensam — a categoria esconde o item, que é o ponto da tela.
+- Engenharia de cardápio (18/11): os quatro quadrantes nos dois grupos. CALDO DE FEIJAO e LIMONADA JARRA são os cães; a limonada é vendida abaixo do custo (CMV da ficha acima de 100%).
+- Margem por item (18/11): GIN TONICA, REFRIGERANTE LATA e PICANHA NA CHAPA têm o CMV da ficha subindo mês a mês com o preço parado. Set/26 × abr/26: 3 de 12 itens perderam margem, custo extra de R$ 6.117. O CMV de cada **grupo** continua o da planilha (BEBIDAS 25% todo mês): os outros itens do grupo ficam mais baratos e compensam — a categoria esconde o item, que é o ponto da tela.
 - O script remove `SSLKEYLOGFILE` do próprio processo: com ela definida, o Python do Windows aborta na primeira requisição (`OPENSSL_Uplink ... no OPENSSL_Applink`).
 
 ## O terceiro formato: planilha genérica
