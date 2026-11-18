@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   api,
   ApiError,
@@ -419,8 +419,11 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
   // RF13: tempo de relógio do primeiro envio deste fluxo até o resultado na
   // tela. Marcado só quando um arquivo é de fato enviado — quem reaproveita
   // os dois uploads não "fechou o mês" agora, e cronometrar isso seria
-  // medir um clique. `null` enquanto nada foi enviado.
-  const [inicio, setInicio] = useState<number | null>(null);
+  // medir um clique. `null` enquanto nada foi enviado. É ref, não estado:
+  // no modo planilha o envio e o cálculo acontecem no mesmo handler, e um
+  // estado lido ali ainda teria o valor do render anterior (null) — o
+  // cronômetro sumia justamente no fluxo de um arquivo só.
+  const inicio = useRef<number | null>(null);
   const [segundos, setSegundos] = useState<number | null>(null);
 
   // Backend antigo não tem a rota: sem ela, simplesmente não há planilha de demo.
@@ -473,7 +476,7 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
     setErro(null);
     try {
       setFechamento(await api.fechamento(casaId, periodo));
-      if (inicio !== null) setSegundos((performance.now() - inicio) / 1000);
+      if (inicio.current !== null) setSegundos((performance.now() - inicio.current) / 1000);
       setPasso(3);
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : "Não foi possível calcular o fechamento.");
@@ -486,12 +489,12 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
     setPasso(0);
     setFechamento(null);
     setErro(null);
-    setInicio(null);
+    inicio.current = null;
     setSegundos(null);
   }
 
   function marcarInicio() {
-    setInicio((t) => t ?? performance.now());
+    inicio.current ??= performance.now();
   }
 
   return (
