@@ -16,6 +16,8 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Path, Query, Response
 from openpyxl import Workbook
 
+from app import crud
+from app.deps import DbSession
 from app.schemas import DemoFechamento, ErroResponse, TipoUpload
 from app.services import demo_fechamento
 from app.services.leitores import XLSX
@@ -81,51 +83,72 @@ def gerar_modelo(tipo: str) -> bytes:
     return buffer.getvalue()
 
 
+def _demo(db) -> tuple:
+    """(casa de demonstração, totais do cardápio por mês) — ou 404 se o script
+    de preparo ainda não rodou neste banco."""
+    casa = crud.buscar_casa_por_nome(db, demo_fechamento.CASA_DEMO["nome"])
+    totais = crud.totais_cardapio(db, casa.id) if casa is not None else {}
+    if casa is None or len(totais) < 2:
+        raise HTTPException(
+            status_code=404,
+            detail="A casa de demonstração não está preparada neste ambiente: "
+            "rode scripts/popular_demo_fechamento.py.",
+        )
+    return casa, totais
+
+
 @router.get(
     "/fechamento/demo",
-    summary="Casa de demonstração da planilha de fechamento: nome e meses",
+    summary="Casa de demonstração: nome e meses",
+    responses={404: {"model": ErroResponse}},
 )
-def info_demo_fechamento() -> DemoFechamento:
-    """Para a tela de Upload saber quando oferecer a planilha da demonstração:
-    só para a casa de demonstração, nunca para uma casa real."""
+def info_demo_fechamento(db: DbSession) -> DemoFechamento:
+    """Para as telas saberem quando oferecer a planilha da demonstração: só para
+    a casa de demonstração, nunca para uma casa real."""
+    _, totais = _demo(db)
+    periodos = sorted(totais)
     return DemoFechamento(
         casa_nome=demo_fechamento.CASA_DEMO["nome"],
-        periodos=demo_fechamento.PERIODOS,
-        periodos_historico=demo_fechamento.PERIODOS_HISTORICO,
-        periodo_ao_vivo=demo_fechamento.PERIODO_AO_VIVO,
+        periodos=periodos,
+        periodos_historico=periodos[:-1],
+        periodo_ao_vivo=periodos[-1],
     )
 
 
 @router.get(
     "/fechamento/demo/planilha",
-    summary="Baixar a planilha preenchida da casa de demonstração",
+    summary="Baixar a planilha de fechamento da casa de demonstração",
     response_class=Response,
     responses={
         200: {"content": {XLSX: {}}, "description": "Planilha-modelo com os dados da demo"},
+        404: {"model": ErroResponse},
         422: {"model": ErroResponse},
     },
 )
 def baixar_planilha_demo(
+    db: DbSession,
     periodo: Annotated[
         list[str] | None,
         Query(description="Meses (AAAA-MM). Sem nenhum, vale o mês da apresentação ao vivo"),
     ] = None,
 ) -> Response:
-    """Mesmo layout da planilha-modelo, com os números fictícios da casa de
-    demonstração. Dados em `app/services/demo_fechamento.py`."""
-    periodos = periodo or [demo_fechamento.PERIODO_AO_VIVO]
-    desconhecidos = sorted(set(periodos) - set(demo_fechamento.PERIODOS))
+    """Venda e custo teórico somados do cardápio da casa de demonstração (o real
+    do São Bento); estoque e compras simulados (`app/services/demo_fechamento.py`)."""
+    _, totais = _demo(db)
+    disponiveis = sorted(totais)
+    periodos = periodo or [disponiveis[-1]]
+    desconhecidos = sorted(set(periodos) - set(disponiveis))
     if desconhecidos:
         raise HTTPException(
             status_code=422,
             detail=f"A demonstração não tem os meses {', '.join(desconhecidos)}. "
-            f"Disponíveis: {', '.join(demo_fechamento.PERIODOS)}.",
+            f"Disponíveis: {', '.join(disponiveis)}.",
         )
-    nome = f"demo-fechamento-{min(periodos)}" + (
-        f"-a-{max(periodos)}" if len(set(periodos)) > 1 else ""
-    )
+    pedidos = set(periodos)
+    linhas = [linha for linha in demo_fechamento.simular(totais) if linha[0] in pedidos]
+    nome = f"demo-fechamento-{min(periodos)}" + (f"-a-{max(periodos)}" if len(pedidos) > 1 else "")
     return Response(
-        content=gerar_modelo_fechamento(demo_fechamento.linhas_demo(periodos)),
+        content=gerar_modelo_fechamento(linhas),
         media_type=XLSX,
         headers={"Content-Disposition": f'attachment; filename="{nome}.xlsx"'},
     )
@@ -133,43 +156,40 @@ def baixar_planilha_demo(
 
 @router.get(
     "/fechamento/demo/cardapio",
-    summary="Baixar a engenharia de cardápio por item da casa de demonstração",
+    summary="Baixar o cardápio por item da casa de demonstração",
     response_class=Response,
     responses={
         200: {"content": {XLSX: {}}, "description": "Cardápio por item, planilha genérica"},
+        404: {"model": ErroResponse},
         422: {"model": ErroResponse},
     },
 )
 def baixar_cardapio_demo(
-    periodo: Annotated[str, Query(description="Mês (AAAA-MM)")] = demo_fechamento.PERIODO_AO_VIVO,
+    db: DbSession,
+    periodo: Annotated[str | None, Query(description="Mês (AAAA-MM); padrão: o ao vivo")] = None,
 ) -> Response:
-    """Venda por item do mês, para "Quanto comprar" (RF07) e "Top itens". É
-    enviada em `POST /uploads-custo` com `tipo=cardapio` e o período no
-    formulário. Os totais por grupo batem com a planilha de fechamento."""
-    if periodo not in demo_fechamento.PERIODOS:
+    """O cardápio do mês da casa de demonstração, como planilha genérica. Serve
+    ao erro proposital do roteiro: enviado como planilha de fechamento, volta
+    422 dizendo quais colunas faltam."""
+    casa, totais = _demo(db)
+    mes = periodo or sorted(totais)[-1]
+    if mes not in totais:
         raise HTTPException(
             status_code=422,
-            detail=f"A demonstração não tem o mês {periodo}. "
-            f"Disponíveis: {', '.join(demo_fechamento.PERIODOS)}.",
+            detail=f"A demonstração não tem o mês {mes}. Disponíveis: {', '.join(sorted(totais))}.",
         )
     livro = Workbook()
     aba = livro.active
     aba.title = "Cardapio"
-    aba.append(
-        [
-            f"Cardápio por item da demonstração, {periodo} — dados fictícios. "
-            "Envie como Engenharia de cardápio, com este mesmo período."
-        ]
-    )
-    aba.append(demo_fechamento.CABECALHO_CARDAPIO)
-    for linha in demo_fechamento.cardapio_demo(periodo):
-        aba.append(list(linha))
+    aba.append(["grupo", "subgrupo", "item", "quantidade", "venda_liquida", "custo"])
+    for item in crud.itens_do_mes(db, casa_id=casa.id, periodo=mes).values():
+        aba.append([item.grupo, item.subgrupo, item.nome, item.quantidade, item.venda, item.custo])
     buffer = io.BytesIO()
     livro.save(buffer)
     return Response(
         content=buffer.getvalue(),
         media_type=XLSX,
-        headers={"Content-Disposition": f'attachment; filename="demo-cardapio-{periodo}.xlsx"'},
+        headers={"Content-Disposition": f'attachment; filename="demo-cardapio-{mes}.xlsx"'},
     )
 
 

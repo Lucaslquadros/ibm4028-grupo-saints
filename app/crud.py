@@ -1004,3 +1004,38 @@ def serie_cmv_itens(
     for nome, periodo, venda, custo in db.execute(stmt).all():
         series[nome].append((periodo, _pct(float(custo or 0), float(venda or 0))))
     return series
+
+
+# ------------------------------------------------- Casa de demonstração
+def buscar_casa_por_nome(db: Session, nome: str) -> Casa | None:
+    return db.scalars(select(Casa).where(Casa.nome == nome).order_by(Casa.id)).first()
+
+
+def stmt_totais_cardapio(*, casa_id: int):
+    """Venda e custo teórico do cardápio por (mês, grupo), somados dos itens."""
+    return (
+        select(
+            UploadCusto.periodo,
+            LinhaCusto.grupo,
+            func.sum(LinhaCusto.venda_liquida),
+            func.sum(LinhaCusto.custo),
+        )
+        .join(UploadCusto, UploadCusto.id == LinhaCusto.upload_id)
+        .where(
+            UploadCusto.casa_id == casa_id,
+            UploadCusto.tipo == "cardapio",
+            LinhaCusto.nivel == "item",
+        )
+        .group_by(UploadCusto.periodo, LinhaCusto.grupo)
+        .order_by(UploadCusto.periodo, LinhaCusto.grupo)
+    )
+
+
+def totais_cardapio(db: Session, casa_id: int) -> dict[str, dict[str, tuple[float, float]]]:
+    """{periodo: {grupo: (venda, custo teórico)}}, só dos grupos de CMV."""
+    grupos = set(grupos_comparaveis(db, casa_id))
+    totais: dict[str, dict[str, tuple[float, float]]] = {}
+    for periodo, grupo, venda, custo in db.execute(stmt_totais_cardapio(casa_id=casa_id)).all():
+        if grupo in grupos:
+            totais.setdefault(periodo, {})[grupo] = (float(venda or 0), float(custo or 0))
+    return totais

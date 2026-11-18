@@ -1,128 +1,102 @@
-"""Casa de demonstração do fechamento pela planilha-modelo.
+"""Casa de demonstração: cardápio REAL do São Bento, estoque SIMULADO.
 
-Dados **inventados**, rotulados como tal no nome da casa. Servem à
-apresentação: o histórico (abr–ago/26) é carregado antes por
-`scripts/popular_demo_fechamento.py`, e o último mês (set/26) é enviado ao
-vivo, com a planilha que a própria tela de Upload oferece para baixar
-(`GET /api/v1/modelos/fechamento/demo/planilha`). Os dois saem desta tabela,
-então o estoque inicial em branco de set/26 sempre encontra o estoque final de
-ago/26 que o script carregou.
+Desde 18/11/2026 a demonstração é uma casa só, "Boteco Sao Bento -
+Demonstracao (DEMO)", para o roteiro ser contínuo. O cardápio por item dela é
+copiado da casa piloto real, mês a mês, pela própria API
+(`scripts/popular_demo_fechamento.py`) — nenhum dado do cliente fica neste
+repositório. Ficam aqui só as regras do que o cliente NÃO tem:
 
-Como os números foram montados (para conferir à mão):
+**o estoque e as compras.** Sem inventário não existe CMV real (ver
+docs/07-fechamento-cmv.md), então o lado real da demonstração é simulado a
+partir do teórico real de cada mês:
 
-    teórico   = venda × CMV da ficha (≈27% ALIMENTOS, ≈25% BEBIDAS)
-    consumo   = teórico + quebra normal (0,3–0,6% da venda)
-    compras   = consumo − estoque inicial + estoque final
+    estoque final   = custo teórico × cobertura do grupo (± oscilação do mês)
+    consumo         = custo teórico × (1 + quebra normal do grupo)
+    compras         = consumo − estoque inicial + estoque final
 
-    abr–ago   ajuste total de +0,35 a +0,51 pp → "dentro" (margem de ±1 pp)
-    set/26    perda de chopp: BEBIDAS consome 2,6% da venda acima do teórico.
-              Ajuste total +1,61 pp → "acima", puxado por BEBIDAS.
-              E o estoque de BEBIDAS caiu 12.000: as **compras** do mês
-              (70.800) ficam ABAIXO do teórico (75.000). Quem olhasse só a
-              DRE de compras concluiria o contrário — é o ponto da demo.
+No último mês (o enviado ao vivo) BEBIDAS tem uma perda de 2,6% da venda e o
+estoque de bebidas cai 25%. Resultado: o CMV real fica ACIMA do previsto,
+puxado por BEBIDAS, enquanto as COMPRAS do mês ficam ABAIXO do teórico — quem
+olhasse só a DRE de compras concluiria o contrário. É exatamente o que
+aconteceu com o −3,68 pp real da casa piloto, que é compras sem estoque.
+
+Os meses anteriores ficam dentro da margem de ±1 ponto (só a quebra normal).
 """
 
 CASA_DEMO = {
-    "nome": "Boteco Exemplo - Pinheiros (DEMO)",
-    "marca": "Boteco Exemplo",
+    "nome": "Boteco Sao Bento - Demonstracao (DEMO)",
+    "marca": "Boteco Sao Bento",
     "cidade": "Sao Paulo",
 }
 
-PERIODO_AO_VIVO = "2026-09"
-"""O mês que fica de fora da carga e é enviado durante a apresentação."""
+CASA_ORIGEM = "Boteco Sao Bento - Vila Madalena"
+"""Casa real de onde o script copia o cardápio por item."""
 
-# periodo, grupo, venda_liquida, custo_teorico, estoque_inicial, compras, estoque_final
-LINHAS = [
-    ("2026-04", "ALIMENTOS", 240000, 64800, 40000, 67760, 42000),
-    ("2026-04", "BEBIDAS", 290000, 72500, 100000, 68950, 95000),
-    ("2026-05", "ALIMENTOS", 255000, 68340, None, 68105, 41000),
-    ("2026-05", "BEBIDAS", 305000, 76555, None, 80775, 98000),
-    ("2026-06", "ALIMENTOS", 230000, 62560, None, 66210, 43500),
-    ("2026-06", "BEBIDAS", 280000, 69720, None, 75120, 102000),
-    ("2026-07", "ALIMENTOS", 250000, 67500, None, 67000, 42000),
-    ("2026-07", "BEBIDAS", 300000, 75000, None, 71800, 97000),
-    ("2026-08", "ALIMENTOS", 270000, 72630, None, 75710, 44000),
-    ("2026-08", "BEBIDAS", 320000, 80000, None, 88600, 104000),
-    ("2026-09", "ALIMENTOS", 245000, 66150, None, 61130, 38000),
-    ("2026-09", "BEBIDAS", 300000, 75000, None, 70800, 92000),
-]
+MESES = 13
+"""Meses copiados: o mês ao vivo e os 12 anteriores — dá a comparação com o
+mesmo mês do ano passado (margem por item) e um ano de evolução."""
 
-PERIODOS = sorted({linha[0] for linha in LINHAS})
-PERIODOS_HISTORICO = [p for p in PERIODOS if p < PERIODO_AO_VIVO]
+COBERTURA = {"ALIMENTOS": 0.30, "BEBIDAS": 0.85}
+"""Estoque de fim de mês como fração do custo teórico do mês: perecível gira
+rápido, bebida fica parada mais tempo."""
+COBERTURA_PADRAO = 0.5
 
+QUEBRA = {"ALIMENTOS": 0.010, "BEBIDAS": 0.006}
+"""Quebra normal sobre o custo teórico — fica dentro da margem de ±1 ponto."""
+QUEBRA_PADRAO = 0.008
 
-def linhas_demo(periodos: list[str]) -> list[tuple]:
-    """As linhas dos meses pedidos, na ordem da tabela."""
-    pedidos = set(periodos)
-    return [linha for linha in LINHAS if linha[0] in pedidos]
+GRUPO_DA_PERDA = "BEBIDAS"
+PERDA_AO_VIVO = 0.026
+"""Perda plantada no mês ao vivo, como fração da venda do grupo."""
+QUEDA_ESTOQUE_AO_VIVO = 0.25
+"""Quanto o estoque do grupo da perda cai no mês ao vivo."""
 
 
-# ------------------------------------------------- cardápio por item da demo
-# A planilha de fechamento é por grupo: basta para o CMV, mas "Quanto comprar"
-# (RF07) e "Top itens" precisam de venda por item. O cardápio abaixo é a
-# engenharia de cardápio da mesma casa, no formato da planilha genérica, e é
-# DERIVADO da tabela acima: em cada mês, a soma dos itens de um grupo bate
-# centavo a centavo com a venda e o custo teórico da planilha. Assim as duas
-# fontes nunca se contradizem na tela.
-#
-# grupo, subgrupo, item, preço de venda, CMV da ficha, peso na venda do grupo,
-# variação do peso por mês (tendência: o RF07 tem o que mostrar), variação do
-# CMV da ficha por mês (margem por item: o custo do insumo sobe, o preço não).
-#
-# Os três itens com custo subindo — GIN TONICA, REFRIGERANTE LATA e PICANHA NA
-# CHAPA — são o ponto da tela "Margem por item": o CMV de BEBIDAS na planilha é
-# 25% todo mês, e dentro dele gin e refrigerante perdem margem enquanto o chopp
-# compensa. Como o custo do grupo é fixo (vem da planilha), os outros itens do
-# grupo ficam um pouco mais baratos: a categoria esconde o item.
-#
-# CALDO DE FEIJAO e LIMONADA JARRA vendem pouco e deixam pouca margem: são os
-# "cães" da engenharia de cardápio. A limonada custa MAIS do que é vendida (CMV
-# da ficha acima de 100%), como a jarra de limão da casa piloto em set/26 — é o
-# item vendido abaixo do custo que a tela destaca.
-ITENS = [
-    ("ALIMENTOS", "PETISCOS", "BOLINHO DE BACALHAU", 42.0, 0.30, 0.24, 0.00, 0.0),
-    ("ALIMENTOS", "PETISCOS", "PASTEL DE CARNE", 28.0, 0.22, 0.18, -0.04, 0.0),
-    ("ALIMENTOS", "PETISCOS", "MANDIOCA FRITA", 26.0, 0.18, 0.14, 0.02, 0.0),
-    ("ALIMENTOS", "PRATOS", "FILE COM FRITAS", 89.0, 0.33, 0.26, 0.01, 0.0),
-    ("ALIMENTOS", "PRATOS", "PICANHA NA CHAPA", 119.0, 0.31, 0.18, 0.03, 0.012),
-    ("ALIMENTOS", "PETISCOS", "CALDO DE FEIJAO", 16.0, 0.35, 0.03, 0.0, 0.0),
-    ("BEBIDAS", "CHOPP", "CHOPP 300ML", 14.0, 0.24, 0.34, 0.00, 0.0),
-    ("BEBIDAS", "CHOPP", "CHOPP 500ML", 21.0, 0.23, 0.22, 0.02, 0.0),
-    ("BEBIDAS", "DESTILADOS", "CAIPIRINHA", 28.0, 0.28, 0.20, -0.02, 0.0),
-    ("BEBIDAS", "DESTILADOS", "GIN TONICA", 36.0, 0.30, 0.12, 0.05, 0.016),
-    ("BEBIDAS", "NAO ALCOOLICOS", "REFRIGERANTE LATA", 8.0, 0.30, 0.12, 0.00, 0.02),
-    ("BEBIDAS", "NAO ALCOOLICOS", "LIMONADA JARRA", 18.0, 1.45, 0.02, 0.0, 0.0),
-]
-
-CABECALHO_CARDAPIO = ["grupo", "subgrupo", "item", "quantidade", "venda_liquida", "custo"]
+def _oscilacao(periodo: str, grupo: str) -> float:
+    """Variação determinística de −6% a +6% no estoque do mês: o mesmo mês dá
+    sempre o mesmo número, a cada execução do script."""
+    semente = sum((i + 1) * ord(c) for i, c in enumerate(periodo + grupo))
+    return (semente % 13 - 6) / 100
 
 
-def cardapio_demo(periodo: str) -> list[tuple]:
-    """Engenharia de cardápio da demo no mês: (grupo, subgrupo, item,
-    quantidade, venda_liquida, custo). Os totais por grupo são os da planilha."""
-    if periodo not in PERIODOS:
-        raise ValueError(f"A demonstração não tem o mês {periodo}")
-    indice = PERIODOS.index(periodo)
+def simular(totais: dict[str, dict[str, tuple[float, float]]]) -> list[tuple]:
+    """Linhas da planilha de fechamento para TODOS os meses de `totais`.
+
+    `totais[periodo][grupo] = (venda_liquida, custo_teorico)`, somados do
+    cardápio da casa. O último mês é o ao vivo. Cada linha: (periodo, grupo,
+    venda_liquida, custo_teorico, estoque_inicial, compras, estoque_final),
+    com estoque inicial só no primeiro mês de cada grupo — nos outros o
+    sistema usa o estoque final do mês anterior.
+    """
+    periodos = sorted(totais)
+    if not periodos:
+        return []
+    ao_vivo = periodos[-1]
+    estoque_anterior: dict[str, float] = {}
     linhas: list[tuple] = []
-    for _periodo, grupo, venda_grupo, teorico_grupo, *_resto in linhas_demo([periodo]):
-        itens = [i for i in ITENS if i[0] == grupo]
-        pesos = [peso * (1 + tendencia) ** indice for *_x, peso, tendencia, _d in itens]
-        vendas = _repartir(venda_grupo, pesos)
-        brutos = [
-            v * (cmv + deriva * indice)
-            for v, (*_x, cmv, _p, _t, deriva) in zip(vendas, itens, strict=True)
-        ]
-        custos = _repartir(teorico_grupo, brutos)
-        for (_g, subgrupo, item, preco, *_x), venda, custo in zip(
-            itens, vendas, custos, strict=True
-        ):
-            linhas.append((grupo, subgrupo, item, round(venda / preco), venda, custo))
+    for periodo in periodos:
+        for grupo in sorted(totais[periodo]):
+            venda, teorico = totais[periodo][grupo]
+            cobertura = COBERTURA.get(grupo, COBERTURA_PADRAO)
+            final = teorico * cobertura * (1 + _oscilacao(periodo, grupo))
+            consumo = teorico * (1 + QUEBRA.get(grupo, QUEBRA_PADRAO))
+            if periodo == ao_vivo and grupo == GRUPO_DA_PERDA:
+                consumo += venda * PERDA_AO_VIVO
+                final *= 1 - QUEDA_ESTOQUE_AO_VIVO
+            final = round(final, 2)
+            primeiro = grupo not in estoque_anterior
+            inicial = round(teorico * cobertura, 2) if primeiro else estoque_anterior[grupo]
+            compras = round(consumo - inicial + final, 2)
+            linhas.append(
+                (
+                    periodo,
+                    grupo,
+                    round(venda, 2),
+                    round(teorico, 2),
+                    inicial if primeiro else None,
+                    compras,
+                    final,
+                )
+            )
+            estoque_anterior[grupo] = final
     return linhas
-
-
-def _repartir(total: float, pesos: list[float]) -> list[float]:
-    """`total` dividido na proporção de `pesos`, em centavos, somando exato:
-    o arredondamento que sobra vai para o último."""
-    soma = sum(pesos)
-    partes = [round(total * p / soma, 2) for p in pesos[:-1]]
-    return [*partes, round(total - sum(partes), 2)]

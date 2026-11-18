@@ -364,6 +364,9 @@ def engenharia_cardapio(
     periodo: Periodo,
     pag: PaginacaoDep,
     grupo: Annotated[str | None, Query(description="Só os itens deste grupo")] = None,
+    categoria: Annotated[
+        str | None, Query(description="Só os itens desta categoria (dentro do grupo)")
+    ] = None,
     classe: Annotated[
         ClasseCardapio | None, Query(description="Só os itens deste quadrante")
     ] = None,
@@ -386,11 +389,16 @@ def engenharia_cardapio(
     cortes, linhas = servico_engenharia.classificar(do_cmv)
     if grupo is not None and grupo not in {c.grupo for c in cortes}:
         raise HTTPException(status_code=404, detail=f"Grupo {grupo} sem itens em {periodo}")
+    if categoria is not None and categoria not in {
+        c.categoria for c in cortes if grupo is None or c.grupo == grupo
+    }:
+        raise HTTPException(status_code=404, detail=f"Categoria {categoria} sem itens em {periodo}")
 
     filtradas = [
         linha
         for linha in linhas
         if (grupo is None or linha["grupo"] == grupo)
+        and (categoria is None or linha["categoria"] == categoria)
         and (classe is None or linha["classe"] == classe)
     ]
     abaixo = servico_engenharia.abaixo_do_custo(do_cmv, linhas)
@@ -401,12 +409,13 @@ def engenharia_cardapio(
         grupos=[
             GrupoEngenharia(
                 grupo=c.grupo,
+                categoria=c.categoria,
                 itens=c.itens,
                 unidades=c.unidades,
                 margem_total=c.margem_total,
                 margem_media_unitaria=c.margem_media_unitaria,
                 limiar_popularidade_pct=c.limiar_popularidade_pct,
-                **servico_engenharia.contagem(linhas, c.grupo),
+                **servico_engenharia.contagem(linhas, c.grupo, c.categoria),
                 fora_da_matriz=servico_engenharia.fora_da_matriz(do_cmv, c.grupo),
             )
             for c in cortes
@@ -416,8 +425,9 @@ def engenharia_cardapio(
         abaixo_do_custo_prejuizo=round(sum(linha["margem_total"] for linha in abaixo), 2),
         venda_minima=servico_engenharia.VENDA_MINIMA,
         metodo=(
-            "Matriz de Kasavana & Smith, dentro de cada grupo de CMV, com os itens que "
-            "venderam pelo menos R$ 500 no mês. Margem alta = margem por unidade (preço − "
+            "Matriz de Kasavana & Smith, dentro de cada categoria de cardápio (o subgrupo do "
+            "ERP; com menos de 4 itens, OUTROS), com os itens que venderam pelo menos "
+            "R$ 500 no mês. Margem alta = margem por unidade (preço − "
             "custo da ficha) acima da média ponderada do grupo. Popular = vende pelo menos "
             "70% da fatia que teria se todos os itens vendessem igual."
         ),
