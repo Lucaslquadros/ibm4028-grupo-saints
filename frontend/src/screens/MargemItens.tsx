@@ -15,7 +15,10 @@ const pct = (n: number) => `${n.toFixed(1).replace(".", ",")}%`;
 
 const variacao = (n: number | null) => {
   if (n === null) return "—";
-  return `${n > 0 ? "+" : ""}${n.toFixed(0)}%`;
+  // Arredonda antes do sinal: -0,2% vira "0%", não "-0%".
+  const inteiro = Math.round(n);
+  if (inteiro === 0) return "0%";
+  return `${inteiro > 0 ? "+" : ""}${inteiro}%`;
 };
 
 const mesAno = (periodo: string) => {
