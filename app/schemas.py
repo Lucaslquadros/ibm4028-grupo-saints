@@ -382,3 +382,54 @@ class ErroResponse(BaseModel):
     """Formato único de erro da API — o frontend trata um só formato."""
 
     detail: str
+
+
+# ------------------------------------------------------- Margem por item
+class PontoCmvItem(BaseModel):
+    periodo: str
+    cmv_pct: float | None
+
+
+class MargemItem(BaseModel):
+    """Um item do cardápio no mês, comparado com ele mesmo no mês-base."""
+
+    nome: str
+    grupo: str
+    subgrupo: str | None
+    quantidade: float
+    venda_liquida: float
+    custo: float
+    cmv_base_pct: float
+    cmv_atual_pct: float
+    variacao_pp: float = Field(description="CMV do item no mês − no mês-base, em pontos")
+    custo_unitario_base: float
+    custo_unitario_atual: float
+    variacao_custo_pct: float | None
+    preco_unitario_base: float
+    preco_unitario_atual: float
+    variacao_preco_pct: float | None
+    custo_extra: float = Field(
+        description="Quanto o item custou a mais no mês do que custaria com o CMV do mês-base "
+        "(negativo = custou menos)"
+    )
+    serie: list[PontoCmvItem] = Field(description="CMV do item mês a mês, do mês-base ao mês")
+
+
+class MargemItensResponse(BaseModel):
+    """Resposta paginada da margem por item, com o resumo do mês."""
+
+    casa_id: int
+    casa_nome: str
+    periodo: str
+    periodo_base: str
+    criterio_base: str
+    limiar_pp: float
+    venda_minima: float
+    itens_comparados: int
+    itens_que_pioraram: int = Field(description="Itens cujo CMV subiu pelo menos `limiar_pp`")
+    custo_extra_total: float = Field(description="Soma do custo extra dos itens que pioraram")
+    aviso: str
+    total: int
+    limit: int
+    offset: int
+    items: list[MargemItem]

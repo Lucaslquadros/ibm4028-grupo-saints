@@ -11,6 +11,10 @@
 | **RF09** — nota fiscal anexada ao custo do período | **prova** | O número do fechamento não tem documento atrás |
 | ~~RF10 — produto com foto como âncora de identidade~~ | — | **Retirado.** Ver "O que foi retirado" abaixo |
 
+> **Atualização de 18/11/2026: RF09 abandonado (Won't).** O esforço foi para a
+> margem por item (RF15). Este documento fica como especificação de referência,
+> sem previsão de implementação. Motivo em `01-requisitos.md`, seção 7.
+
 > **Atualização de 07/11/2026: RF09 desceu para Should e está fora do ciclo
 > 07–09/11.** Com a volta às Personas 1 e 2, a prioridade passou a ser explicar
 > o ajuste (RF11). A especificação abaixo continua válida para quando for

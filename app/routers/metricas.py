@@ -14,7 +14,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Query
 
 from app import crud
-from app.deps import DbSession
+from app.deps import DbSession, PaginacaoDep
 from app.schemas import (
     PERIODO_PATTERN,
     Acumulado,
@@ -23,12 +23,16 @@ from app.schemas import (
     FechamentoResponse,
     ItemCardapioResponse,
     LinhaFechamento,
+    MargemItem,
+    MargemItensResponse,
+    PontoCmvItem,
     PontoEvolucao,
     PontoHistorico,
     PrevisaoItem,
     RecomendacaoCompraResponse,
 )
 from app.services import explicacao as servico_explicacao
+from app.services import margem as servico_margem
 from app.services import previsao as servico_previsao
 
 router = APIRouter(
@@ -257,3 +261,86 @@ def top_itens(
         )
         for i in itens
     ]
+
+
+@router.get("/margem-itens", summary="Itens do cardápio que perderam margem, em reais")
+def margem_itens(
+    db: DbSession,
+    casa_id: CasaId,
+    periodo: Periodo,
+    pag: PaginacaoDep,
+    base: Annotated[
+        str | None,
+        Query(
+            pattern=PERIODO_PATTERN,
+            description="Mês de comparação (AAAA-MM). Padrão: o mesmo mês do ano anterior",
+        ),
+    ] = None,
+) -> MargemItensResponse:
+    """Cada item do cardápio no mês contra ele mesmo no mês-base: CMV, custo e
+    preço por unidade, e quanto custou a mais — ordenado por esse valor.
+
+    Usa só o cardápio (custo da ficha técnica e venda). Não depende do lado
+    real nem do estoque. Regra em `app/services/margem.py`.
+    """
+    casa = _casa_ou_404(db, casa_id)
+    periodos = crud.periodos_com_cardapio(db, casa_id)
+    if periodo not in periodos:
+        raise HTTPException(
+            status_code=404,
+            detail=f"A casa {casa_id} não tem engenharia de cardápio em {periodo}",
+        )
+    if base is not None:
+        if base >= periodo:
+            raise HTTPException(
+                status_code=422, detail="O mês de comparação precisa ser anterior ao período"
+            )
+        if base not in periodos:
+            raise HTTPException(
+                status_code=404,
+                detail=f"A casa {casa_id} não tem engenharia de cardápio em {base}",
+            )
+        criterio = "escolhido"
+    else:
+        escolha = servico_margem.escolher_base(periodos, periodo)
+        if escolha is None:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Não há mês anterior a {periodo} com engenharia de cardápio para comparar"
+                ),
+            )
+        base, criterio = escolha
+
+    linhas = servico_margem.comparar(
+        crud.itens_do_mes(db, casa_id=casa_id, periodo=base),
+        crud.itens_do_mes(db, casa_id=casa_id, periodo=periodo),
+    )
+    pagina = linhas[pag.offset : pag.offset + pag.limit]
+    series = crud.serie_cmv_itens(
+        db, casa_id=casa_id, nomes=[linha["nome"] for linha in pagina], inicio=base, fim=periodo
+    )
+    return MargemItensResponse(
+        casa_id=casa.id,
+        casa_nome=casa.nome,
+        periodo=periodo,
+        periodo_base=base,
+        criterio_base=criterio,
+        limiar_pp=servico_margem.LIMIAR_PP,
+        venda_minima=servico_margem.VENDA_MINIMA,
+        **servico_margem.resumo(linhas),
+        aviso=(
+            "O custo vem da ficha técnica do relatório de cada mês. Se a ficha não "
+            "acompanha o preço de compra do insumo, o custo do item pode estar defasado."
+        ),
+        total=len(linhas),
+        limit=pag.limit,
+        offset=pag.offset,
+        items=[
+            MargemItem(
+                **linha,
+                serie=[PontoCmvItem(periodo=p, cmv_pct=c) for p, c in series[linha["nome"]]],
+            )
+            for linha in pagina
+        ],
+    )

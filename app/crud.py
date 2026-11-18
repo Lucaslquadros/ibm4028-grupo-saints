@@ -11,6 +11,7 @@ from app.models import Casa, LinhaCusto, MovimentoGrupo, UploadCusto, UploadFech
 from app.schemas import CasaCreate, CasaUpdate
 from app.services.leitor_fechamento import MovimentoLido, primeiros_meses_sem_estoque_inicial
 from app.services.leitores import BASE_COMPRAS, BASE_CONSUMO, BASE_DECLARADA, Linha, base_do_total
+from app.services.margem import ItemMes
 
 JANELA_ACUMULADO = 12
 """Meses (terminando no período pedido) que entram no acumulado."""
@@ -906,3 +907,100 @@ def top_itens_cardapio(
     else:
         stmt = stmt.order_by(LinhaCusto.custo.desc())
     return list(db.scalars(stmt.limit(limit)).all())
+
+
+# ------------------------------------------------------- Margem por item
+# Ver app/services/margem.py. Duas consultas por item (mês-base e mês atual) e
+# uma série só para os itens da página: o GROUP BY roda no banco, a aplicação
+# recebe uma linha por item (~350 na casa piloto), nunca a tabela.
+
+
+def periodos_com_cardapio(db: Session, casa_id: int) -> list[str]:
+    """Meses em que a casa tem cardápio por item, em ordem."""
+    stmt = (
+        select(UploadCusto.periodo)
+        .where(UploadCusto.casa_id == casa_id, UploadCusto.tipo == "cardapio")
+        .group_by(UploadCusto.periodo)
+        .order_by(UploadCusto.periodo)
+    )
+    return list(db.scalars(stmt).all())
+
+
+def stmt_itens_do_mes(*, casa_id: int, periodo: str):
+    """Um item por linha no mês: nome, grupo, subgrupo, quantidade, venda, custo.
+
+    Agrupa só por `nome` — o mesmo produto pode vir em mais de uma linha do
+    relatório — e por isso grupo e subgrupo saem por MAX(): no SQL Server, coluna
+    no SELECT fora do GROUP BY precisa estar dentro de agregação.
+    """
+    return (
+        select(
+            LinhaCusto.nome,
+            func.max(LinhaCusto.grupo),
+            func.max(LinhaCusto.subgrupo),
+            func.sum(LinhaCusto.quantidade),
+            func.sum(LinhaCusto.venda_liquida),
+            func.sum(LinhaCusto.custo),
+        )
+        .join(UploadCusto, UploadCusto.id == LinhaCusto.upload_id)
+        .where(
+            UploadCusto.casa_id == casa_id,
+            UploadCusto.tipo == "cardapio",
+            UploadCusto.periodo == periodo,
+            LinhaCusto.nivel == "item",
+        )
+        .group_by(LinhaCusto.nome)
+        .order_by(LinhaCusto.nome)
+    )
+
+
+def itens_do_mes(db: Session, *, casa_id: int, periodo: str) -> dict[str, ItemMes]:
+    return {
+        nome: ItemMes(
+            nome=nome,
+            grupo=grupo,
+            subgrupo=subgrupo,
+            quantidade=float(quantidade or 0),
+            venda=float(venda or 0),
+            custo=float(custo or 0),
+        )
+        for nome, grupo, subgrupo, quantidade, venda, custo in db.execute(
+            stmt_itens_do_mes(casa_id=casa_id, periodo=periodo)
+        ).all()
+    }
+
+
+def stmt_serie_cmv_itens(*, casa_id: int, nomes: list[str], inicio: str, fim: str):
+    """Venda e custo por (item, mês) entre `inicio` e `fim`, para a série da tela."""
+    return (
+        select(
+            LinhaCusto.nome,
+            UploadCusto.periodo,
+            func.sum(LinhaCusto.venda_liquida),
+            func.sum(LinhaCusto.custo),
+        )
+        .join(UploadCusto, UploadCusto.id == LinhaCusto.upload_id)
+        .where(
+            UploadCusto.casa_id == casa_id,
+            UploadCusto.tipo == "cardapio",
+            UploadCusto.periodo >= inicio,
+            UploadCusto.periodo <= fim,
+            LinhaCusto.nivel == "item",
+            LinhaCusto.nome.in_(nomes),
+        )
+        .group_by(LinhaCusto.nome, UploadCusto.periodo)
+        .order_by(LinhaCusto.nome, UploadCusto.periodo)
+    )
+
+
+def serie_cmv_itens(
+    db: Session, *, casa_id: int, nomes: list[str], inicio: str, fim: str
+) -> dict[str, list[tuple[str, float | None]]]:
+    """{nome: [(periodo, cmv_pct)]} — CMV de cada item mês a mês."""
+    if not nomes:
+        return {}
+    series: dict[str, list[tuple[str, float | None]]] = {nome: [] for nome in nomes}
+    stmt = stmt_serie_cmv_itens(casa_id=casa_id, nomes=nomes, inicio=inicio, fim=fim)
+    for nome, periodo, venda, custo in db.execute(stmt).all():
+        series[nome].append((periodo, _pct(float(custo or 0), float(venda or 0))))
+    return series

@@ -106,7 +106,7 @@ O grupo inteiro deve usar **o mesmo** caminho. Misturar os dois gera divergênci
 │   ├── 07-fechamento-cmv.md       A regra do cálculo de CMV
 │   ├── 08-roteiro-demo.md         Roteiro da apresentação, 100% na nuvem
 │   ├── 09-uso-da-nuvem.md         Auditoria dos recursos Azure + fila de ajustes
-│   └── 10-anexos-de-imagem.md     RF09/RF10 — especificados, não implementados
+│   └── 10-anexos-de-imagem.md     RF09/RF10 — abandonado / retirado
 ├── .claude/skills/         5 skills da disciplina
 ├── .github/workflows/      ci.yml · deploy-azure.yml
 ├── infra/provisionar.sh    App Service + Azure SQL + Storage + Static Web App

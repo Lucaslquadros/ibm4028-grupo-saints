@@ -4,10 +4,11 @@ import { Casas } from "./screens/Casas";
 import { Upload } from "./screens/Upload";
 import { FecharMes } from "./screens/FecharMes";
 import { Fechamento } from "./screens/Fechamento";
+import { MargemItens } from "./screens/MargemItens";
 import { Recomendacao } from "./screens/Recomendacao";
 import "./App.css";
 
-type Tela = "casas" | "upload" | "fecharmes" | "fechamento" | "recomendacao";
+type Tela = "casas" | "upload" | "fecharmes" | "fechamento" | "margem" | "recomendacao";
 
 // A ordem é o fluxo real de uso: cadastra a casa, sobe o export, confere o
 // fechamento e decide a compra do mês seguinte. "Quanto comprar" vem por último
@@ -16,11 +17,15 @@ type Tela = "casas" | "upload" | "fecharmes" | "fechamento" | "recomendacao";
 // "Fechar o mês" (RF12) é o caminho guiado para quem está fechando pela
 // primeira vez; "Upload" continua como está para quem já sabe o que precisa
 // enviar. Trocar um pelo outro quebraria o fluxo de quem já usa.
+//
+// "Margem por item" vem depois do Fechamento: o fechamento diz QUE um grupo
+// saiu do previsto, a margem por item diz QUAL item e quanto custou em reais.
 const TELAS: { id: Tela; rotulo: string }[] = [
   { id: "casas", rotulo: "Casas" },
   { id: "upload", rotulo: "Upload" },
   { id: "fecharmes", rotulo: "Fechar o mês" },
   { id: "fechamento", rotulo: "Fechamento" },
+  { id: "margem", rotulo: "Margem por item" },
   { id: "recomendacao", rotulo: "Quanto comprar" },
 ];
 
@@ -76,6 +81,15 @@ export default function App() {
         )}
         {tela === "fechamento" && (
           <Fechamento
+            casas={casas}
+            casaId={casaId}
+            setCasaId={setCasaId}
+            periodo={periodo}
+            setPeriodo={setPeriodo}
+          />
+        )}
+        {tela === "margem" && (
+          <MargemItens
             casas={casas}
             casaId={casaId}
             setCasaId={setCasaId}

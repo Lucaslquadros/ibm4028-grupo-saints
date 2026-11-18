@@ -6,8 +6,8 @@
 > em produção; a demonstração é um navegador e cinco links.
 
 > **Ciclo 07–09/11 entregue e publicado em 07/11.** Explicação do ajuste
-> (RF11), fluxo guiado "Fechar o mês" (RF12) e tempo medido (RF13) estão **no
-> ar** — backend no commit `a7fa9c5`, frontend no mesmo deploy, os dois
+> (RF11) e fluxo guiado "Fechar o mês" (RF12) estão **no ar** (o tempo medido,
+> RF13, foi retirado em 18/11) — backend no commit `a7fa9c5`, frontend no mesmo deploy, os dois
 > conferidos. A especificação de cada item está em
 > `11-ciclo-explicacao-do-ajuste.md`.
 >
@@ -15,6 +15,58 @@
 > entra no ar no mesmo merge que traz este arquivo.** Antes desse deploy a tela
 > ainda mostra a tabela larga de grupos. Confira o item 8 de "Antes de sair de
 > casa" — se o balanço não estiver lá, o deploy não aconteceu.
+
+## Apresentação ao cliente — 19/11/2026 (leia isto primeiro)
+
+> Ensaiado de ponta a ponta em 18/11/2026, contra a produção (commit
+> `438ef53`), com navegador automatizado. Os slides estão num artefato à parte;
+> as notas de cada slide dizem o que fazer na tela. O resto deste arquivo
+> continua valendo como referência e banco de respostas.
+
+**O que mudou desde o roteiro de 07/11:** o envio ao vivo agora é a **planilha
+de fechamento** na casa `Boteco Exemplo - Pinheiros (DEMO)` — o único caminho
+em que o lado real é CMV real (estoque inicial + compras − estoque final). A
+casa piloto passa a ser **só leitura** na demonstração.
+
+### Antes de começar (na manhã da apresentação)
+
+| # | Verificação | Esperado |
+|---|---|---|
+| 1 | `/health` | `"status":"ok"`, `"banco":"ok"`, `commit` = último da `main` |
+| 2 | Preparar a casa de demo: `uv run python scripts/popular_demo_fechamento.py --api https://app-projeto4-saints2026.azurewebsites.net` | "Casa criada: Boteco Exemplo - Pinheiros (DEMO)" + abr–ago enviados. **Rode de novo depois de cada ensaio** — ele apaga e recria só essa casa |
+| 3 | Aba Casas | 6 casas: a piloto + 5 "(DEMO)" |
+| 4 | Fechamento da piloto, 09/2026 | `ajuste_pp: -3.68`, selo "Abaixo do previsto" |
+| 5 | Fechamento da Boteco Exemplo, 09/2026 | **404 / "Nenhum relatório enviado"** — é o mês que será enviado ao vivo. Se já calcula, o ensaio não foi resetado: rode o item 2 |
+
+### A trilha (8–10 min de tela)
+
+Passa por todas as abas, contadas como a rotina das duas personas: a analista
+faz (Casas, Fechar o mês), o sócio lê (Fechamento, Margem por item, Quanto
+comprar), e o Upload fecha como o envio direto para quem já domina o sistema.
+
+**Abertura com o dado do cliente (antes de qualquer tela):** set/25 × set/26
+na casa piloto, 17 dos 40 itens de maior custo perderam margem, R$ 5,7 mil no
+mês; a Original 600 ml sozinha, R$ 1,4 mil (custo +33%, preço +5%). O Licor 43
+perdeu margem pelo outro lado: o preço caiu 36%. Termine com a pergunta "isso
+mudaria alguma decisão de vocês?" — é a validação do RF15.
+
+| Passo | Tela | Casa · período | O que acontece |
+|---|---|---|---|
+| 1 | Casas | — | Piloto real + DEMO rotuladas. A tela só cria; editar/apagar é pela API (`/docs`) |
+| 2 | Fechar o mês → "Planilha de fechamento" | Boteco Exemplo (DEMO) · 09/2026 | "Baixar planilha da demonstração" → enviar → painel: **+1,61 pp, acima**, maior parte em BEBIDAS (+1,43 pp); balanço; acumulado 6 meses +0,64 pp |
+| 3 | Fechamento | mesma casa e mês (a seleção continua ao trocar de aba) → depois Pizzaria Bella e Distribuidora Horizonte (DEMO) | "O sócio lê aqui." **Só esta aba** tem evolução mensal (a real descola em setembro) e top itens. Depois: +2,91 pp (CMV 32%) × +6,84 pp (CMV 76%), mesmo cálculo, outro ramo |
+| 4 | Margem por item (RF15) | Boteco Exemplo (DEMO) · 09/2026, "Comparar com" vazio | "3 de 10 itens perderam margem", R$ 6.317; refrigerante, gin e picanha com custo subindo e preço parado. BEBIDAS na planilha é 25% todo mês: a categoria esconde o item |
+| 5 | Quanto comprar | **piloto** · 09/2026 (só leitura) | Alerta "35% abaixo da mediana"; 39 meses de histórico; confiança "Alta"; "Não é machine learning" |
+| 6 | Upload | Boteco Exemplo (DEMO) · 09/2026 | "Envio direto, para histórico e arquivo avulso." Baixar o cardápio da demonstração, trocar o tipo para "Planilha de fechamento" e enviá-lo → 422 em português com as colunas que faltam |
+| — | Fechamento (opcional) | piloto · 09/2026 (só leitura) | −3,68 pp: compras × teórico, não conclusivo, um mês só |
+
+**Por que duas abas de envio.** O Upload veio primeiro. O Fechar o mês (RF12)
+usa os mesmos envios, em passos, e termina no resultado — existe porque quem
+mandava só um dos lados via um painel aparentemente completo e sem ajuste. O
+Upload continua necessário para carregar vários meses de histórico e para o
+cardápio por item da casa que usa planilha de fechamento (é o que alimenta
+Quanto comprar e top itens). O resultado no fim do Fechar o mês é o mesmo
+painel da aba Fechamento, **sem** evolução mensal e top itens.
 
 ## Regra número um
 
@@ -232,11 +284,7 @@ reenviar substitui o dado real, ao vivo.
 
 - Em cada passo de envio aparece **a tabela de colunas daquele lado** e o botão **Baixar planilha-modelo**, que a API gera na hora. Não existe `.xlsx` versionado no repositório: dado de cliente não entra no Git, então o modelo é gerado, não guardado.
 - Quando já existe arquivo do período, o padrão é **"Usar o já enviado"**. Substituir exige um segundo clique e vem com aviso de que não dá para desfazer.
-- No fim: **"Do primeiro envio ao resultado: X s"** (RF13), com a ressalva colada — *não inclui o tempo de exportar os relatórios do ERP*.
-
-> "Os dois dias do processo manual são o que a equipe de custos **declarou**, e
-> incluem exportar do ERP. Os segundos aqui são outra coisa. A gente mede o que
-> mede e diz o que não mede."
+- No fim, o painel do fechamento do mês. (O tempo medido do primeiro envio ao resultado, RF13, foi retirado em 18/11.)
 
 Esta aba existe porque o erro mais caro do contrato de entrada é silencioso:
 quem manda só o cardápio vê um painel que parece completo e não tem ajuste
@@ -347,7 +395,7 @@ demonstrado só até onde funciona.
 
 - **A API é pública.** Autenticação era RNF03 da Sprint 2 e não foi entregue. É a lacuna mais séria do trabalho.
 - **Sem Application Insights.** Os logs do App Service foram ligados em 06/11 (antes disso nem existiam), mas observabilidade de verdade — requisição, latência, falha ao longo do tempo — ficou como nível 2 da fila em `docs/09-uso-da-nuvem.md`.
-- **RF09 (nota fiscal fotografada) está especificado e não construído**, em `docs/10-anexos-de-imagem.md`. Desceu para Should em 07/11.
+- **RF09 (nota fiscal fotografada) e RF14 (baixar o arquivo original) foram abandonados em 18/11** para concentrar o esforço na margem por item (RF15). As especificações ficam no histórico.
 - **O sistema encurta o diagnóstico, não previne.** O CMV real depende do inventário do dia 30. Delta semanal e alertas são roadmap.
 - **A DRE real não diz de qual casa nem de qual mês é.** O rótulo set/26 foi atribuído por nós, com base em evidência circunstancial. É a limitação mais importante do trabalho e está escrita em `docs/01-requisitos.md` 1.9.
 - **Um mês de CMV real.** 24 meses de teórico, 1 de real: a série de ajuste tem um ponto.

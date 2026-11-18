@@ -9,6 +9,7 @@ enquanto os 61 testes seguiam verdes. Em vez de só corrigir a query, os testes
 abaixo checam a *classe* do erro, para a próxima não passar batido.
 """
 
+import pytest
 from sqlalchemy import Column
 from sqlalchemy.dialects import mssql
 
@@ -80,6 +81,22 @@ def test_subgrupos_por_lado_e_compativel_com_sql_server():
     # Sem LIMIT nesta query: o fechamento precisa de todos os subgrupos do mês,
     # e por isso ela não exige ORDER BY no SQL Server.
     assert "OFFSET" not in sql
+
+
+@pytest.mark.parametrize(
+    "stmt",
+    [
+        crud.stmt_itens_do_mes(casa_id=1, periodo="2026-09"),
+        crud.stmt_serie_cmv_itens(casa_id=1, nomes=["CHOPP"], inicio="2026-04", fim="2026-09"),
+    ],
+    ids=["itens_do_mes", "serie_cmv_itens"],
+)
+def test_margem_por_item_e_compativel_com_sql_server(stmt):
+    """As duas queries da margem por item agrupam por nome (e mês): grupo e
+    subgrupo só podem aparecer dentro de agregação."""
+    assert _colunas_soltas_no_group_by(stmt) == []
+    sql = str(stmt.compile(dialect=mssql.dialect())).upper()
+    assert "GROUP BY" in sql
 
 
 def test_a_checagem_pegaria_a_query_que_quebrou_em_producao():
