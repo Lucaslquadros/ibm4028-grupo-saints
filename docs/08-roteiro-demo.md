@@ -45,7 +45,7 @@ faz (Casas, Fechar o mês), o sócio lê (Fechamento, Margem por item, Quanto
 comprar), e o Upload fecha como o envio direto para quem já domina o sistema.
 
 **Abertura com o dado do cliente (antes de qualquer tela):** set/25 × set/26
-na casa piloto, 17 dos 40 itens de maior custo perderam margem, R$ 5,7 mil no
+na casa piloto, 49 dos 131 itens do cardápio perderam margem, R$ 7,6 mil no
 mês; a Original 600 ml sozinha, R$ 1,4 mil (custo +33%, preço +5%). O Licor 43
 perdeu margem pelo outro lado: o preço caiu 36%. Termine com a pergunta "isso
 mudaria alguma decisão de vocês?" — é a validação do RF15.

@@ -505,8 +505,8 @@ premissa do RF11) e quanto isso custou no mês. Itens com venda < R$ 500 em
 qualquer dos dois meses ficam fora. Paginado.
 Origem: o fechamento por grupo diz QUE um grupo saiu do previsto, mas a decisão
 do sócio é por item (preço, fornecedor, receita, cardápio), e a categoria
-esconde o item. Na casa piloto, set/25 × set/26: 17 dos 40 itens de maior custo
-perderam margem, R$ 5,7 mil no mês; a Original 600 ml sozinha, R$ 1,4 mil.
+esconde o item. Na casa piloto, set/25 × set/26: 49 dos 131 itens comparados
+perderam margem, R$ 7,6 mil no mês (conferido em produção em 18/11); a Original 600 ml sozinha, R$ 1,4 mil.
 Usa só o cardápio: não depende de estoque nem do lado real.
 ⚠️ O custo é o da ficha técnica de cada mês. Se o ERP não atualiza a ficha com
 o preço de compra, o custo do item pode estar defasado — a tela diz isso.
