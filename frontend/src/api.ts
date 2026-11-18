@@ -220,6 +220,42 @@ export interface RecomendacaoCompra {
   itens: PrevisaoItem[];
 }
 
+/** Margem por item: o mesmo item do cardápio no mês e no mês-base. */
+export interface MargemItem {
+  nome: string;
+  grupo: string;
+  subgrupo: string | null;
+  quantidade: number;
+  venda_liquida: number;
+  custo: number;
+  cmv_base_pct: number;
+  cmv_atual_pct: number;
+  variacao_pp: number;
+  custo_unitario_base: number;
+  custo_unitario_atual: number;
+  variacao_custo_pct: number | null;
+  preco_unitario_base: number;
+  preco_unitario_atual: number;
+  variacao_preco_pct: number | null;
+  /** Quanto custou a mais no mês do que custaria com o CMV do mês-base. */
+  custo_extra: number;
+  serie: { periodo: string; cmv_pct: number | null }[];
+}
+
+export interface MargemItens extends Pagina<MargemItem> {
+  casa_id: number;
+  casa_nome: string;
+  periodo: string;
+  periodo_base: string;
+  criterio_base: string;
+  limiar_pp: number;
+  venda_minima: number;
+  itens_comparados: number;
+  itens_que_pioraram: number;
+  custo_extra_total: number;
+  aviso: string;
+}
+
 export const api = {
   /** Link direto para a planilha-modelo. Não passa por `pedido`: a API
    * devolve um arquivo com Content-Disposition, não JSON. */
@@ -287,6 +323,17 @@ export const api = {
     pedido<ItemCardapio[]>(
       `/api/v1/metricas/top-itens?casa_id=${casaId}&periodo=${periodo}&ordem=${ordem}`,
     ),
+
+  margemItens: (casaId: number, periodo: string, base = "", limit = 20, offset = 0) => {
+    const q = new URLSearchParams({
+      casa_id: String(casaId),
+      periodo,
+      limit: String(limit),
+      offset: String(offset),
+    });
+    if (base) q.set("base", base);
+    return pedido<MargemItens>(`/api/v1/metricas/margem-itens?${q}`);
+  },
 
   recomendacaoCompra: (
     casaId: number,

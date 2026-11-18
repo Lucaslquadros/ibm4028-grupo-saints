@@ -14,11 +14,13 @@ O que faz
    execução volta ao estado de antes da apresentação.
 2. Baixa da própria API a planilha do histórico (abr–ago/26) e envia em
    `POST /api/v1/fechamentos`, exatamente como a tela faria.
-3. Envia o cardápio por item de abr–ago/26 (`POST /api/v1/uploads-custo`,
-   tipo cardapio), que alimenta "Quanto comprar" e "Top itens".
+3. Envia o cardápio por item de abr–set/26 (`POST /api/v1/uploads-custo`,
+   tipo cardapio), que alimenta "Quanto comprar", "Top itens" e "Margem por
+   item". Set/26 entra aqui também: o cardápio não faz parte do envio ao vivo,
+   e sem ele a margem por item não teria o mês da apresentação.
 
-O mês da apresentação (set/26) fica de fora: ele é enviado ao vivo pela tela
-de Upload, com a planilha que a própria tela oferece para baixar. Os dados são
+A planilha de fechamento do mês da apresentação (set/26) fica de fora: ela é
+enviada ao vivo, com o arquivo que a própria tela oferece para baixar. Os dados são
 fictícios — estão em `app/services/demo_fechamento.py`.
 
 Só toca a casa de demonstração. Nenhuma outra casa é lida, alterada ou apagada.
@@ -121,8 +123,9 @@ def preparar(api: str) -> None:
     )
 
     # Cardápio por item, mês a mês (o período vai no formulário): é o que
-    # alimenta "Quanto comprar" e "Top itens", que a planilha não cobre.
-    for periodo in info["periodos_historico"]:
+    # alimenta "Quanto comprar", "Top itens" e "Margem por item", que a
+    # planilha não cobre. Inclui o mês ao vivo — ver o passo 3 do docstring.
+    for periodo in info["periodos"]:
         cardapio = _requisicao(f"{api}/api/v1/modelos/fechamento/demo/cardapio?periodo={periodo}")
         corpo, tipo = _multipart(
             {"casa_id": str(casa["id"]), "periodo": periodo, "tipo": "cardapio"},
@@ -130,17 +133,12 @@ def preparar(api: str) -> None:
             cardapio,
         )
         _requisicao(f"{api}/api/v1/uploads-custo", corpo, tipo, "POST")
-    print(f"Cardápio por item enviado: {', '.join(info['periodos_historico'])}.")
+    print(f"Cardápio por item enviado: {', '.join(info['periodos'])}.")
 
     ao_vivo = info["periodo_ao_vivo"]
     print()
-    print(f"Pronto. {ao_vivo} fica para a apresentação, com os arquivos que a tela oferece:")
-    print("  - Upload → Planilha de fechamento → 'Baixar planilha da demonstração'")
-    print("    (ou Fechar o mês → Planilha de fechamento)")
-    print(
-        f"  - Upload → Engenharia de cardápio, período {ao_vivo} → "
-        "'Baixar cardápio da demonstração'"
-    )
+    print(f"Pronto. A planilha de {ao_vivo} fica para a apresentação:")
+    print("  Fechar o mês → Planilha de fechamento → 'Baixar planilha da demonstração'")
 
 
 def main() -> None:

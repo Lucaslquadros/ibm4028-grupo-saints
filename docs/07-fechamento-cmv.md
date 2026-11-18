@@ -258,21 +258,22 @@ ajuste   = CMV real − custo_teorico
 "Boteco Exemplo - Pinheiros (DEMO)", com dados fictícios em
 `app/services/demo_fechamento.py`: abr–set/26, ALIMENTOS e BEBIDAS. Cobre
 todas as telas: Fechamento (com explicação, evolução, acumulado e top itens),
-Fechar o mês, Upload e Quanto comprar.
+Fechar o mês, Upload, Margem por item e Quanto comprar.
 
 | Arquivo | Rota | Onde a tela oferece | Alimenta |
 |---|---|---|---|
 | Planilha de fechamento | `GET /modelos/fechamento/demo/planilha?periodo=` | Upload → Planilha de fechamento; Fechar o mês → Planilha de fechamento | Fechamento, explicação, evolução, acumulado |
-| Cardápio por item | `GET /modelos/fechamento/demo/cardapio?periodo=` | Upload → Engenharia de cardápio, com o período | Quanto comprar (RF07), top itens |
+| Cardápio por item | `GET /modelos/fechamento/demo/cardapio?periodo=` | Upload → Engenharia de cardápio, com o período | Quanto comprar (RF07), top itens, margem por item (RF14) |
 
 Os dois só aparecem para essa casa (`GET /modelos/fechamento/demo` diz qual
 é). O cardápio é **derivado** da planilha: por grupo e mês, a soma dos itens é
 a venda e o custo teórico da planilha, ao centavo. Numa casa com planilha, o
 cardápio não muda o fechamento — só alimenta as telas por item.
 
-- `uv run python scripts/popular_demo_fechamento.py [--api URL]` apaga e recria **só** essa casa e carrega abr–ago/26 (planilha + cardápio). Rode antes de cada ensaio.
+- `uv run python scripts/popular_demo_fechamento.py [--api URL]` apaga e recria **só** essa casa e carrega a planilha de abr–ago/26 e o cardápio de abr–set/26. Rode antes de cada ensaio. O cardápio de set/26 não preenche o fechamento de set/26: casa com planilha é calculada só por ela.
 - Set/26 fica para o envio ao vivo. Resultado esperado: abr–ago dentro da margem; set/26 **acima** (+1,61 pp), puxado por BEBIDAS. As compras de BEBIDAS em set/26 ficam 1,4 pp **abaixo** do teórico, porque o estoque caiu: só a DRE levaria à conclusão inversa.
-- Quanto comprar: com abr–ago (5 meses), confiança baixa e sem tendência; depois do cardápio de set/26 (6 meses), confiança média, com tendência por item.
+- Quanto comprar: 6 meses de cardápio (abr–set), com tendência por item; sem sazonalidade, que exige um ano.
+- Margem por item (18/11): GIN TONICA, REFRIGERANTE LATA e PICANHA NA CHAPA têm o CMV da ficha subindo mês a mês com o preço parado. Set/26 × abr/26: 3 de 10 itens perderam margem, custo extra de R$ 6.317. O CMV de cada **grupo** continua o da planilha (BEBIDAS 25% todo mês): os outros itens do grupo ficam mais baratos e compensam — a categoria esconde o item, que é o ponto da tela.
 - O script remove `SSLKEYLOGFILE` do próprio processo: com ela definida, o Python do Windows aborta na primeira requisição (`OPENSSL_Uplink ... no OPENSSL_Applink`).
 
 ## O terceiro formato: planilha genérica

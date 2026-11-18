@@ -66,18 +66,25 @@ def linhas_demo(periodos: list[str]) -> list[tuple]:
 # fontes nunca se contradizem na tela.
 #
 # grupo, subgrupo, item, preço de venda, CMV da ficha, peso na venda do grupo,
-# variação do peso por mês (tendência: o RF07 tem o que mostrar)
+# variação do peso por mês (tendência: o RF07 tem o que mostrar), variação do
+# CMV da ficha por mês (margem por item: o custo do insumo sobe, o preço não).
+#
+# Os três itens com custo subindo — GIN TONICA, REFRIGERANTE LATA e PICANHA NA
+# CHAPA — são o ponto da tela "Margem por item": o CMV de BEBIDAS na planilha é
+# 25% todo mês, e dentro dele gin e refrigerante perdem margem enquanto o chopp
+# compensa. Como o custo do grupo é fixo (vem da planilha), os outros itens do
+# grupo ficam um pouco mais baratos: a categoria esconde o item.
 ITENS = [
-    ("ALIMENTOS", "PETISCOS", "BOLINHO DE BACALHAU", 42.0, 0.30, 0.24, 0.00),
-    ("ALIMENTOS", "PETISCOS", "PASTEL DE CARNE", 28.0, 0.22, 0.18, -0.04),
-    ("ALIMENTOS", "PETISCOS", "MANDIOCA FRITA", 26.0, 0.18, 0.14, 0.02),
-    ("ALIMENTOS", "PRATOS", "FILE COM FRITAS", 89.0, 0.33, 0.26, 0.01),
-    ("ALIMENTOS", "PRATOS", "PICANHA NA CHAPA", 119.0, 0.31, 0.18, 0.03),
-    ("BEBIDAS", "CHOPP", "CHOPP 300ML", 14.0, 0.24, 0.34, 0.00),
-    ("BEBIDAS", "CHOPP", "CHOPP 500ML", 21.0, 0.23, 0.22, 0.02),
-    ("BEBIDAS", "DESTILADOS", "CAIPIRINHA", 28.0, 0.28, 0.20, -0.02),
-    ("BEBIDAS", "DESTILADOS", "GIN TONICA", 36.0, 0.30, 0.12, 0.05),
-    ("BEBIDAS", "NAO ALCOOLICOS", "REFRIGERANTE LATA", 8.0, 0.30, 0.12, 0.00),
+    ("ALIMENTOS", "PETISCOS", "BOLINHO DE BACALHAU", 42.0, 0.30, 0.24, 0.00, 0.0),
+    ("ALIMENTOS", "PETISCOS", "PASTEL DE CARNE", 28.0, 0.22, 0.18, -0.04, 0.0),
+    ("ALIMENTOS", "PETISCOS", "MANDIOCA FRITA", 26.0, 0.18, 0.14, 0.02, 0.0),
+    ("ALIMENTOS", "PRATOS", "FILE COM FRITAS", 89.0, 0.33, 0.26, 0.01, 0.0),
+    ("ALIMENTOS", "PRATOS", "PICANHA NA CHAPA", 119.0, 0.31, 0.18, 0.03, 0.012),
+    ("BEBIDAS", "CHOPP", "CHOPP 300ML", 14.0, 0.24, 0.34, 0.00, 0.0),
+    ("BEBIDAS", "CHOPP", "CHOPP 500ML", 21.0, 0.23, 0.22, 0.02, 0.0),
+    ("BEBIDAS", "DESTILADOS", "CAIPIRINHA", 28.0, 0.28, 0.20, -0.02, 0.0),
+    ("BEBIDAS", "DESTILADOS", "GIN TONICA", 36.0, 0.30, 0.12, 0.05, 0.016),
+    ("BEBIDAS", "NAO ALCOOLICOS", "REFRIGERANTE LATA", 8.0, 0.30, 0.12, 0.00, 0.02),
 ]
 
 CABECALHO_CARDAPIO = ["grupo", "subgrupo", "item", "quantidade", "venda_liquida", "custo"]
@@ -92,9 +99,12 @@ def cardapio_demo(periodo: str) -> list[tuple]:
     linhas: list[tuple] = []
     for _periodo, grupo, venda_grupo, teorico_grupo, *_resto in linhas_demo([periodo]):
         itens = [i for i in ITENS if i[0] == grupo]
-        pesos = [peso * (1 + tendencia) ** indice for *_x, peso, tendencia in itens]
+        pesos = [peso * (1 + tendencia) ** indice for *_x, peso, tendencia, _d in itens]
         vendas = _repartir(venda_grupo, pesos)
-        brutos = [v * cmv for v, (*_x, cmv, _p, _t) in zip(vendas, itens, strict=True)]
+        brutos = [
+            v * (cmv + deriva * indice)
+            for v, (*_x, cmv, _p, _t, deriva) in zip(vendas, itens, strict=True)
+        ]
         custos = _repartir(teorico_grupo, brutos)
         for (_g, subgrupo, item, preco, *_x), venda, custo in zip(
             itens, vendas, custos, strict=True
