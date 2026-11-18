@@ -60,6 +60,34 @@ const QUADRANTES: Record<
 // Ordem da matriz na tela: margem alta em cima, popular à direita.
 const ORDEM_MATRIZ: ClasseCardapio[] = ["quebra_cabeca", "estrela", "cao", "burro_de_carga"];
 
+/** Vendido abaixo do custo vem antes de tudo: é dinheiro saindo a cada unidade
+ *  vendida, e quase sempre é ficha ou preço desatualizado. Conta TODOS os itens
+ *  do mês, inclusive os que vendem pouco demais para entrar na matriz. */
+function AlertaAbaixoDoCusto({ resumo }: { resumo: EngenhariaCardapio }) {
+  const total = resumo.abaixo_do_custo_total ?? resumo.abaixo_do_custo.length;
+  const prejuizo =
+    resumo.abaixo_do_custo_prejuizo ??
+    resumo.abaixo_do_custo.reduce((soma, i) => soma + i.margem_total, 0);
+  const mostrados = resumo.abaixo_do_custo.slice(0, 5);
+  return (
+    <div className="aviso aviso-dado">
+      <strong>
+        {total === 1 ? "1 item vendido abaixo do custo" : `${total} itens vendidos abaixo do custo`}{" "}
+        em {mesAno(resumo.periodo)}: {reaisInteiro(prejuizo)} no mês.
+      </strong>{" "}
+      {mostrados.map((i, n) => (
+        <span key={i.nome}>
+          {n > 0 && "; "}
+          {i.nome} ({reais(i.margem_unitaria)} por unidade × {num(i.quantidade)} ={" "}
+          {reaisInteiro(i.margem_total)})
+        </span>
+      ))}
+      {total > mostrados.length && `; e mais ${total - mostrados.length}`}. Confira a ficha
+      técnica e o preço de venda.
+    </div>
+  );
+}
+
 type Props = {
   casas: Casa[];
   casaId: number | "";
@@ -160,21 +188,7 @@ export function Engenharia({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
           {/* Vendido abaixo do custo vem antes de tudo: é dinheiro saindo a cada
               unidade vendida, e quase sempre é ficha ou preço desatualizado. */}
           {resumo.abaixo_do_custo.length > 0 && (
-            <div className="aviso aviso-dado">
-              <strong>
-                {resumo.abaixo_do_custo.length === 1
-                  ? "1 item vendido abaixo do custo"
-                  : `${resumo.abaixo_do_custo.length} itens vendidos abaixo do custo`}{" "}
-                em {mesAno(resumo.periodo)}:
-              </strong>{" "}
-              {resumo.abaixo_do_custo.map((i, n) => (
-                <span key={i.nome}>
-                  {n > 0 && "; "}
-                  {i.nome} ({reais(i.margem_unitaria)} por unidade, {num(i.quantidade)} vendidas)
-                </span>
-              ))}
-              . Confira a ficha técnica e o preço de venda.
-            </div>
+            <AlertaAbaixoDoCusto resumo={resumo} />
           )}
 
           <div className="segmentado" role="radiogroup" aria-label="Grupo">
@@ -189,7 +203,9 @@ export function Engenharia({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
               >
                 <strong>{g.grupo}</strong>
                 <span>
-                  {g.itens} itens · margem média {reais(g.margem_media_unitaria)} por unidade
+                  {g.itens} itens na matriz · margem média {reais(g.margem_media_unitaria)} por
+                  unidade
+                  {g.fora_da_matriz ? ` · ${g.fora_da_matriz} fora (venda pequena)` : ""}
                 </span>
               </button>
             ))}
@@ -261,7 +277,7 @@ export function Engenharia({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
                         <td className="num">
                           {num(item.quantidade)}
                           <span className="celula-fraca">
-                            {pct(item.popularidade_pct)} do grupo
+                            {item.popularidade_pct === null ? "" : `${pct(item.popularidade_pct)} do grupo`}
                           </span>
                         </td>
                         <td className="num">{reais(item.preco_medio)}</td>

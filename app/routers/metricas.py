@@ -379,7 +379,11 @@ def engenharia_cardapio(
             status_code=404,
             detail=f"A casa {casa_id} não tem engenharia de cardápio em {periodo}",
         )
-    cortes, linhas = servico_engenharia.classificar(list(itens.values()))
+    # Só os grupos de CMV, os mesmos do fechamento: SERVICOS (couvert) e OUTRAS
+    # VENDAS não são cardápio com custo de mercadoria.
+    grupos_cmv = set(crud.grupos_comparaveis(db, casa_id))
+    do_cmv = [i for i in itens.values() if i.grupo in grupos_cmv]
+    cortes, linhas = servico_engenharia.classificar(do_cmv)
     if grupo is not None and grupo not in {c.grupo for c in cortes}:
         raise HTTPException(status_code=404, detail=f"Grupo {grupo} sem itens em {periodo}")
 
@@ -389,10 +393,7 @@ def engenharia_cardapio(
         if (grupo is None or linha["grupo"] == grupo)
         and (classe is None or linha["classe"] == classe)
     ]
-    abaixo = sorted(
-        (linha for linha in linhas if linha["abaixo_do_custo"]),
-        key=lambda linha: linha["margem_total"],
-    )
+    abaixo = servico_engenharia.abaixo_do_custo(do_cmv, linhas)
     return EngenhariaCardapioResponse(
         casa_id=casa.id,
         casa_nome=casa.nome,
@@ -406,14 +407,19 @@ def engenharia_cardapio(
                 margem_media_unitaria=c.margem_media_unitaria,
                 limiar_popularidade_pct=c.limiar_popularidade_pct,
                 **servico_engenharia.contagem(linhas, c.grupo),
+                fora_da_matriz=servico_engenharia.fora_da_matriz(do_cmv, c.grupo),
             )
             for c in cortes
         ],
         abaixo_do_custo=[ItemEngenharia(**linha) for linha in abaixo[:LIMITE_ABAIXO_DO_CUSTO]],
+        abaixo_do_custo_total=len(abaixo),
+        abaixo_do_custo_prejuizo=round(sum(linha["margem_total"] for linha in abaixo), 2),
+        venda_minima=servico_engenharia.VENDA_MINIMA,
         metodo=(
-            "Matriz de Kasavana & Smith, dentro de cada grupo. Margem alta = margem por "
-            "unidade (preço − custo da ficha) acima da média ponderada do grupo. Popular = "
-            "vende pelo menos 70% da fatia que teria se todos os itens vendessem igual."
+            "Matriz de Kasavana & Smith, dentro de cada grupo de CMV, com os itens que "
+            "venderam pelo menos R$ 500 no mês. Margem alta = margem por unidade (preço − "
+            "custo da ficha) acima da média ponderada do grupo. Popular = vende pelo menos "
+            "70% da fatia que teria se todos os itens vendessem igual."
         ),
         aviso=(
             "A margem usa o custo da ficha técnica do mês. Se a ficha não acompanha o preço "

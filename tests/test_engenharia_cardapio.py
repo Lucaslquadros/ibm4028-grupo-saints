@@ -11,7 +11,7 @@ import io
 import pytest
 
 from app.services import demo_fechamento
-from app.services.engenharia import classificar, contagem
+from app.services.engenharia import abaixo_do_custo, classificar, contagem, fora_da_matriz
 from app.services.margem import ItemMes
 
 CASAS = "/api/v1/casas"
@@ -36,7 +36,7 @@ def test_quatro_quadrantes_com_os_cortes_do_metodo():
         _item("CAO", 10, 100, 50),  # 10% · margem 5,00
     ]
 
-    cortes, linhas = classificar(itens)
+    cortes, linhas = classificar(itens, venda_minima=0)
 
     [corte] = cortes
     assert corte.margem_media_unitaria == 26.5
@@ -64,7 +64,7 @@ def test_grupos_sao_comparados_separadamente():
         _item("AGUA", 100, 600, 100, grupo="BEBIDAS"),
     ]
 
-    cortes, linhas = classificar(itens)
+    cortes, linhas = classificar(itens, venda_minima=0)
 
     assert [c.grupo for c in cortes] == ["ALIMENTOS", "BEBIDAS"]
     assert {linha["nome"]: linha["classe"] for linha in linhas} == {
@@ -73,16 +73,32 @@ def test_grupos_sao_comparados_separadamente():
     }
 
 
-def test_item_vendido_abaixo_do_custo_e_marcado():
-    _, linhas = classificar([_item("OK", 10, 100, 30), _item("PREJUIZO", 10, 100, 130)])
+def test_abaixo_do_custo_olha_todos_os_itens_menos_o_preco_simbolico():
+    itens = [
+        _item("PRATO", 100, 5000, 1500),  # na matriz, com lucro
+        _item("JARRA", 36, 400, 1387),  # venda < R$ 500: fora da matriz, mas perde dinheiro
+        _item("CORTESIA", 8, 0.08, 3.47),  # R$ 0,01 por unidade: preço simbólico
+    ]
+    _, linhas = classificar(itens)
 
-    prejuizo = next(linha for linha in linhas if linha["nome"] == "PREJUIZO")
-    assert prejuizo["abaixo_do_custo"] is True
-    assert prejuizo["margem_unitaria"] == -3.0
+    abaixo = abaixo_do_custo(itens, linhas)
+
+    assert [linha["nome"] for linha in abaixo] == ["JARRA"]
+    assert abaixo[0]["margem_unitaria"] == -27.42
+    assert abaixo[0]["classe"] is None  # fora da matriz, mas no alerta
+
+
+def test_matriz_so_com_venda_minima_e_conta_quem_ficou_fora():
+    itens = [_item("GRANDE", 100, 5000, 1500), _item("PEQUENO", 2, 80, 20)]
+
+    _, linhas = classificar(itens)
+
+    assert [linha["nome"] for linha in linhas] == ["GRANDE"]
+    assert fora_da_matriz(itens, "ALIMENTOS") == 1
 
 
 def test_item_sem_unidade_ou_sem_venda_fica_fora():
-    _, linhas = classificar([_item("OK", 10, 100, 30), _item("CORTESIA", 5, 0, 20)])
+    _, linhas = classificar([_item("OK", 10, 100, 30), _item("CORTESIA", 5, 0, 20)], venda_minima=0)
 
     assert [linha["nome"] for linha in linhas] == ["OK"]
 
@@ -113,6 +129,8 @@ def test_demo_tem_os_quatro_quadrantes_nos_dois_grupos(client, casa_demo):
         for classe in ("estrela", "burro_de_carga", "quebra_cabeca", "cao"):
             assert grupo[classe] >= 1, (grupo["grupo"], classe)
     assert [i["nome"] for i in dados["abaixo_do_custo"]] == ["LIMONADA JARRA"]
+    assert dados["abaixo_do_custo_total"] == 1
+    assert dados["abaixo_do_custo_prejuizo"] < 0
     assert dados["total"] == 12
 
 
@@ -156,3 +174,32 @@ def test_engenharia_classe_invalida_devolve_422(client, casa_demo):
 def test_engenharia_periodo_invalido_devolve_422(client, casa_demo):
     params = {"casa_id": casa_demo, "periodo": "09/2026"}
     assert client.get(ENGENHARIA, params=params).status_code == 422
+
+
+def test_grupo_sem_custo_de_mercadoria_fica_fora(client):
+    """SERVICOS (couvert) vem no cardápio sem custo de mercadoria: não entra na
+    matriz, como não entra no fechamento."""
+    from openpyxl import Workbook
+
+    casa_id = client.post(
+        CASAS, json={"nome": "Bar Teste (DEMO)", "marca": "Bar Teste", "cidade": "Sao Paulo"}
+    ).json()["id"]
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["grupo", "subgrupo", "item", "quantidade", "venda_liquida", "custo"])
+    ws.append(["ALIMENTOS", "PRATOS", "PRATO A", 100, 5000, 1500])
+    ws.append(["ALIMENTOS", "PRATOS", "PRATO B", 50, 3000, 1200])
+    ws.append(["SERVICOS", "COUVERT", "COUVERT ARTISTICO", 500, 7500, 0])
+    arquivo = io.BytesIO()
+    wb.save(arquivo)
+    resposta = client.post(
+        UPLOADS,
+        data={"casa_id": casa_id, "periodo": "2026-09", "tipo": "cardapio"},
+        files={"arquivo": ("cardapio.xlsx", io.BytesIO(arquivo.getvalue()), XLSX)},
+    )
+    assert resposta.status_code == 201, resposta.text
+
+    dados = client.get(ENGENHARIA, params={"casa_id": casa_id, "periodo": "2026-09"}).json()
+
+    assert [g["grupo"] for g in dados["grupos"]] == ["ALIMENTOS"]
+    assert dados["total"] == 2
