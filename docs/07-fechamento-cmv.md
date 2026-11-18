@@ -263,7 +263,7 @@ Fechar o mês, Upload, Margem por item e Quanto comprar.
 | Arquivo | Rota | Onde a tela oferece | Alimenta |
 |---|---|---|---|
 | Planilha de fechamento | `GET /modelos/fechamento/demo/planilha?periodo=` | Upload → Planilha de fechamento; Fechar o mês → Planilha de fechamento | Fechamento, explicação, evolução, acumulado |
-| Cardápio por item | `GET /modelos/fechamento/demo/cardapio?periodo=` | Upload → Engenharia de cardápio, com o período | Quanto comprar (RF07), top itens, margem por item (RF14) |
+| Cardápio por item | `GET /modelos/fechamento/demo/cardapio?periodo=` | Upload → Engenharia de cardápio, com o período | Quanto comprar (RF07), top itens, margem por item (RF15) |
 
 Os dois só aparecem para essa casa (`GET /modelos/fechamento/demo` diz qual
 é). O cardápio é **derivado** da planilha: por grupo e mês, a soma dos itens é

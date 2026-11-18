@@ -48,14 +48,14 @@ comprar), e o Upload fecha como o envio direto para quem já domina o sistema.
 na casa piloto, 17 dos 40 itens de maior custo perderam margem, R$ 5,7 mil no
 mês; a Original 600 ml sozinha, R$ 1,4 mil (custo +33%, preço +5%). O Licor 43
 perdeu margem pelo outro lado: o preço caiu 36%. Termine com a pergunta "isso
-mudaria alguma decisão de vocês?" — é a validação do RF14.
+mudaria alguma decisão de vocês?" — é a validação do RF15.
 
 | Passo | Tela | Casa · período | O que acontece |
 |---|---|---|---|
 | 1 | Casas | — | Piloto real + DEMO rotuladas. A tela só cria; editar/apagar é pela API (`/docs`) |
 | 2 | Fechar o mês → "Planilha de fechamento" | Boteco Exemplo (DEMO) · 09/2026 | "Baixar planilha da demonstração" → enviar → "Do primeiro envio ao resultado: X s" + painel: **+1,61 pp, acima**, maior parte em BEBIDAS (+1,43 pp); balanço; acumulado 6 meses +0,64 pp |
 | 3 | Fechamento | mesma casa e mês (a seleção continua ao trocar de aba) → depois Pizzaria Bella e Distribuidora Horizonte (DEMO) | "O sócio lê aqui." **Só esta aba** tem evolução mensal (a real descola em setembro) e top itens. Depois: +2,91 pp (CMV 32%) × +6,84 pp (CMV 76%), mesmo cálculo, outro ramo |
-| 4 | Margem por item (**RF14 — só depois do deploy**) | Boteco Exemplo (DEMO) · 09/2026, "Comparar com" vazio | "3 de 10 itens perderam margem", R$ 6.317; refrigerante, gin e picanha com custo subindo e preço parado. BEBIDAS na planilha é 25% todo mês: a categoria esconde o item |
+| 4 | Margem por item (**RF15 — só depois do deploy**) | Boteco Exemplo (DEMO) · 09/2026, "Comparar com" vazio | "3 de 10 itens perderam margem", R$ 6.317; refrigerante, gin e picanha com custo subindo e preço parado. BEBIDAS na planilha é 25% todo mês: a categoria esconde o item |
 | 5 | Quanto comprar | **piloto** · 09/2026 (só leitura) | Alerta "35% abaixo da mediana"; 39 meses de histórico; confiança "Alta"; "Não é machine learning" |
 | 6 | Upload | Boteco Exemplo (DEMO) · 09/2026 | "Envio direto, para histórico e arquivo avulso." Baixar o cardápio da demonstração, trocar o tipo para "Planilha de fechamento" e enviá-lo → 422 em português com as colunas que faltam |
 | — | Fechamento (opcional) | piloto · 09/2026 (só leitura) | −3,68 pp: compras × teórico, não conclusivo, um mês só |
