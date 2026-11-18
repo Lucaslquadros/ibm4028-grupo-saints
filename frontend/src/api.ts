@@ -63,7 +63,7 @@ export interface UploadFechamento {
   meses_substituidos: string[];
 }
 
-/** A casa de demonstração da planilha de fechamento (dados fictícios). */
+/** A casa de demonstração: cardápio real copiado da piloto, estoque simulado. */
 export interface DemoFechamento {
   casa_nome: string;
   periodos: string[];

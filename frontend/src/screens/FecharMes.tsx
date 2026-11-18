@@ -324,7 +324,7 @@ function PassoPlanilha({
         </a>
         {urlDemo && (
           <a className="botao-secundario" href={urlDemo} download>
-            Baixar planilha da demonstração ({mesAno(periodo)}, dados fictícios)
+            Baixar planilha da demonstração ({mesAno(periodo)}, estoque simulado)
           </a>
         )}
       </div>
@@ -432,7 +432,7 @@ export function FecharMes({ casas, casaId, setCasaId, periodo, setPeriodo }: Pro
 
   const planilhaDoPeriodo = planilhas.find((p) => p.periodos.includes(periodo));
   // A planilha de demonstração só aparece para a casa de demonstração, e só
-  // para um mês que a demo tem: em outra casa, misturaria dado fictício com real.
+  // para um mês que a demo tem: em outra casa, misturaria a demonstração com uma casa real.
   const urlDemo =
     demo !== null &&
     casas.some((c) => c.id === casaId && c.nome === demo.casa_nome) &&
