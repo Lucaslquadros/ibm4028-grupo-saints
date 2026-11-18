@@ -40,15 +40,26 @@ casa piloto passa a ser **só leitura** na demonstração.
 
 ### A trilha (8–10 min de tela)
 
+Passa pelas cinco abas, contadas como a rotina das duas personas: a analista
+faz (Casas, Fechar o mês), o sócio lê (Fechamento, Quanto comprar), e o Upload
+fecha como o envio direto para quem já domina o sistema.
+
 | Passo | Tela | Casa · período | O que acontece |
 |---|---|---|---|
 | 1 | Casas | — | Piloto real + DEMO rotuladas. A tela só cria; editar/apagar é pela API (`/docs`) |
-| 2 | Fechar o mês → "Planilha de fechamento" | Boteco Exemplo (DEMO) · 09/2026 | "Baixar planilha da demonstração" → enviar → resultado + "Do primeiro envio ao resultado: X s" |
-| 3 | (resultado) | idem | **+1,61 pp, acima**, maior parte em BEBIDAS (+1,43 pp); acumulado 6 meses +0,64 pp; evolução descola em setembro; top itens |
-| 4 | Fechamento | Pizzaria Bella (DEMO) e Distribuidora Horizonte (DEMO) · 09/2026 | +2,91 pp (CMV 32%) × +6,84 pp (CMV 76%): mesmo cálculo, outro ramo; subgrupos nos dois lados |
-| 5 | Quanto comprar | **piloto** · 09/2026 (só leitura) | Alerta "35% abaixo da mediana"; 39 meses de histórico; confiança "Alta"; "Não é machine learning" |
-| 6 | Upload → Planilha de fechamento | Boteco Exemplo (DEMO) · 09/2026 | Enviar o arquivo errado (o cardápio da demonstração) → 422 em português com as colunas que faltam |
+| 2 | Fechar o mês → "Planilha de fechamento" | Boteco Exemplo (DEMO) · 09/2026 | "Baixar planilha da demonstração" → enviar → "Do primeiro envio ao resultado: X s" + painel: **+1,61 pp, acima**, maior parte em BEBIDAS (+1,43 pp); balanço; acumulado 6 meses +0,64 pp |
+| 3 | Fechamento | mesma casa e mês (a seleção continua ao trocar de aba) → depois Pizzaria Bella e Distribuidora Horizonte (DEMO) | "O sócio lê aqui." **Só esta aba** tem evolução mensal (a real descola em setembro) e top itens. Depois: +2,91 pp (CMV 32%) × +6,84 pp (CMV 76%), mesmo cálculo, outro ramo |
+| 4 | Quanto comprar | **piloto** · 09/2026 (só leitura) | Alerta "35% abaixo da mediana"; 39 meses de histórico; confiança "Alta"; "Não é machine learning" |
+| 5 | Upload | Boteco Exemplo (DEMO) · 09/2026 | "Envio direto, para histórico e arquivo avulso." Baixar o cardápio da demonstração, trocar o tipo para "Planilha de fechamento" e enviá-lo → 422 em português com as colunas que faltam |
 | — | Fechamento (opcional) | piloto · 09/2026 (só leitura) | −3,68 pp: compras × teórico, não conclusivo, um mês só |
+
+**Por que duas abas de envio.** O Upload veio primeiro. O Fechar o mês (RF12)
+usa os mesmos envios, em passos, e termina no resultado — existe porque quem
+mandava só um dos lados via um painel aparentemente completo e sem ajuste. O
+Upload continua necessário para carregar vários meses de histórico e para o
+cardápio por item da casa que usa planilha de fechamento (é o que alimenta
+Quanto comprar e top itens). O resultado no fim do Fechar o mês é o mesmo
+painel da aba Fechamento, **sem** evolução mensal e top itens.
 
 > **Cronômetro do RF13 no fluxo da planilha:** até o commit `46131ee`
 > (branch `claude/loving-ptolemy-k9zbvu`) ele **não aparecia** nesse fluxo —
