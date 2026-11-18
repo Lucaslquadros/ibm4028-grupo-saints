@@ -6,8 +6,8 @@
 > em produção; a demonstração é um navegador e cinco links.
 
 > **Ciclo 07–09/11 entregue e publicado em 07/11.** Explicação do ajuste
-> (RF11), fluxo guiado "Fechar o mês" (RF12) e tempo medido (RF13) estão **no
-> ar** — backend no commit `a7fa9c5`, frontend no mesmo deploy, os dois
+> (RF11) e fluxo guiado "Fechar o mês" (RF12) estão **no ar** (o tempo medido,
+> RF13, foi retirado em 18/11) — backend no commit `a7fa9c5`, frontend no mesmo deploy, os dois
 > conferidos. A especificação de cada item está em
 > `11-ciclo-explicacao-do-ajuste.md`.
 >
@@ -53,9 +53,9 @@ mudaria alguma decisão de vocês?" — é a validação do RF15.
 | Passo | Tela | Casa · período | O que acontece |
 |---|---|---|---|
 | 1 | Casas | — | Piloto real + DEMO rotuladas. A tela só cria; editar/apagar é pela API (`/docs`) |
-| 2 | Fechar o mês → "Planilha de fechamento" | Boteco Exemplo (DEMO) · 09/2026 | "Baixar planilha da demonstração" → enviar → "Do primeiro envio ao resultado: X s" + painel: **+1,61 pp, acima**, maior parte em BEBIDAS (+1,43 pp); balanço; acumulado 6 meses +0,64 pp |
+| 2 | Fechar o mês → "Planilha de fechamento" | Boteco Exemplo (DEMO) · 09/2026 | "Baixar planilha da demonstração" → enviar → painel: **+1,61 pp, acima**, maior parte em BEBIDAS (+1,43 pp); balanço; acumulado 6 meses +0,64 pp |
 | 3 | Fechamento | mesma casa e mês (a seleção continua ao trocar de aba) → depois Pizzaria Bella e Distribuidora Horizonte (DEMO) | "O sócio lê aqui." **Só esta aba** tem evolução mensal (a real descola em setembro) e top itens. Depois: +2,91 pp (CMV 32%) × +6,84 pp (CMV 76%), mesmo cálculo, outro ramo |
-| 4 | Margem por item (**RF15 — só depois do deploy**) | Boteco Exemplo (DEMO) · 09/2026, "Comparar com" vazio | "3 de 10 itens perderam margem", R$ 6.317; refrigerante, gin e picanha com custo subindo e preço parado. BEBIDAS na planilha é 25% todo mês: a categoria esconde o item |
+| 4 | Margem por item (RF15) | Boteco Exemplo (DEMO) · 09/2026, "Comparar com" vazio | "3 de 10 itens perderam margem", R$ 6.317; refrigerante, gin e picanha com custo subindo e preço parado. BEBIDAS na planilha é 25% todo mês: a categoria esconde o item |
 | 5 | Quanto comprar | **piloto** · 09/2026 (só leitura) | Alerta "35% abaixo da mediana"; 39 meses de histórico; confiança "Alta"; "Não é machine learning" |
 | 6 | Upload | Boteco Exemplo (DEMO) · 09/2026 | "Envio direto, para histórico e arquivo avulso." Baixar o cardápio da demonstração, trocar o tipo para "Planilha de fechamento" e enviá-lo → 422 em português com as colunas que faltam |
 | — | Fechamento (opcional) | piloto · 09/2026 (só leitura) | −3,68 pp: compras × teórico, não conclusivo, um mês só |
@@ -67,13 +67,6 @@ Upload continua necessário para carregar vários meses de histórico e para o
 cardápio por item da casa que usa planilha de fechamento (é o que alimenta
 Quanto comprar e top itens). O resultado no fim do Fechar o mês é o mesmo
 painel da aba Fechamento, **sem** evolução mensal e top itens.
-
-> **Cronômetro do RF13 no fluxo da planilha:** até o commit `46131ee`
-> (branch `claude/loving-ptolemy-k9zbvu`) ele **não aparecia** nesse fluxo —
-> `calcular()` lia um estado capturado antes do envio. Sem esse commit em
-> produção, o resultado aparece normalmente, só sem a linha do tempo; nesse
-> caso, cite o tempo de relógio em voz alta ou mostre o RF13 pelo fluxo
-> "Relatórios do Everest" numa casa DEMO.
 
 ## Regra número um
 
@@ -291,11 +284,7 @@ reenviar substitui o dado real, ao vivo.
 
 - Em cada passo de envio aparece **a tabela de colunas daquele lado** e o botão **Baixar planilha-modelo**, que a API gera na hora. Não existe `.xlsx` versionado no repositório: dado de cliente não entra no Git, então o modelo é gerado, não guardado.
 - Quando já existe arquivo do período, o padrão é **"Usar o já enviado"**. Substituir exige um segundo clique e vem com aviso de que não dá para desfazer.
-- No fim: **"Do primeiro envio ao resultado: X s"** (RF13), com a ressalva colada — *não inclui o tempo de exportar os relatórios do ERP*.
-
-> "Os dois dias do processo manual são o que a equipe de custos **declarou**, e
-> incluem exportar do ERP. Os segundos aqui são outra coisa. A gente mede o que
-> mede e diz o que não mede."
+- No fim, o painel do fechamento do mês. (O tempo medido do primeiro envio ao resultado, RF13, foi retirado em 18/11.)
 
 Esta aba existe porque o erro mais caro do contrato de entrada é silencioso:
 quem manda só o cardápio vê um painel que parece completo e não tem ajuste

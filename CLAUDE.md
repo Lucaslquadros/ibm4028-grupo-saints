@@ -33,12 +33,12 @@ técnica e inventário mensal — o contrato de entrada está em
 - O ajuste da casa real é **negativo** (−3,68 pp): todo texto tem três ramos (acima / dentro / abaixo). Negativo **não** é economia.
 - **Desde 10/11: a DRE é compras, não CMV real** (`docs/07`, "A DRE é compras, não consumo"). O −3,68 pp é compras × teórico de um mês, não conclusivo; o lado real tem `base_real` e o fechamento tem `acumulado`. Não há inventário do cliente.
 - **Desde 12/11: fechamento pela planilha-modelo** (`POST /api/v1/fechamentos`, tabelas `uploads_fechamento`/`movimentos_grupo`), ao lado do caminho do Everest. Com estoque por grupo, o lado real é CMV real. Casa com planilha é calculada só por ela (`crud._fechamentos_movimento`). Regra em `docs/07`, "Fechamento pela planilha-modelo".
-- **Desde 18/11: margem por item (RF15)** — `GET /api/v1/metricas/margem-itens` e aba "Margem por item". Item contra ele mesmo num mês-base, ordenado pelo custo extra em R$; só cardápio, sem estoque. Regra em `app/services/margem.py`. Não publicado até o merge.
+- **Desde 18/11: margem por item (RF15)** — `GET /api/v1/metricas/margem-itens` e aba "Margem por item". Item contra ele mesmo num mês-base, ordenado pelo custo extra em R$; só cardápio, sem estoque. Regra em `app/services/margem.py`. No ar desde 18/11 (PR #26).
 - Abaixo do grupo, só se compara subgrupo que existe nos dois lados. Não inventar granularidade.
 - Campos novos na API são **opcionais**: o frontend em produção não pode quebrar entre deploys. Backend primeiro, depois front.
 - Nunca usar a casa piloto em 09/2026 para testar envio: reenvio **substitui** o dado real.
 - O congelamento do ciclo 07–09/11 acabou. Continua valendo: após cada deploy, `/health` com o SHA novo e fechamento de set/26 com `ajuste_pp: -3.68`.
-- Fora do ciclo: mini-ERP, alertas, delta semanal, autenticação, infra. **RF09 e RF14 abandonados em 18/11** (foco no RF15).
+- Fora do ciclo: mini-ERP, alertas, delta semanal, autenticação, infra. **RF09 e RF14 abandonados em 18/11** (foco no RF15). **RF13 (cronômetro) retirado em 18/11.**
 
 **Dados reais do cliente nunca vão para o Git** (`dados_reais/`, `*.xlsx` no
 `.gitignore`). Testes usam planilhas sintéticas de `tests/planilhas.py`.

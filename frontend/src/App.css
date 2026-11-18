@@ -440,16 +440,6 @@ select optgroup {
 .composicao[open] > summary { border-bottom: 1px solid rgba(var(--border-dark), 0.08); }
 .tabela-embutida { margin-bottom: 0; background: transparent; }
 
-/* RF13 — o tempo medido vem colado na ressalva do que ele NÃO inclui. */
-.cronometro {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 14px 18px;
-  margin-bottom: 18px;
-}
-.cronometro strong { font-size: 15px; font-variant-numeric: tabular-nums; }
-.cronometro span { font-size: 12.5px; color: var(--ink-soft); max-width: 68ch; }
 
 /* --------------------------------------------------------------- dropzone */
 .dropzone {

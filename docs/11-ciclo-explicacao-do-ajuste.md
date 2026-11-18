@@ -18,7 +18,7 @@
 > | 1 — RF11 backend | Entregue | `app/services/explicacao.py`, `app/crud.py`, `app/schemas.py`, `tests/test_explicacao.py`, `tests/test_dialeto_sql.py` |
 > | 2 — RF11 tela | Entregue | `frontend/src/screens/Fechamento.tsx`, `frontend/src/api.ts` |
 > | 3 — RF12 fluxo guiado | Entregue | `frontend/src/screens/FecharMes.tsx`, `frontend/src/App.tsx` |
-> | 4 — RF13 cronômetro | Entregue | `frontend/src/screens/FecharMes.tsx` |
+> | 4 — RF13 cronômetro | Entregue em 07/11; **retirado em 18/11** | `frontend/src/screens/FecharMes.tsx` |
 > | Deploy + conferência no `/health` | Feito em 07/11 | ver abaixo |
 >
 > **Nenhum item precisou da ordem de corte.** Conferido local contra as quatro
@@ -349,6 +349,9 @@ Solução: endpoint que **gera** o modelo na hora, com linhas sintéticas.
   09/2026** — o fluxo sobrescreveria o dado real ao vivo.
 
 ## 6. RF13 — Tempo do primeiro envio ao resultado
+
+> **Retirado em 18/11/2026** por decisão do time. Esta seção fica como registro
+> do que foi especificado e entregue em 07/11.
 
 Os "2 dias" são trabalho humano **declarado** pelo cliente, nunca medido. Os
 segundos do sistema são outra coisa. Comparar os dois sem dizer isso é um flanco

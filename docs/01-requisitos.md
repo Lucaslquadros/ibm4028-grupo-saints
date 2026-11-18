@@ -6,7 +6,7 @@
 |---|---|
 | **Grupo** | _(nomes)_ |
 | **Cliente (papel de PO)** | Grupo Saints (grupo de bares/restaurantes, [gruposaints.com.br](https://www.gruposaints.com.br/)). **Desde 06/11/2026 o cliente é caso de estudo, não PO ativo** — ver 1.7 |
-| **Versão** | 1.6 — RF15 (margem por item) implementado, ainda não publicado |
+| **Versão** | 1.7 — RF15 (margem por item) publicado; RF13 (cronômetro) retirado |
 | **Última atualização** | 18/11/2026 |
 
 ## Ambiente em produção
@@ -89,8 +89,8 @@ e venda. O que o usuário precisa fornecer está em `07-fechamento-cmv.md`.
 - Cálculo do CMV teórico × real, com o ajuste por grupo e total (RF02)
 - Explicação do ajuste por regras: contribuição de cada grupo, subgrupos que existem nos dois lados, resumo e até 2 sugestões (RF11 — **entregue 07/11**)
 - Fluxo guiado "Fechar o mês" com planilha-modelo (RF12 — **entregue 07/11**, Should)
-- Tempo medido do primeiro envio ao resultado (RF13 — **entregue 07/11**, Should)
-- Margem por item: cada item do cardápio contra ele mesmo num mês anterior, ordenado pelo custo extra em R$ (RF15 — implementado em 18/11, **não publicado**, Should)
+- ~~Tempo medido do primeiro envio ao resultado~~ (RF13 — entregue em 07/11, **retirado em 18/11**)
+- Margem por item: cada item do cardápio contra ele mesmo num mês anterior, ordenado pelo custo extra em R$ (RF15 — **no ar desde 18/11**, Should)
 - Dashboard com fechamento, evolução mensal e itens que mais pesam (RF04)
 - Recomendação de quantidade de compra a partir do histórico (RF07)
 - Leitura de **três formatos**: dois relatórios do Everest e uma planilha
@@ -115,7 +115,7 @@ e venda. O que o usuário precisa fornecer está em `07-fechamento-cmv.md`.
 | Métrica | Alvo | Como foi verificado |
 |---|---|---|
 | O fechamento do mês sai do export cru sem intervenção manual | 100% dos meses carregados | 24 meses da casa piloto processados a partir dos arquivos reais |
-| Tempo da operação manual substituída | de ~2 dias para < 5 min | **Entregue (RF13):** tempo de relógio no frontend, do primeiro envio ao resultado na tela. Não inclui exportar do ERP. Os ~2 dias são declarados pelo cliente, não medidos |
+| Tempo da operação manual substituída | de ~2 dias para < 5 min | **Não medido pelo sistema desde 18/11:** o RF13 (tempo de relógio do primeiro envio ao resultado) foi retirado da tela. Os ~2 dias continuam sendo número declarado pelo cliente |
 | O resultado é explicado, não só mostrado | Todo fechamento com os dois lados traz resumo e situação (acima / dentro / abaixo) | **Entregue (RF11):** `tests/test_explicacao.py`, e conferido em produção no fechamento de set/26 (`situacao: abaixo`) |
 | O cálculo não depende do ERP de origem | ≥ 2 formatos de origem distintos | 3 tradutores, provados em `tests/test_generalizacao.py` |
 | O cálculo não depende do ramo do negócio | ≥ 2 taxonomias distintas de categoria | Farmácia e restaurante, sem categoria no código |
@@ -346,8 +346,8 @@ pessoal (RF03/RF05) continua fora: nunca saiu de hipótese.
 | ~~RF09~~ | ~~Anexo de nota fiscal fotografada ao custo do período~~ | **Won't** (era Should) | **Abandonado em 18/11** — especificação mantida em `10-anexos-de-imagem.md`, sem previsão. Motivo na seção 7 | — |
 | **RF11** | **Explicação do ajuste**: contribuição por grupo, subgrupos comparáveis, resumo em linguagem simples e até 2 sugestões, por regras | **Must** | **Entregue 07/11** — campo `explicacao` no fechamento + tela (`11-ciclo-explicacao-do-ajuste.md` §3) | Persona 2 (lê) / Persona 1 (confere) |
 | **RF12** | Fluxo guiado "Fechar o mês" (unidade → teórico → real → resultado) com planilha-modelo | Should | **Entregue 07/11** — aba "Fechar o mês" (§5); não precisou do corte | Persona 1 |
-| **RF13** | Tempo medido do primeiro envio ao resultado | Should | **Entregue 07/11** (§6) | Persona 2 |
-| **RF15** | **Margem por item**: o mesmo item do cardápio no mês e num mês-base (padrão: o mesmo mês do ano anterior), com CMV, custo e preço por unidade e o custo extra em R$, ordenado por ele | Should | **Implementado 18/11, não publicado** — `GET /api/v1/metricas/margem-itens` + aba "Margem por item" | Persona 2 |
+| ~~RF13~~ | ~~Tempo medido do primeiro envio ao resultado~~ | **Won't** (era Should) | **Retirado em 18/11** — entregue em 07/11, removido da aba "Fechar o mês" a pedido do time | — |
+| **RF15** | **Margem por item**: o mesmo item do cardápio no mês e num mês-base (padrão: o mesmo mês do ano anterior), com CMV, custo e preço por unidade e o custo extra em R$, ordenado por ele | Should | **No ar desde 18/11** — `GET /api/v1/metricas/margem-itens` + aba "Margem por item" | Persona 2 |
 | ~~RF10~~ | ~~Cadastro de produto com foto como âncora de identidade~~ | — | **Retirado em 06/11** — a foto não fazia o trabalho de identidade e o recurso duplicaria a agregação. Motivo em `10-anexos-de-imagem.md` | — |
 
 > **Nota de retomada (09/10/2026):** RF03 e RF05 continuam como hipótese e ficam
@@ -486,8 +486,8 @@ Origem: o contrato de entrada (`07-fechamento-cmv.md`) só ajuda se aparecer
 na hora do envio.
 Especificação: `11-ciclo-explicacao-do-ajuste.md` §5.
 
-RF13 — Tempo do primeiro envio ao resultado
-Prioridade: Should
+RF13 — Tempo do primeiro envio ao resultado — RETIRADO EM 18/11
+Prioridade: Won't (era Should; entregue em 07/11 e removido da tela em 18/11)
 Descrição: O frontend mede o tempo de relógio do primeiro envio até o resultado
 aparecer e o exibe, com a ressalva de que não inclui exportar do ERP.
 Origem: a métrica "de ~2 dias para < 5 min" (1.6) nunca foi medida.
@@ -594,7 +594,7 @@ Critérios de aceitação:
   QUANDO o passo processa o envio
   ENTÃO vejo a mensagem do 422 em português dizendo qual coluna falta
 
-US13 — relacionada a RF13
+US13 — relacionada a RF13 (RETIRADO EM 18/11: os critérios abaixo não valem mais)
 
 Como sócio (Persona 2),
 quero ver quanto tempo o sistema levou do primeiro envio ao resultado,
@@ -620,9 +620,9 @@ está na primeira linha do histórico.
 | Nível | Requisitos | Estado |
 |---|---|---|
 | **Must** — o MVP | RF08 (CRUD de unidade) · RF01 (upload do export) · RF02 (CMV teórico × real) · RF04 (dashboard) · RF07 (recomendação de compra) · **RF11 (explicação do ajuste)** | **Todos no ar**, com tela |
-| **Should** | **RF12 (fluxo guiado)** · **RF13 (tempo medido)** · **RF15 (margem por item)** · RNF03 autenticação · registro de perda com foto · decomposição do ajuste em contagem + perdas + não explicado · **tratamento da deriva de nome de item** (ver 1.9) | RF12/RF13 entregues em 07/11 e no ar; RF15 implementado em 18/11 (PR #26); demais não entregues |
+| **Should** | **RF12 (fluxo guiado)** · **RF15 (margem por item)** · RNF03 autenticação · registro de perda com foto · decomposição do ajuste em contagem + perdas + não explicado · **tratamento da deriva de nome de item** (ver 1.9) | RF12 entregue em 07/11 e no ar; RF15 no ar desde 18/11 (PR #26); demais não entregues |
 | **Could** | Alerta de variação de custo unitário por item · curva ABC de concentração de custo · OCR de nota fiscal | Nenhum iniciado |
-| **Won't** (documentado) | RF03 (funcionários) · RF05 (alerta de escala) · **RF06 (DRE consolidada entre casas)** · integração via API do Everest · **RF09 (nota fiscal fotografada)** e **RF14 (baixar o arquivo original, "de onde veio este número")**, abandonados em 18/11 | Fora de escopo, com motivo |
+| **Won't** (documentado) | RF03 (funcionários) · RF05 (alerta de escala) · **RF06 (DRE consolidada entre casas)** · integração via API do Everest · **RF09 (nota fiscal fotografada)** e **RF14 (baixar o arquivo original, "de onde veio este número")**, abandonados em 18/11 · **RF13 (cronômetro)**, retirado da tela em 18/11 | Fora de escopo, com motivo |
 
 **Por que RF11 entra como Must:** o ERP do cliente já tem os números; mostrar o
 ajuste formatado agrega pouco. O valor está em dizer onde está a diferença e o
@@ -726,6 +726,7 @@ _(inserir; ver `docs/02-arquitetura.md`)_
 
 | Data | Versão | O que mudou | Motivo |
 |---|---|---|---|
+| 18/11/2026 | 1.7 | **RF13 retirado**: a linha "Do primeiro envio ao resultado: X s" e a ressalva saem da aba "Fechar o mês" (código, CSS, roteiro e deck). A métrica de tempo em 1.6 volta a "não medido pelo sistema". **RF15 publicado** junto, no merge do PR #26 | Decisão do time em 18/11, na véspera da apresentação ao cliente. _(Registrar aqui o motivo, se houver um além da decisão.)_ |
 | 18/11/2026 | 1.6 | **RF15 — margem por item** (Should; RF15 e não RF14 porque o RF14 já está especificado na branch `docs/rf14-rf09-proximos-passos`, "de onde veio este número"): `GET /api/v1/metricas/margem-itens` e aba "Margem por item", entre Fechamento e Quanto comprar. A casa de demonstração ganha custo da ficha subindo em três itens (GIN TONICA, REFRIGERANTE LATA, PICANHA NA CHAPA) sem mudar o total de cada grupo — o fechamento continua +1,61 pp —, e o script de preparo passa a carregar o cardápio de set/26. Ainda **não publicado** | Revisão de valor antes da apresentação de 19/11: o fechamento por grupo diz onde procurar, mas não dá ao sócio uma decisão. Com o cardápio que já existe (39 meses na piloto), dá para dizer qual item perdeu margem e quanto custou. Implementado para validar com o cliente, não por pedido dele. No mesmo dia, **RF09 e RF14 abandonados** (Won't; motivo na seção 7) para concentrar o esforço no RF15 |
 | 12/11/2026 | 1.5 | **Fechamento pela planilha-modelo (fase 1)**, ao lado do caminho do Everest: `POST /api/v1/fechamentos` recebe uma planilha com uma linha por grupo por mês (`periodo`, `grupo`, `venda_liquida`, `custo_teorico`, `estoque_inicial`, `compras`, `estoque_final`), de um ou vários meses. O lado real é EI + compras − EF (`base_real = consumo`); EI em branco = EF do mês anterior. Casa que recebe a planilha passa a ser calculada só por ela. Modelo em `GET /api/v1/modelos/fechamento`; opção "Planilha de fechamento" na tela de Upload. Detalhes em `07-fechamento-cmv.md`. Ainda **não publicado** | Sem inventário não existe CMV real, e o caminho do Everest não tem onde receber o estoque por grupo. A planilha é o mínimo de dado que fecha o mês corretamente e serve a qualquer ERP. Fase 2 (remover o que só existe para contornar a falta de estoque) depende de combinar com o time |
 | 10/11/2026 | 1.4 | **O lado real da casa piloto deixa de ser chamado de CMV real.** A DRE do Everest é compras do mês; o CMV real é compras + estoque inicial − estoque final. Cada upload do lado real ganha `base_real` (`compras` \| `consumo` \| `declarada`); a planilha genérica aceita `estoque_inicial`, `compras`, `estoque_final` e calcula o custo. O fechamento ganha `acumulado` (12 meses, conclusivo a partir de 6 com base compras). O leitor da DRE aceita o layout sem código de conta (abas `ENTRADA` da planilha da equipe) e `scripts/importar_dre_historica.py` importa jun–dez/22. Campos novos opcionais; `ajuste_pp` de set/26 continua −3,68 (mudou a leitura, não o número). Ainda **não publicado** | A planilha de fechamento da equipe (recebida em 23/10, analisada em 10/11) mostra a variação de estoque somada à parte da DRE. O −3,68 pp de set/26 estava sendo apresentado como desvio, mas está dentro da oscilação normal de compras × teórico de um mês (−7,2 a +9,3 pp em jun–dez/22). O time confirmou que não há inventário disponível, então a leitura possível é o acumulado |
