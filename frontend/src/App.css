@@ -716,6 +716,10 @@ select optgroup {
   font-size: 11.5px;
   margin-top: 2px;
 }
+/* Variação colorida na linha de baixo da célula (Margem por item): a cor de
+   alerta precisa vencer o cinza do texto secundário. */
+.celula-fraca.txt-ruim { color: var(--bad); }
+.celula-fraca.txt-bom { color: var(--good); }
 .num-destaque {
   font-weight: 700;
   color: var(--amber-strong);

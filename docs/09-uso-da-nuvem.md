@@ -187,7 +187,7 @@ versão; o quarto (`httpsOnly`) saiu por já estar aplicado.
 
 | # | Ajuste | Por que | O que destrava |
 |---|---|---|---|
-| 5 | ⬜ **Endpoint de download com SAS de curta duração** | Hoje o Blob é somente escrita. Além de consertar isso, demonstra *least privilege* — credencial com escopo de um blob e validade de minutos | **Pré-requisito** de RF09 e RF10 (ver `10-anexos-de-imagem.md`): imagem precisa ser exibida, não só guardada |
+| 5 | ⏹ **Endpoint de download com SAS de curta duração** — abandonado em 18/11 com o RF14 (ver `01-requisitos.md`, seção 7) | Hoje o Blob é somente escrita. Além de consertar isso, demonstra *least privilege* — credencial com escopo de um blob e validade de minutos | **Pré-requisito** de RF09 e RF10 (ver `10-anexos-de-imagem.md`): imagem precisa ser exibida, não só guardada |
 | 6 | ⬜ **Application Insights** | A única forma de ver requisição, falha, latência e dependência ao longo do tempo. Está como "extra valorizado" não marcado no documento de requisitos e cobre a fase de Qualidade, que não foi entregue | Diagnóstico de qualquer coisa futura |
 
 ### Nível 3 — postura de segurança

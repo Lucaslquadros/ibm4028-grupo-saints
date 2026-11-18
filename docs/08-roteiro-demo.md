@@ -406,7 +406,7 @@ demonstrado só até onde funciona.
 
 - **A API é pública.** Autenticação era RNF03 da Sprint 2 e não foi entregue. É a lacuna mais séria do trabalho.
 - **Sem Application Insights.** Os logs do App Service foram ligados em 06/11 (antes disso nem existiam), mas observabilidade de verdade — requisição, latência, falha ao longo do tempo — ficou como nível 2 da fila em `docs/09-uso-da-nuvem.md`.
-- **RF09 (nota fiscal fotografada) está especificado e não construído**, em `docs/10-anexos-de-imagem.md`. Desceu para Should em 07/11.
+- **RF09 (nota fiscal fotografada) e RF14 (baixar o arquivo original) foram abandonados em 18/11** para concentrar o esforço na margem por item (RF15). As especificações ficam no histórico.
 - **O sistema encurta o diagnóstico, não previne.** O CMV real depende do inventário do dia 30. Delta semanal e alertas são roadmap.
 - **A DRE real não diz de qual casa nem de qual mês é.** O rótulo set/26 foi atribuído por nós, com base em evidência circunstancial. É a limitação mais importante do trabalho e está escrita em `docs/01-requisitos.md` 1.9.
 - **Um mês de CMV real.** 24 meses de teórico, 1 de real: a série de ajuste tem um ponto.

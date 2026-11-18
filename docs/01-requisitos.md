@@ -343,7 +343,7 @@ pessoal (RF03/RF05) continua fora: nunca saiu de hipótese.
 | RF05 | Alerta de escala fora do padrão esperado por casa | Should | **Adiado — pendente Conversa 2** | Persona 2 |
 | RF06 | Geração automática de DRE consolidada entre casas | **Won't** | **Fora de escopo desde 06/11** — sem dado das outras casas | Persona 2 |
 | RF07 | Recomendação de quantidade de compra a partir do histórico de vendas | **Must** | **Entregue 06/11** — endpoint + tela "Quanto comprar" | Persona 1 / Persona 2 (era Persona 3 até 07/11) |
-| RF09 | Anexo de nota fiscal fotografada ao custo do período | **Should** (era Must) | **Fora do ciclo 07–09/11** — especificado em `10-anexos-de-imagem.md` | Persona 1 |
+| ~~RF09~~ | ~~Anexo de nota fiscal fotografada ao custo do período~~ | **Won't** (era Should) | **Abandonado em 18/11** — especificação mantida em `10-anexos-de-imagem.md`, sem previsão. Motivo na seção 7 | — |
 | **RF11** | **Explicação do ajuste**: contribuição por grupo, subgrupos comparáveis, resumo em linguagem simples e até 2 sugestões, por regras | **Must** | **Entregue 07/11** — campo `explicacao` no fechamento + tela (`11-ciclo-explicacao-do-ajuste.md` §3) | Persona 2 (lê) / Persona 1 (confere) |
 | **RF12** | Fluxo guiado "Fechar o mês" (unidade → teórico → real → resultado) com planilha-modelo | Should | **Entregue 07/11** — aba "Fechar o mês" (§5); não precisou do corte | Persona 1 |
 | **RF13** | Tempo medido do primeiro envio ao resultado | Should | **Entregue 07/11** (§6) | Persona 2 |
@@ -620,19 +620,24 @@ está na primeira linha do histórico.
 | Nível | Requisitos | Estado |
 |---|---|---|
 | **Must** — o MVP | RF08 (CRUD de unidade) · RF01 (upload do export) · RF02 (CMV teórico × real) · RF04 (dashboard) · RF07 (recomendação de compra) · **RF11 (explicação do ajuste)** | **Todos no ar**, com tela |
-| **Should** | **RF12 (fluxo guiado)** · **RF13 (tempo medido)** · RF09 (anexo de nota fiscal) · RNF03 autenticação · registro de perda com foto · decomposição do ajuste em contagem + perdas + não explicado · **tratamento da deriva de nome de item** (ver 1.9) | RF12/RF13 entregues em 07/11 e no ar; demais não entregues |
+| **Should** | **RF12 (fluxo guiado)** · **RF13 (tempo medido)** · **RF15 (margem por item)** · RNF03 autenticação · registro de perda com foto · decomposição do ajuste em contagem + perdas + não explicado · **tratamento da deriva de nome de item** (ver 1.9) | RF12/RF13 entregues em 07/11 e no ar; RF15 implementado em 18/11 (PR #26); demais não entregues |
 | **Could** | Alerta de variação de custo unitário por item · curva ABC de concentração de custo · OCR de nota fiscal | Nenhum iniciado |
-| **Won't** (documentado) | RF03 (funcionários) · RF05 (alerta de escala) · **RF06 (DRE consolidada entre casas)** · integração via API do Everest | Fora de escopo, com motivo |
+| **Won't** (documentado) | RF03 (funcionários) · RF05 (alerta de escala) · **RF06 (DRE consolidada entre casas)** · integração via API do Everest · **RF09 (nota fiscal fotografada)** e **RF14 (baixar o arquivo original, "de onde veio este número")**, abandonados em 18/11 | Fora de escopo, com motivo |
 
 **Por que RF11 entra como Must:** o ERP do cliente já tem os números; mostrar o
 ajuste formatado agrega pouco. O valor está em dizer onde está a diferença e o
 que conferir. Sem RF11, o produto é um relatório mais rápido; com ele, encurta o
 diagnóstico.
 
-**Por que RF09 desceu para Should:** tinha subido para Must em 06/11 como aposta
-ligada à Persona 3 e ao uso do Blob para imagem. Com a volta às Personas 1 e 2,
-a nota fiscal como prova continua útil à analista, mas não é o que explica o
-ajuste — e não cabe no ciclo de 07–09/11.
+**Por que RF09 e RF14 foram abandonados (18/11):** os dois reforçam a
+*confiança* no número do fechamento — baixar o arquivo que o gerou (RF14,
+especificado no PR #21, nunca mesclado) e anexar a nota fiscal como prova
+(RF09, que dependia do RF14). Na revisão de valor de 18/11 a lacuna maior era
+outra: o fechamento por grupo não dava ao sócio uma decisão. O esforço vai para
+o RF15 (margem por item), que diz qual item perdeu margem e quanto custou. As
+especificações ficam no histórico (`10-anexos-de-imagem.md` e o PR #21) caso o
+cliente peça rastreabilidade. Antes disso, o RF09 já tinha descido de Must para
+Should em 07/11, com a volta às Personas 1 e 2.
 
 **Por que RF06 segue Won't:** com a volta da Persona 2, a DRE consolidada
 recupera sentido, mas só há dado real de **uma** casa. Consolidar uma casa não
@@ -721,7 +726,7 @@ _(inserir; ver `docs/02-arquitetura.md`)_
 
 | Data | Versão | O que mudou | Motivo |
 |---|---|---|---|
-| 18/11/2026 | 1.6 | **RF15 — margem por item** (Should; RF15 e não RF14 porque o RF14 já está especificado na branch `docs/rf14-rf09-proximos-passos`, "de onde veio este número"): `GET /api/v1/metricas/margem-itens` e aba "Margem por item", entre Fechamento e Quanto comprar. A casa de demonstração ganha custo da ficha subindo em três itens (GIN TONICA, REFRIGERANTE LATA, PICANHA NA CHAPA) sem mudar o total de cada grupo — o fechamento continua +1,61 pp —, e o script de preparo passa a carregar o cardápio de set/26. Ainda **não publicado** | Revisão de valor antes da apresentação de 19/11: o fechamento por grupo diz onde procurar, mas não dá ao sócio uma decisão. Com o cardápio que já existe (39 meses na piloto), dá para dizer qual item perdeu margem e quanto custou. Implementado para validar com o cliente, não por pedido dele |
+| 18/11/2026 | 1.6 | **RF15 — margem por item** (Should; RF15 e não RF14 porque o RF14 já está especificado na branch `docs/rf14-rf09-proximos-passos`, "de onde veio este número"): `GET /api/v1/metricas/margem-itens` e aba "Margem por item", entre Fechamento e Quanto comprar. A casa de demonstração ganha custo da ficha subindo em três itens (GIN TONICA, REFRIGERANTE LATA, PICANHA NA CHAPA) sem mudar o total de cada grupo — o fechamento continua +1,61 pp —, e o script de preparo passa a carregar o cardápio de set/26. Ainda **não publicado** | Revisão de valor antes da apresentação de 19/11: o fechamento por grupo diz onde procurar, mas não dá ao sócio uma decisão. Com o cardápio que já existe (39 meses na piloto), dá para dizer qual item perdeu margem e quanto custou. Implementado para validar com o cliente, não por pedido dele. No mesmo dia, **RF09 e RF14 abandonados** (Won't; motivo na seção 7) para concentrar o esforço no RF15 |
 | 12/11/2026 | 1.5 | **Fechamento pela planilha-modelo (fase 1)**, ao lado do caminho do Everest: `POST /api/v1/fechamentos` recebe uma planilha com uma linha por grupo por mês (`periodo`, `grupo`, `venda_liquida`, `custo_teorico`, `estoque_inicial`, `compras`, `estoque_final`), de um ou vários meses. O lado real é EI + compras − EF (`base_real = consumo`); EI em branco = EF do mês anterior. Casa que recebe a planilha passa a ser calculada só por ela. Modelo em `GET /api/v1/modelos/fechamento`; opção "Planilha de fechamento" na tela de Upload. Detalhes em `07-fechamento-cmv.md`. Ainda **não publicado** | Sem inventário não existe CMV real, e o caminho do Everest não tem onde receber o estoque por grupo. A planilha é o mínimo de dado que fecha o mês corretamente e serve a qualquer ERP. Fase 2 (remover o que só existe para contornar a falta de estoque) depende de combinar com o time |
 | 10/11/2026 | 1.4 | **O lado real da casa piloto deixa de ser chamado de CMV real.** A DRE do Everest é compras do mês; o CMV real é compras + estoque inicial − estoque final. Cada upload do lado real ganha `base_real` (`compras` \| `consumo` \| `declarada`); a planilha genérica aceita `estoque_inicial`, `compras`, `estoque_final` e calcula o custo. O fechamento ganha `acumulado` (12 meses, conclusivo a partir de 6 com base compras). O leitor da DRE aceita o layout sem código de conta (abas `ENTRADA` da planilha da equipe) e `scripts/importar_dre_historica.py` importa jun–dez/22. Campos novos opcionais; `ajuste_pp` de set/26 continua −3,68 (mudou a leitura, não o número). Ainda **não publicado** | A planilha de fechamento da equipe (recebida em 23/10, analisada em 10/11) mostra a variação de estoque somada à parte da DRE. O −3,68 pp de set/26 estava sendo apresentado como desvio, mas está dentro da oscilação normal de compras × teórico de um mês (−7,2 a +9,3 pp em jun–dez/22). O time confirmou que não há inventário disponível, então a leitura possível é o acumulado |
 | 07/11/2026 | 1.3 | **RF11, RF12 e RF13 entregues e publicados** — backend e frontend no commit `a7fa9c5`, conferidos em produção: `/health` com o SHA novo e o fechamento de set/26 com `ajuste_pp: -3.68` e `explicacao.situacao: "abaixo"`. Roteiro de demo (`08`) reescrito com o que está no ar. Limitação nova em 1.9: nomes que diferem só no singular/plural não são comparados | Conclusão do ciclo 07–09/11. A limitação nova não é regressão: apareceu porque o RF11 passou a comparar abaixo do grupo e, com isso, tornou visível uma diferença de cadastro que antes ninguém via |

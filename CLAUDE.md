@@ -37,8 +37,8 @@ técnica e inventário mensal — o contrato de entrada está em
 - Abaixo do grupo, só se compara subgrupo que existe nos dois lados. Não inventar granularidade.
 - Campos novos na API são **opcionais**: o frontend em produção não pode quebrar entre deploys. Backend primeiro, depois front.
 - Nunca usar a casa piloto em 09/2026 para testar envio: reenvio **substitui** o dado real.
-- Congelamento: nada de deploy depois de domingo 08/11, 20h. Após cada deploy: `/health` com o SHA novo e fechamento de set/26 com `ajuste_pp: -3.68`.
-- Fora do ciclo: mini-ERP, alertas, delta semanal, autenticação, RF09, infra.
+- O congelamento do ciclo 07–09/11 acabou. Continua valendo: após cada deploy, `/health` com o SHA novo e fechamento de set/26 com `ajuste_pp: -3.68`.
+- Fora do ciclo: mini-ERP, alertas, delta semanal, autenticação, infra. **RF09 e RF14 abandonados em 18/11** (foco no RF15).
 
 **Dados reais do cliente nunca vão para o Git** (`dados_reais/`, `*.xlsx` no
 `.gitignore`). Testes usam planilhas sintéticas de `tests/planilhas.py`.
