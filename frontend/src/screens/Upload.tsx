@@ -74,7 +74,7 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
 
   const ehPlanilha = tipo === "fechamento";
   // Só para a casa de demonstração: a planilha dela em outra casa misturaria
-  // dado fictício com dado real.
+  // a demonstração com uma casa real.
   const casaEhDemo =
     demo !== null && casas.some((c) => c.id === casaId && c.nome === demo.casa_nome);
   const existente =
@@ -191,7 +191,7 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
                 href={api.urlPlanilhaDemo(demo.periodo_ao_vivo)}
                 download
               >
-                Baixar planilha da demonstração ({mesAno(demo.periodo_ao_vivo)}, dados fictícios)
+                Baixar planilha da demonstração ({mesAno(demo.periodo_ao_vivo)}, estoque simulado)
               </a>
             )}
             {casaId !== "" && mesesComPlanilha.length > 0 && (
@@ -208,7 +208,7 @@ export function Upload({ casas, casaId, setCasaId, periodo, setPeriodo }: Props)
           <div className="ajuda">
             {demo.periodos.includes(periodo) ? (
               <a className="botao-secundario" href={api.urlCardapioDemo(periodo)} download>
-                Baixar cardápio da demonstração ({mesAno(periodo)}, dados fictícios)
+                Baixar cardápio da demonstração ({mesAno(periodo)})
               </a>
             ) : (
               <p>
