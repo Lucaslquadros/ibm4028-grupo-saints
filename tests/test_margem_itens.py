@@ -2,7 +2,7 @@
 quanto custou a mais (`app/services/margem.py`).
 
 Os números da API saem do cardápio da casa de demonstração
-(`app/services/demo_fechamento.py`), em que GIN TONICA, REFRIGERANTE LATA e
+(`tests/sintetico.py`), em que GIN TONICA, REFRIGERANTE LATA e
 PICANHA NA CHAPA têm o custo da ficha subindo mês a mês com o preço parado.
 """
 
@@ -10,12 +10,11 @@ import io
 
 import pytest
 
-from app.services import demo_fechamento
 from app.services.margem import ItemMes, comparar, escolher_base, resumo
+from tests import sintetico
 
 CASAS = "/api/v1/casas"
 UPLOADS = "/api/v1/uploads-custo"
-CARDAPIO_DEMO = "/api/v1/modelos/fechamento/demo/cardapio"
 FECHAMENTO = "/api/v1/metricas/fechamento"
 MARGEM = "/api/v1/metricas/margem-itens"
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -97,23 +96,22 @@ def test_escolhe_o_mes_base(periodos, esperado):
 # ------------------------------------------------------------------- API
 @pytest.fixture
 def casa_demo(client) -> int:
-    casa = {**demo_fechamento.CASA_DEMO, "ativa": True}
+    casa = {"nome": "Bar Sintetico (DEMO)", "marca": "Bar Sintetico", "cidade": "Sao Paulo"}
     return client.post(CASAS, json=casa).json()["id"]
 
 
 def _enviar_cardapio(client, casa_id, periodo):
-    conteudo = client.get(CARDAPIO_DEMO, params={"periodo": periodo}).content
     resposta = client.post(
         UPLOADS,
         data={"casa_id": casa_id, "periodo": periodo, "tipo": "cardapio"},
-        files={"arquivo": ("cardapio.xlsx", io.BytesIO(conteudo), XLSX)},
+        files={"arquivo": ("cardapio.xlsx", io.BytesIO(sintetico.cardapio_xlsx(periodo)), XLSX)},
     )
     assert resposta.status_code == 201, resposta.text
 
 
 @pytest.fixture
 def casa_com_cardapio(client, casa_demo) -> int:
-    for periodo in demo_fechamento.PERIODOS:
+    for periodo in sintetico.PERIODOS:
         _enviar_cardapio(client, casa_demo, periodo)
     return casa_demo
 
@@ -134,7 +132,7 @@ def test_margem_aponta_os_itens_com_custo_subindo(client, casa_com_cardapio):
         assert item["variacao_custo_pct"] > 10
         assert abs(item["variacao_preco_pct"]) < 1  # preço parado (arredondamento)
         # série do mês-base ao mês, um ponto por mês
-        assert [p["periodo"] for p in item["serie"]] == demo_fechamento.PERIODOS
+        assert [p["periodo"] for p in item["serie"]] == sintetico.PERIODOS
 
 
 def test_margem_com_mes_base_escolhido(client, casa_com_cardapio):
@@ -154,29 +152,6 @@ def test_margem_e_paginada(client, casa_com_cardapio):
     assert len(dados["items"]) == 4
     # o resumo é do mês inteiro, não da página
     assert dados["itens_que_pioraram"] == 3
-
-
-def test_cardapio_do_mes_ao_vivo_nao_preenche_o_fechamento(client, casa_com_cardapio):
-    """O script de preparo carrega a planilha de abr–ago e o cardápio de
-    abr–set. A casa com planilha é calculada só por ela: set/26 continua sem
-    fechamento até a planilha do mês ser enviada ao vivo."""
-    info = client.get("/api/v1/modelos/fechamento/demo").json()
-    planilha = client.get(
-        "/api/v1/modelos/fechamento/demo/planilha", params={"periodo": info["periodos_historico"]}
-    ).content
-    enviado = client.post(
-        "/api/v1/fechamentos",
-        data={"casa_id": casa_com_cardapio},
-        files={"arquivo": ("historico.xlsx", io.BytesIO(planilha), XLSX)},
-    )
-    assert enviado.status_code == 201, enviado.text
-
-    agosto = client.get(FECHAMENTO, params={"casa_id": casa_com_cardapio, "periodo": "2026-08"})
-    setembro = client.get(FECHAMENTO, params={"casa_id": casa_com_cardapio, "periodo": "2026-09"})
-
-    assert agosto.status_code == 200
-    assert agosto.json()["base_real"] == "consumo"
-    assert setembro.status_code == 404
 
 
 def test_margem_casa_inexistente_devolve_404(client):

@@ -101,6 +101,7 @@ export function Engenharia({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
   const [erroCalculado, setErro] = useState<string | null>(null);
   const [resumoCalculado, setResumo] = useState<EngenhariaCardapio | null>(null);
   const [grupo, setGrupo] = useState("");
+  const [categoria, setCategoria] = useState<string | null>(null);
   const [itens, setItens] = useState<ItemEngenharia[]>([]);
   const [quadrante, setQuadrante] = useState<ClasseCardapio>("burro_de_carga");
   // Resultado e erro valem para a casa e o mês do cálculo, como nas outras telas.
@@ -109,11 +110,12 @@ export function Engenharia({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
   const erro = atual ? erroCalculado : null;
   const resumo = atual ? resumoCalculado : null;
 
-  async function carregarGrupo(id: number, nome: string) {
+  async function carregar(id: number, nome: string, cat: string | null) {
     setGrupo(nome);
+    setCategoria(cat);
     setItens([]);
     try {
-      setItens((await api.engenhariaCardapio(id, periodo, nome, POR_PAGINA, 0)).items);
+      setItens((await api.engenhariaCardapio(id, periodo, nome, cat, POR_PAGINA, 0)).items);
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : "Não foi possível carregar os itens.");
     }
@@ -130,7 +132,10 @@ export function Engenharia({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
     try {
       const dados = await api.engenhariaResumo(casaId, periodo);
       setResumo(dados);
-      if (dados.grupos.length > 0) await carregarGrupo(casaId, dados.grupos[0].grupo);
+      if (dados.grupos.length > 0) {
+        const primeiro = dados.grupos[0];
+        await carregar(casaId, primeiro.grupo, primeiro.categoria ?? null);
+      }
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : "Não foi possível calcular a engenharia.");
     } finally {
@@ -138,7 +143,11 @@ export function Engenharia({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
     }
   }
 
-  const doGrupo = resumo?.grupos.find((g) => g.grupo === grupo);
+  const doGrupo = resumo?.grupos.find(
+    (g) => g.grupo === grupo && (g.categoria ?? null) === categoria,
+  );
+  const nomesGrupos = [...new Set(resumo?.grupos.map((g) => g.grupo) ?? [])];
+  const rotulo = categoria ? `${grupo} · ${categoria}` : grupo;
   const doQuadrante = itens.filter((i) => i.classe === quadrante);
 
   return (
@@ -147,7 +156,7 @@ export function Engenharia({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
         <h2>Engenharia de cardápio</h2>
         <p className="ajuda">
           Cada item do mês no seu quadrante: quanto vende e quanto deixa de margem por unidade,
-          comparado com os outros itens do mesmo grupo. Cada quadrante tem uma ação.
+          comparado com os outros itens da mesma categoria. Cada quadrante tem uma ação.
         </p>
       </header>
 
@@ -191,24 +200,42 @@ export function Engenharia({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
             <AlertaAbaixoDoCusto resumo={resumo} />
           )}
 
-          <div className="segmentado" role="radiogroup" aria-label="Grupo">
-            {resumo.grupos.map((g) => (
-              <button
-                key={g.grupo}
-                type="button"
-                role="radio"
-                aria-checked={g.grupo === grupo}
-                className={g.grupo === grupo ? "segmento segmento-ativo" : "segmento"}
-                onClick={() => casaId !== "" && carregarGrupo(casaId, g.grupo)}
-              >
-                <strong>{g.grupo}</strong>
-                <span>
-                  {g.itens} itens na matriz · margem média {reais(g.margem_media_unitaria)} por
-                  unidade
-                  {g.fora_da_matriz ? ` · ${g.fora_da_matriz} fora (venda pequena)` : ""}
-                </span>
-              </button>
-            ))}
+          {/* Categorias de cardápio, por grupo: o método compara itens que
+              competem entre si (chopp com chopp, petisco com petisco). */}
+          <div className="categorias glass" role="radiogroup" aria-label="Categoria de cardápio">
+            {nomesGrupos.map((nomeGrupo) => {
+              const doNome = resumo.grupos.filter((g) => g.grupo === nomeGrupo);
+              const fora = doNome[0]?.fora_da_matriz ?? 0;
+              return (
+                <div key={nomeGrupo} className="categorias-grupo">
+                  <span className="categorias-titulo">
+                    {nomeGrupo}
+                    {fora > 0 && (
+                      <span className="celula-fraca">{fora} itens fora (venda abaixo de R$ 500)</span>
+                    )}
+                  </span>
+                  <span className="categorias-lista">
+                    {doNome.map((g) => {
+                      const ativa = g.grupo === grupo && (g.categoria ?? null) === categoria;
+                      return (
+                        <button
+                          key={`${g.grupo}|${g.categoria}`}
+                          type="button"
+                          role="radio"
+                          aria-checked={ativa}
+                          className={ativa ? "chip-categoria chip-categoria-ativa" : "chip-categoria"}
+                          onClick={() =>
+                            casaId !== "" && carregar(casaId, g.grupo, g.categoria ?? null)
+                          }
+                        >
+                          {g.categoria ?? g.grupo} <span>{g.itens}</span>
+                        </button>
+                      );
+                    })}
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
           {doGrupo && (
@@ -248,11 +275,11 @@ export function Engenharia({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
               </div>
 
               <h3 className="titulo-secao">
-                {QUADRANTES[quadrante].titulo} · {grupo} · {doQuadrante.length}{" "}
+                {QUADRANTES[quadrante].titulo} · {rotulo} · {doQuadrante.length}{" "}
                 {doQuadrante.length === 1 ? "item" : "itens"}
               </h3>
               {doQuadrante.length === 0 ? (
-                <p className="vazio">Nenhum item deste grupo neste quadrante.</p>
+                <p className="vazio">Nenhum item desta categoria neste quadrante.</p>
               ) : (
                 <table className="tabela glass">
                   <thead>
@@ -277,7 +304,7 @@ export function Engenharia({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
                         <td className="num">
                           {num(item.quantidade)}
                           <span className="celula-fraca">
-                            {item.popularidade_pct === null ? "" : `${pct(item.popularidade_pct)} do grupo`}
+                            {item.popularidade_pct === null ? "" : `${pct(item.popularidade_pct)} da categoria`}
                           </span>
                         </td>
                         <td className="num">{reais(item.preco_medio)}</td>
@@ -301,9 +328,9 @@ export function Engenharia({ casas, casaId, setCasaId, periodo, setPeriodo }: Pr
               )}
 
               <p className="ajuda">
-                <strong>Como lemos:</strong> {resumo.metodo} Em {grupo}: margem média de{" "}
+                <strong>Como lemos:</strong> {resumo.metodo} Em {rotulo}: margem média de{" "}
                 {reais(doGrupo.margem_media_unitaria)} por unidade; popular = pelo menos{" "}
-                {pct(doGrupo.limiar_popularidade_pct)} das unidades do grupo. {resumo.aviso}
+                {pct(doGrupo.limiar_popularidade_pct)} das unidades da categoria. {resumo.aviso}
               </p>
             </>
           )}

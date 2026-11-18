@@ -88,8 +88,9 @@ def test_subgrupos_por_lado_e_compativel_com_sql_server():
     [
         crud.stmt_itens_do_mes(casa_id=1, periodo="2026-09"),
         crud.stmt_serie_cmv_itens(casa_id=1, nomes=["CHOPP"], inicio="2026-04", fim="2026-09"),
+        crud.stmt_totais_cardapio(casa_id=1),
     ],
-    ids=["itens_do_mes", "serie_cmv_itens"],
+    ids=["itens_do_mes", "serie_cmv_itens", "totais_cardapio"],
 )
 def test_margem_por_item_e_compativel_com_sql_server(stmt):
     """As duas queries da margem por item agrupam por nome (e mês): grupo e

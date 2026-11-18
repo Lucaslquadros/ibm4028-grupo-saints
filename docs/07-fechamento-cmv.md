@@ -253,27 +253,26 @@ ajuste   = CMV real − custo_teorico
 - **Modelo:** `GET /api/v1/modelos/fechamento`, gerado por `app/services/modelo_fechamento.py`. Abas `Fechamento` (a única lida), `Instrucoes` e `Conferencia`, com fórmulas que refazem a conta sem `TEXT()` (que depende do idioma do Excel). O exemplo é sintético; em 2026-09, as compras de BEBIDAS ficam abaixo do teórico, mas o consumo fica acima: é o caso que mostra por que o estoque é obrigatório.
 - **Tabelas:** `uploads_fechamento` e `movimentos_grupo` (único por casa, mês e grupo). Tabela nova não precisa de migration: o `create_all` cria.
 
-### Casa de demonstração da planilha
+### Casa de demonstração (desde 18/11/2026): cardápio real, estoque simulado
 
-"Boteco Exemplo - Pinheiros (DEMO)", com dados fictícios em
-`app/services/demo_fechamento.py`: abr–set/26, ALIMENTOS e BEBIDAS. Cobre
-todas as telas: Fechamento (com explicação, evolução, acumulado e top itens),
-Fechar o mês, Upload, Margem por item e Engenharia de cardápio.
+Uma casa só para o roteiro inteiro: **"Boteco Sao Bento - Demonstracao
+(DEMO)"**. Substitui a "Boteco Exemplo - Pinheiros (DEMO)", que tinha dados
+inteiramente fictícios — e obrigava a demo a pular entre ela e a casa real.
 
-| Arquivo | Rota | Onde a tela oferece | Alimenta |
-|---|---|---|---|
-| Planilha de fechamento | `GET /modelos/fechamento/demo/planilha?periodo=` | Upload → Planilha de fechamento; Fechar o mês → Planilha de fechamento | Fechamento, explicação, evolução, acumulado |
-| Cardápio por item | `GET /modelos/fechamento/demo/cardapio?periodo=` | Upload → Engenharia de cardápio, com o período | Quanto comprar (RF07), top itens, margem por item (RF15) |
+| Lado | De onde vem |
+|---|---|
+| Cardápio por item (venda, quantidade, custo da ficha) | **Real**: copiado da casa piloto, os últimos 13 meses, pela API (`GET /metricas/engenharia-cardapio` → `POST /uploads-custo`). Só os grupos de CMV e itens com venda ≥ R$ 500 no mês |
+| Venda e custo teórico por grupo, na planilha de fechamento | **Real**: soma do cardápio copiado |
+| Estoque e compras | **Simulados** (`app/services/demo_fechamento.py`): o cliente não tem inventário |
 
-Os dois só aparecem para essa casa (`GET /modelos/fechamento/demo` diz qual
-é). O cardápio é **derivado** da planilha: por grupo e mês, a soma dos itens é
-a venda e o custo teórico da planilha, ao centavo. Numa casa com planilha, o
-cardápio não muda o fechamento — só alimenta as telas por item.
+Nada do cliente fica no repositório: o script lê de uma casa e escreve na
+outra pela API, e a regra de simulação não tem número do cliente.
 
-- `uv run python scripts/popular_demo_fechamento.py [--api URL]` apaga e recria **só** essa casa e carrega a planilha de abr–ago/26 e o cardápio de abr–set/26. Rode antes de cada ensaio. O cardápio de set/26 não preenche o fechamento de set/26: casa com planilha é calculada só por ela.
-- Set/26 fica para o envio ao vivo. Resultado esperado: abr–ago dentro da margem; set/26 **acima** (+1,61 pp), puxado por BEBIDAS. As compras de BEBIDAS em set/26 ficam 1,4 pp **abaixo** do teórico, porque o estoque caiu: só a DRE levaria à conclusão inversa.
-- Engenharia de cardápio (18/11): os quatro quadrantes nos dois grupos. CALDO DE FEIJAO e LIMONADA JARRA são os cães; a limonada é vendida abaixo do custo (CMV da ficha acima de 100%).
-- Margem por item (18/11): GIN TONICA, REFRIGERANTE LATA e PICANHA NA CHAPA têm o CMV da ficha subindo mês a mês com o preço parado. Set/26 × abr/26: 3 de 12 itens perderam margem, custo extra de R$ 6.117. O CMV de cada **grupo** continua o da planilha (BEBIDAS 25% todo mês): os outros itens do grupo ficam mais baratos e compensam — a categoria esconde o item, que é o ponto da tela.
+- `uv run python scripts/popular_demo_fechamento.py --api URL` apaga e recria **só** a casa de demonstração (e a antiga, se existir), copia o cardápio e carrega a planilha de todos os meses menos o último. Rode antes de cada ensaio.
+- O último mês fica para o envio ao vivo, com "Baixar planilha da demonstração" (`GET /modelos/fechamento/demo/planilha`, gerada do banco). Resultado esperado: meses anteriores **dentro** da margem (só quebra normal); mês ao vivo **acima**, puxado por BEBIDAS (perda de 2,6% da venda de bebidas), com as **compras** de bebidas **abaixo** do teórico porque o estoque caiu 25% — só a DRE levaria à conclusão inversa, como no −3,68 pp real da piloto.
+- Margem por item e engenharia de cardápio da casa de demonstração são **idênticas** às da casa piloto: usam o mesmo cardápio e a mesma régua de R$ 500.
+- `GET /modelos/fechamento/demo` devolve 404 enquanto o script não rodou no ambiente; as telas simplesmente não oferecem os botões da demonstração.
+- Os testes usam um cardápio sintético (`tests/sintetico.py`), não o real.
 - O script remove `SSLKEYLOGFILE` do próprio processo: com ela definida, o Python do Windows aborta na primeira requisição (`OPENSSL_Uplink ... no OPENSSL_Applink`).
 
 ## O terceiro formato: planilha genérica

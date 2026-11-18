@@ -787,3 +787,13 @@ select optgroup {
 .quadrante-cao { border-left-color: var(--bad); }
 .quadrante-ativo { box-shadow: 0 0 0 2px rgba(var(--amber-rgb), 0.55); }
 .titulo-secao { margin: 22px 0 10px; font-size: 16px; }
+.categorias { display: flex; flex-direction: column; gap: 10px; padding: 14px 18px; margin: 14px 0 4px; }
+.categorias-grupo { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.categorias-titulo { min-width: 110px; font-weight: 650; font-size: 13px; letter-spacing: 0.04em; }
+.categorias-lista { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+.chip-categoria {
+  font: inherit; font-size: 12.5px; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(var(--border-dark), 0.14); background: rgba(var(--surface), 0.6); color: inherit;
+}
+.chip-categoria span { color: var(--ink-soft); margin-left: 3px; }
+.chip-categoria-ativa { background: rgba(var(--amber-rgb), 0.16); border-color: rgba(var(--amber-rgb), 0.6); }

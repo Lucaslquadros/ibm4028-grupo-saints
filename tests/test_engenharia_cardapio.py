@@ -1,29 +1,36 @@
 """Engenharia de cardápio (RF16): a matriz popularidade × margem de
 Kasavana & Smith, por grupo (`app/services/engenharia.py`).
 
-Os números da API saem do cardápio da casa de demonstração
-(`app/services/demo_fechamento.py`), que tem item nos quatro quadrantes dos dois
-grupos e a LIMONADA JARRA vendida abaixo do custo.
+A matriz é por CATEGORIA de cardápio (o subgrupo do ERP; com menos de 4 itens
+no mês, OUTROS do grupo). Os números da API saem do cardápio sintético de
+`tests/sintetico.py`: PETISCOS tem 4 itens e vira categoria; PRATOS (2) e as
+bebidas (2 por subgrupo) caem em OUTROS; a LIMONADA JARRA é vendida abaixo do
+custo.
 """
 
 import io
 
 import pytest
 
-from app.services import demo_fechamento
-from app.services.engenharia import abaixo_do_custo, classificar, contagem, fora_da_matriz
+from app.services.engenharia import (
+    abaixo_do_custo,
+    categorias,
+    classificar,
+    contagem,
+    fora_da_matriz,
+)
 from app.services.margem import ItemMes
+from tests import sintetico
 
 CASAS = "/api/v1/casas"
 UPLOADS = "/api/v1/uploads-custo"
-CARDAPIO_DEMO = "/api/v1/modelos/fechamento/demo/cardapio"
 ENGENHARIA = "/api/v1/metricas/engenharia-cardapio"
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 # ------------------------------------------------------------ regra pura
-def _item(nome, quantidade, venda, custo, grupo="ALIMENTOS"):
-    return ItemMes(nome, grupo, None, quantidade, venda, custo)
+def _item(nome, quantidade, venda, custo, grupo="ALIMENTOS", subgrupo=None):
+    return ItemMes(nome, grupo, subgrupo, quantidade, venda, custo)
 
 
 def test_quatro_quadrantes_com_os_cortes_do_metodo():
@@ -48,12 +55,42 @@ def test_quatro_quadrantes_com_os_cortes_do_metodo():
         "QUEBRA": "quebra_cabeca",
         "CAO": "cao",
     }
-    assert contagem(linhas, "ALIMENTOS") == {
+    assert contagem(linhas, "ALIMENTOS", "OUTROS") == {
         "estrela": 1,
         "burro_de_carga": 1,
         "quebra_cabeca": 1,
         "cao": 1,
     }
+
+
+def test_categoria_e_o_subgrupo_com_itens_suficientes():
+    itens = [_item(f"CHOPP {n}", 10, 100, 30, "BEBIDAS", "CHOPP") for n in range(4)]
+    itens += [_item("AGUA", 10, 100, 30, "BEBIDAS", "AGUAS")]
+    itens += [_item("SEM SUB", 10, 100, 30, "BEBIDAS")]
+
+    cat = categorias(itens)
+
+    assert cat["CHOPP 0"] == "CHOPP"
+    assert cat["AGUA"] == "OUTROS"  # subgrupo com menos de 4 itens
+    assert cat["SEM SUB"] == "OUTROS"
+
+
+def test_categorias_sao_comparadas_separadamente():
+    # O chopp barato é comparado com outros chopps, não com a garrafa de destilado.
+    itens = [
+        _item("CHOPP A", 500, 6000, 1500, "BEBIDAS", "CHOPP"),
+        _item("CHOPP B", 100, 1500, 300, "BEBIDAS", "CHOPP"),
+        _item("CHOPP C", 100, 1500, 300, "BEBIDAS", "CHOPP"),
+        _item("CHOPP D", 100, 1500, 300, "BEBIDAS", "CHOPP"),
+        _item("GARRAFA", 5, 2500, 500, "BEBIDAS", "DESTILADOS"),
+    ]
+
+    cortes, linhas = classificar(itens, venda_minima=0)
+
+    assert [(c.grupo, c.categoria) for c in cortes] == [("BEBIDAS", "CHOPP"), ("BEBIDAS", "OUTROS")]
+    chopp = next(c for c in cortes if c.categoria == "CHOPP")
+    # (4500 + 3 × 1200) ÷ 800 unidades
+    assert chopp.margem_media_unitaria == pytest.approx(10.12, abs=0.01)
 
 
 def test_grupos_sao_comparados_separadamente():
@@ -106,32 +143,44 @@ def test_item_sem_unidade_ou_sem_venda_fica_fora():
 # ------------------------------------------------------------------- API
 @pytest.fixture
 def casa_demo(client) -> int:
-    casa = {**demo_fechamento.CASA_DEMO, "ativa": True}
+    casa = {"nome": "Bar Sintetico (DEMO)", "marca": "Bar Sintetico", "cidade": "Sao Paulo"}
     casa_id = client.post(CASAS, json=casa).json()["id"]
-    conteudo = client.get(CARDAPIO_DEMO, params={"periodo": "2026-09"}).content
     resposta = client.post(
         UPLOADS,
         data={"casa_id": casa_id, "periodo": "2026-09", "tipo": "cardapio"},
-        files={"arquivo": ("cardapio.xlsx", io.BytesIO(conteudo), XLSX)},
+        files={"arquivo": ("cardapio.xlsx", io.BytesIO(sintetico.cardapio_xlsx("2026-09")), XLSX)},
     )
     assert resposta.status_code == 201, resposta.text
     return casa_id
 
 
-def test_demo_tem_os_quatro_quadrantes_nos_dois_grupos(client, casa_demo):
+def test_matriz_por_categoria_com_os_quatro_quadrantes(client, casa_demo):
     resposta = client.get(ENGENHARIA, params={"casa_id": casa_demo, "periodo": "2026-09"})
 
     assert resposta.status_code == 200, resposta.text
     dados = resposta.json()
-    assert [g["grupo"] for g in dados["grupos"]] == ["ALIMENTOS", "BEBIDAS"]
-    for grupo in dados["grupos"]:
-        assert grupo["itens"] == 6
-        for classe in ("estrela", "burro_de_carga", "quebra_cabeca", "cao"):
-            assert grupo[classe] >= 1, (grupo["grupo"], classe)
+    assert [(g["grupo"], g["categoria"]) for g in dados["grupos"]] == [
+        ("ALIMENTOS", "PETISCOS"),
+        ("ALIMENTOS", "OUTROS"),
+        ("BEBIDAS", "OUTROS"),
+    ]
+    bebidas = dados["grupos"][2]
+    assert bebidas["itens"] == 6
+    for classe in ("estrela", "burro_de_carga", "quebra_cabeca", "cao"):
+        assert bebidas[classe] >= 1, classe
     assert [i["nome"] for i in dados["abaixo_do_custo"]] == ["LIMONADA JARRA"]
     assert dados["abaixo_do_custo_total"] == 1
     assert dados["abaixo_do_custo_prejuizo"] < 0
     assert dados["total"] == 12
+
+
+def test_filtra_por_categoria(client, casa_demo):
+    params = {"casa_id": casa_demo, "periodo": "2026-09", "grupo": "ALIMENTOS"}
+    dados = client.get(ENGENHARIA, params={**params, "categoria": "PETISCOS"}).json()
+
+    assert {i["categoria"] for i in dados["items"]} == {"PETISCOS"}
+    assert dados["total"] == 4
+    assert client.get(ENGENHARIA, params={**params, "categoria": "VINHOS"}).status_code == 404
 
 
 def test_filtra_por_grupo_e_quadrante(client, casa_demo):
@@ -140,7 +189,7 @@ def test_filtra_por_grupo_e_quadrante(client, casa_demo):
 
     assert [i["nome"] for i in dados["items"]] == ["LIMONADA JARRA"]
     # o resumo continua sendo do mês inteiro
-    assert len(dados["grupos"]) == 2
+    assert len(dados["grupos"]) == 3
 
 
 def test_engenharia_e_paginada(client, casa_demo):

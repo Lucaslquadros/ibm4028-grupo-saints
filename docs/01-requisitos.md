@@ -516,11 +516,14 @@ Regra: `app/services/margem.py`. Testes: `tests/test_margem_itens.py`.
 
 RF16 — Engenharia de cardápio
 Prioridade: Should
-Descrição: No mês, cada item do cardápio é classificado DENTRO do seu grupo
-pela matriz de Kasavana & Smith (1982):
+Descrição: No mês, cada item do cardápio é classificado DENTRO da sua categoria
+de cardápio pela matriz de Kasavana & Smith (1982). Categoria = subgrupo do ERP
+(CHOPP, CERVEJAS, PETISCOS, GRELHADOS…); subgrupo com menos de 4 itens no mês
+entra em OUTROS do grupo. (Até a noite de 18/11 era por grupo, e o Chopp Claro
+era comparado com uma garrafa de destilado.)
   margem por unidade = preço médio − custo da ficha; corte = média ponderada
-  do grupo (margem total ÷ unidades)
-  popularidade = fatia das unidades do grupo; corte = 70% de 1/N
+  da categoria (margem total ÷ unidades)
+  popularidade = fatia das unidades da categoria; corte = 70% de 1/N
   estrela (popular, margem alta) · burro de carga (popular, margem baixa) ·
   quebra-cabeça (pouco, margem alta) · cão (pouco, margem baixa)
 A tela mostra a matriz, a ação de cada quadrante e, antes de tudo, os itens
@@ -531,17 +534,23 @@ Duas réguas, conferidas contra a casa piloto em 18/11:
     os 243 itens de BEBIDAS da piloto derrubavam o corte de popularidade para
     0,3% e punham 167 itens em "quebra-cabeça";
   - o ALERTA de abaixo do custo olha TODOS os itens desses grupos, menos preço
-    simbólico (< R$ 1, cortesia). Na piloto, set/26: 20 itens, quase R$ 3,5 mil
-    no mês — a jarra de limão sozinha, −R$ 987. Esses itens vendem pouco e
-    ficariam escondidos pela régua da matriz.
+    simbólico (< R$ 1). Na piloto, set/26: 4 itens, R$ 277 no mês.
+    ⚠️ Antes do filtro de preço simbólico o alerta mostrava 20 itens e quase
+    R$ 3,5 mil (jarra de limão −R$ 987, fruta morango −R$ 800). Era falso: são
+    COMPLEMENTOS lançados a R$ 0,00–0,01 (a fruta escolhida na caipirinha) —
+    a venda fica no drink, o custo no complemento. Não é prejuízo.
 Origem: substitui o RF07 (seção 7). Usa só o que aconteceu no mês — nenhuma
 previsão — e o método é o que dá nome ao relatório que o cliente já exporta do
-Everest. Na casa piloto, set/26: Picanha Floriano e Costela do Pecado são
-estrelas; o Bolinho de costela é burro de carga (12,6% das unidades de
-ALIMENTOS, margem abaixo da média); a jarra de limão espremido é vendida
-abaixo do custo.
+Everest. Na casa piloto, set/26, por categoria: em GRELHADOS, Picanha Floriano
+e Costela do Pecado são estrelas; em CHOPP, o Chopp Claro é burro de carga
+(margem de R$ 10,82, abaixo da média dos chopps); em CERVEJAS, a Original
+600 ml é burro de carga E perdeu margem no ano (RF15) — as duas telas apontam
+o mesmo item; em PETISCOS, a Batata frita é burro de carga.
 ⚠️ Mesma ressalva do RF15: o custo é o da ficha técnica do mês. Comparar
 dentro de BEBIDAS junta chopp e destilado; refinar por subgrupo fica para depois.
+⚠️ Complementos a R$ 0 (acima) também distorcem o drink: a caipirinha aparece
+com CMV de 3% porque o custo da fruta está no complemento. A margem dos drinks
+com complemento está superestimada até o ERP ligar complemento ao item.
 Regra: `app/services/engenharia.py`. Testes: `tests/test_engenharia_cardapio.py`.
 ```
 
@@ -769,6 +778,7 @@ _(inserir; ver `docs/02-arquitetura.md`)_
 
 | Data | Versão | O que mudou | Motivo |
 |---|---|---|---|
+| 18/11/2026 | 1.9 | **Demonstração numa casa só**: "Boteco Sao Bento - Demonstracao (DEMO)", com o cardápio REAL da piloto (13 meses, copiado pela API) e estoque/compras simulados; a casa fictícia "Boteco Exemplo" sai. **RF16 por categoria de cardápio** (subgrupo do ERP), não mais por grupo | A demo pulava entre a casa real e a fictícia, e a jornada ficava confusa. E comparar o Chopp Claro com uma garrafa de destilado não é o método: Kasavana & Smith comparam itens que competem entre si |
 | 18/11/2026 | 1.8 | **RF16 — engenharia de cardápio** (Should): `GET /api/v1/metricas/engenharia-cardapio` e aba "Engenharia de cardápio", no lugar de "Quanto comprar". **RF07 vira Won't** e sai do menu (a rota da API fica). Casa de demonstração ganha CALDO DE FEIJAO e LIMONADA JARRA (vendida abaixo do custo) para ter os quatro quadrantes | Teste do RF07 contra o histórico real (seção 7): não previa melhor que repetir o mês passado e a sugestão não chega ao insumo. A engenharia de cardápio usa só fatos do mês e um método estabelecido |
 | 18/11/2026 | 1.7 | **RF13 retirado**: a linha "Do primeiro envio ao resultado: X s" e a ressalva saem da aba "Fechar o mês" (código, CSS, roteiro e deck). A métrica de tempo em 1.6 volta a "não medido pelo sistema". **RF15 publicado** junto, no merge do PR #26 | Decisão do time em 18/11, na véspera da apresentação ao cliente. _(Registrar aqui o motivo, se houver um além da decisão.)_ |
 | 18/11/2026 | 1.6 | **RF15 — margem por item** (Should; RF15 e não RF14 porque o RF14 já está especificado na branch `docs/rf14-rf09-proximos-passos`, "de onde veio este número"): `GET /api/v1/metricas/margem-itens` e aba "Margem por item", entre Fechamento e Quanto comprar. A casa de demonstração ganha custo da ficha subindo em três itens (GIN TONICA, REFRIGERANTE LATA, PICANHA NA CHAPA) sem mudar o total de cada grupo — o fechamento continua +1,61 pp —, e o script de preparo passa a carregar o cardápio de set/26. Ainda **não publicado** | Revisão de valor antes da apresentação de 19/11: o fechamento por grupo diz onde procurar, mas não dá ao sócio uma decisão. Com o cardápio que já existe (39 meses na piloto), dá para dizer qual item perdeu margem e quanto custou. Implementado para validar com o cliente, não por pedido dele. No mesmo dia, **RF09 e RF14 abandonados** (Won't; motivo na seção 7) para concentrar o esforço no RF15 |

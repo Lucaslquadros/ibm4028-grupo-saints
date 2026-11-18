@@ -1,8 +1,11 @@
-"""Casa de demonstração da planilha de fechamento (`app/services/demo_fechamento.py`).
+"""Casa de demonstração (`app/services/demo_fechamento.py`).
 
-O que a apresentação precisa que seja verdade: o histórico carrega, a planilha
-do mês ao vivo que a tela oferece é aceita em cima dele, e o resultado é o que
-o roteiro vai dizer (set/26 acima do previsto, puxado por BEBIDAS).
+Em produção ela recebe o cardápio REAL do São Bento, copiado pela API por
+`scripts/popular_demo_fechamento.py`. Aqui ela recebe o cardápio sintético de
+`tests/sintetico.py`, e o que se confere é a regra: a planilha da demonstração
+soma o cardápio do banco por grupo e simula estoque e compras de modo que o
+histórico fica dentro da margem e o mês ao vivo fecha acima, puxado por
+BEBIDAS, com as compras de bebidas ABAIXO do teórico.
 """
 
 import io
@@ -11,22 +14,29 @@ import pytest
 from openpyxl import load_workbook
 
 from app.services import demo_fechamento
+from tests import sintetico
 
 CASAS = "/api/v1/casas"
+UPLOADS = "/api/v1/uploads-custo"
 FECHAMENTOS = "/api/v1/fechamentos"
 INFO = "/api/v1/modelos/fechamento/demo"
 PLANILHA = "/api/v1/modelos/fechamento/demo/planilha"
+CARDAPIO = "/api/v1/modelos/fechamento/demo/cardapio"
 FECHAMENTO = "/api/v1/metricas/fechamento"
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+AO_VIVO = sintetico.PERIODOS[-1]
 
 
-@pytest.fixture
-def casa_demo(client) -> int:
-    casa = {**demo_fechamento.CASA_DEMO, "ativa": True}
-    return client.post(CASAS, json=casa).json()["id"]
+def _enviar_cardapio(client, casa_id, periodo):
+    resposta = client.post(
+        UPLOADS,
+        data={"casa_id": casa_id, "periodo": periodo, "tipo": "cardapio"},
+        files={"arquivo": ("cardapio.xlsx", io.BytesIO(sintetico.cardapio_xlsx(periodo)), XLSX)},
+    )
+    assert resposta.status_code == 201, resposta.text
 
 
-def _enviar(client, casa_id, conteudo):
+def _enviar_planilha(client, casa_id, conteudo):
     return client.post(
         FECHAMENTOS,
         data={"casa_id": casa_id},
@@ -34,10 +44,19 @@ def _enviar(client, casa_id, conteudo):
     )
 
 
+@pytest.fixture
+def casa_demo(client) -> int:
+    """Como o script deixa a casa: o cardápio de todos os meses, sem planilha."""
+    casa_id = client.post(CASAS, json={**demo_fechamento.CASA_DEMO, "ativa": True}).json()["id"]
+    for periodo in sintetico.PERIODOS:
+        _enviar_cardapio(client, casa_id, periodo)
+    return casa_id
+
+
 def _carregar_historico(client, casa_id):
     info = client.get(INFO).json()
     planilha = client.get(PLANILHA, params={"periodo": info["periodos_historico"]}).content
-    resposta = _enviar(client, casa_id, planilha)
+    resposta = _enviar_planilha(client, casa_id, planilha)
     assert resposta.status_code == 201, resposta.text
 
 
@@ -47,165 +66,109 @@ def _fechamento(client, casa_id, periodo):
     return resposta.json()
 
 
-def test_info_da_demo(client):
+# ------------------------------------------------------- sem preparo
+@pytest.mark.parametrize("rota", [INFO, PLANILHA, CARDAPIO])
+def test_sem_casa_de_demo_preparada_devolve_404(client, rota):
+    resposta = client.get(rota)
+    assert resposta.status_code == 404
+    assert "popular_demo_fechamento" in resposta.json()["detail"]
+
+
+# ------------------------------------------------- com a casa preparada
+def test_info_lista_os_meses_do_cardapio(client, casa_demo):
     info = client.get(INFO).json()
 
+    assert info["casa_nome"] == demo_fechamento.CASA_DEMO["nome"]
     assert "(DEMO)" in info["casa_nome"]
-    assert info["periodo_ao_vivo"] == "2026-09"
-    assert info["periodos_historico"] == ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08"]
-    assert info["periodo_ao_vivo"] not in info["periodos_historico"]
+    assert info["periodos"] == sintetico.PERIODOS
+    assert info["periodo_ao_vivo"] == AO_VIVO
+    assert info["periodos_historico"] == sintetico.PERIODOS[:-1]
 
 
-def test_planilha_padrao_e_so_o_mes_ao_vivo(client):
-    resposta = client.get(PLANILHA)
+def test_planilha_soma_o_cardapio_por_grupo(client, casa_demo):
+    conteudo = client.get(PLANILHA).content
+    linhas = list(load_workbook(io.BytesIO(conteudo))["Fechamento"].iter_rows(values_only=True))
 
-    assert resposta.status_code == 200
-    assert "demo-fechamento-2026-09.xlsx" in resposta.headers["content-disposition"]
-    aba = load_workbook(io.BytesIO(resposta.content))["Fechamento"]
-    linhas = [r for r in aba.iter_rows(min_row=2, values_only=True) if r[0]]
-    assert [(r[0], r[1]) for r in linhas] == [("2026-09", "ALIMENTOS"), ("2026-09", "BEBIDAS")]
-    # estoque_inicial em branco: vem do estoque_final de agosto, já carregado
-    assert all(r[4] is None for r in linhas)
+    dados = [linha for linha in linhas[1:] if linha[0]]
+    assert {linha[0] for linha in dados} == {AO_VIVO}
+    esperado = {g: (v, t) for p, g, v, t, *_ in sintetico.LINHAS if p == AO_VIVO}
+    for _periodo, grupo, venda, teorico, *_resto in dados:
+        assert venda == pytest.approx(esperado[grupo][0], abs=0.02)
+        assert teorico == pytest.approx(esperado[grupo][1], abs=0.02)
 
 
-def test_mes_fora_da_demo_devolve_422(client):
-    resposta = client.get(PLANILHA, params={"periodo": "2025-01"})
-
-    assert resposta.status_code == 422
-    assert "2025-01" in resposta.json()["detail"]
+def test_mes_fora_da_demo_devolve_422(client, casa_demo):
+    assert client.get(PLANILHA, params={"periodo": "2030-01"}).status_code == 422
+    assert client.get(CARDAPIO, params={"periodo": "2030-01"}).status_code == 422
 
 
 def test_mes_ao_vivo_sem_o_historico_e_recusado(client, casa_demo):
-    """Se o script de preparo não rodou, o envio ao vivo falha — e a mensagem
-    diz por quê. É o que o checklist de véspera precisa pegar."""
-    resposta = _enviar(client, casa_demo, client.get(PLANILHA).content)
-
+    # sem o mês anterior não há estoque inicial: o leitor recusa
+    resposta = _enviar_planilha(client, casa_demo, client.get(PLANILHA).content)
     assert resposta.status_code == 422
-    assert "estoque_inicial" in resposta.json()["detail"]
 
 
 def test_historico_fica_dentro_da_margem(client, casa_demo):
     _carregar_historico(client, casa_demo)
 
-    for periodo in demo_fechamento.PERIODOS_HISTORICO:
+    for periodo in sintetico.PERIODOS[:-1]:
         fechamento = _fechamento(client, casa_demo, periodo)
+        assert fechamento["base_real"] == "consumo"
         assert fechamento["explicacao"]["situacao"] == "dentro", periodo
 
-    resposta = client.get(FECHAMENTO, params={"casa_id": casa_demo, "periodo": "2026-09"})
-    assert resposta.status_code == 404  # set/26 ainda não foi enviado
 
-
-def test_envio_ao_vivo_fecha_setembro_acima_puxado_por_bebidas(client, casa_demo):
+def test_envio_ao_vivo_fecha_acima_puxado_por_bebidas(client, casa_demo):
     _carregar_historico(client, casa_demo)
-
-    resposta = _enviar(client, casa_demo, client.get(PLANILHA).content)
-
+    resposta = _enviar_planilha(client, casa_demo, client.get(PLANILHA).content)
     assert resposta.status_code == 201, resposta.text
-    assert resposta.json()["periodos"] == ["2026-09"]
-    setembro = _fechamento(client, casa_demo, "2026-09")
-    assert setembro["base_real"] == "consumo"
-    assert setembro["total"]["ajuste"] == 8780
-    assert setembro["total"]["ajuste_pp"] == 1.61
-    assert setembro["explicacao"]["situacao"] == "acima"
-    assert "BEBIDAS" in setembro["explicacao"]["resumo"]
-    bebidas = {g["grupo"]: g for g in setembro["grupos"]}["BEBIDAS"]
-    # EI 104.000 (EF de agosto) + compras 70.800 − EF 92.000
-    assert bebidas["custo_real"] == 82800
-    assert bebidas["ajuste_pp"] == 2.6
-    assert setembro["acumulado"]["meses"] == 6
+
+    fechamento = _fechamento(client, casa_demo, AO_VIVO)
+
+    assert fechamento["explicacao"]["situacao"] == "acima"
+    assert fechamento["total"]["ajuste_pp"] > 1
+    bebidas = next(g for g in fechamento["grupos"] if g["grupo"] == "BEBIDAS")
+    alimentos = next(g for g in fechamento["grupos"] if g["grupo"] == "ALIMENTOS")
+    assert bebidas["ajuste_pp"] > alimentos["ajuste_pp"]
+    assert "BEBIDAS" in fechamento["explicacao"]["resumo"]
 
 
-def test_compras_de_bebidas_em_setembro_ficam_abaixo_do_teorico():
-    """O ponto da demo: quem olhasse só compras concluiria o contrário."""
-    (_, _, venda, teorico, _, compras, _) = next(
-        linha for linha in demo_fechamento.LINHAS if linha[0] == "2026-09" and linha[1] == "BEBIDAS"
-    )
+def test_cardapio_da_demo_e_o_do_banco_e_nao_serve_como_planilha(client, casa_demo):
+    conteudo = client.get(CARDAPIO).content
+    linhas = list(load_workbook(io.BytesIO(conteudo)).active.iter_rows(values_only=True))
+
+    assert len(linhas) - 1 == len(sintetico.cardapio(AO_VIVO))
+    # o erro proposital do roteiro: cardápio enviado como planilha de fechamento
+    resposta = _enviar_planilha(client, casa_demo, conteudo)
+    assert resposta.status_code == 422
+    assert "planilha-modelo" in resposta.json()["detail"]
+
+
+# ------------------------------------------------------- regra pura
+def _totais():
+    totais: dict = {}
+    for periodo, grupo, venda, teorico, *_ in sintetico.LINHAS:
+        totais.setdefault(periodo, {})[grupo] = (venda, teorico)
+    return totais
+
+
+def test_compras_de_bebidas_no_mes_ao_vivo_ficam_abaixo_do_teorico():
+    """O ponto da demo: o CMV real sobe, mas a DRE de compras diria o contrário."""
+    linhas = demo_fechamento.simular(_totais())
+    bebidas = next(linha for linha in linhas if linha[0] == AO_VIVO and linha[1] == "BEBIDAS")
+
+    _periodo, _grupo, _venda, teorico, _inicial, compras, _final = bebidas
     assert compras < teorico
-    assert round((compras - teorico) / venda * 100, 2) == -1.4
 
 
 def test_so_o_primeiro_mes_tem_estoque_inicial():
-    primeiro = demo_fechamento.PERIODOS[0]
-    for periodo, grupo, *_resto, ei, _compras, _ef in demo_fechamento.LINHAS:
-        assert (ei is not None) == (periodo == primeiro), (periodo, grupo)
+    linhas = demo_fechamento.simular(_totais())
+
+    for periodo, _grupo, _v, _t, inicial, *_ in linhas:
+        if periodo == sintetico.PERIODOS[0]:
+            assert inicial is not None
+        else:
+            assert inicial is None
 
 
-# --------------------------------------------- cardápio por item (RF07, top itens)
-CARDAPIO = "/api/v1/modelos/fechamento/demo/cardapio"
-UPLOADS = "/api/v1/uploads-custo"
-RECOMENDACAO = "/api/v1/metricas/recomendacao-compra"
-TOP_ITENS = "/api/v1/metricas/top-itens"
-
-
-def _enviar_cardapio(client, casa_id, periodo):
-    resposta = client.post(
-        UPLOADS,
-        data={"casa_id": casa_id, "periodo": periodo, "tipo": "cardapio"},
-        files={
-            "arquivo": (
-                "cardapio.xlsx",
-                io.BytesIO(client.get(CARDAPIO, params={"periodo": periodo}).content),
-                XLSX,
-            )
-        },
-    )
-    assert resposta.status_code == 201, resposta.text
-
-
-def _preparar_como_o_script(client, casa_id):
-    """O que `scripts/popular_demo_fechamento.py` faz, pela mesma API."""
-    _carregar_historico(client, casa_id)
-    for periodo in demo_fechamento.PERIODOS_HISTORICO:
-        _enviar_cardapio(client, casa_id, periodo)
-
-
-@pytest.mark.parametrize("periodo", demo_fechamento.PERIODOS)
-def test_cardapio_soma_exatamente_a_planilha(periodo):
-    """As duas fontes da demo nunca se contradizem: por grupo, a soma dos
-    itens é a venda e o custo teórico da planilha, ao centavo."""
-    itens = demo_fechamento.cardapio_demo(periodo)
-    for _p, grupo, venda, teorico, *_resto in demo_fechamento.linhas_demo([periodo]):
-        do_grupo = [i for i in itens if i[0] == grupo]
-        assert round(sum(i[4] for i in do_grupo), 2) == venda
-        assert round(sum(i[5] for i in do_grupo), 2) == teorico
-
-
-def test_cardapio_de_mes_fora_da_demo_devolve_422(client):
-    assert client.get(CARDAPIO, params={"periodo": "2025-01"}).status_code == 422
-
-
-def test_demo_preparada_mostra_quanto_comprar_e_top_itens(client, casa_demo):
-    _preparar_como_o_script(client, casa_demo)
-
-    recomendacao = client.get(RECOMENDACAO, params={"casa_id": casa_demo, "periodo": "2026-08"})
-    assert recomendacao.status_code == 200, recomendacao.text
-    corpo = recomendacao.json()
-    assert corpo["periodo_alvo"] == "2026-09"
-    assert len(corpo["itens"]) == 10
-    assert all(i["meses_com_dado"] == 5 for i in corpo["itens"])
-
-    top = client.get(TOP_ITENS, params={"casa_id": casa_demo, "periodo": "2026-08"}).json()
-    assert len(top) == 10
-
-
-def test_envio_ao_vivo_do_cardapio_nao_muda_o_fechamento_da_planilha(client, casa_demo):
-    _preparar_como_o_script(client, casa_demo)
-    _enviar(client, casa_demo, client.get(PLANILHA).content)
-
-    _enviar_cardapio(client, casa_demo, "2026-09")
-
-    setembro = _fechamento(client, casa_demo, "2026-09")
-    assert setembro["base_real"] == "consumo"
-    assert setembro["total"]["ajuste"] == 8780
-    assert setembro["total"]["custo_teorico"] == 141150
-    top = client.get(TOP_ITENS, params={"casa_id": casa_demo, "periodo": "2026-09"}).json()
-    assert "CHOPP 300ML" in [item["nome"] for item in top]
-
-
-def test_quanto_comprar_explica_quando_a_casa_so_tem_a_planilha(client, casa_demo):
-    _carregar_historico(client, casa_demo)
-
-    resposta = client.get(RECOMENDACAO, params={"casa_id": casa_demo, "periodo": "2026-08"})
-
-    assert resposta.status_code == 404
-    assert "planilha de fechamento, que é por grupo" in resposta.json()["detail"]
+def test_simulacao_e_deterministica():
+    assert demo_fechamento.simular(_totais()) == demo_fechamento.simular(_totais())

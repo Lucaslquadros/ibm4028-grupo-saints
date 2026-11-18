@@ -135,12 +135,12 @@ class UploadFechamentoPage(BaseModel):
 
 
 class DemoFechamento(BaseModel):
-    """A casa de demonstração da planilha de fechamento (dados fictícios)."""
+    """A casa de demonstração: cardápio real copiado da piloto, estoque simulado."""
 
     casa_nome: str = Field(description="Nome exato da casa, com '(DEMO)'")
     periodos: list[str] = Field(description="Todos os meses que a demonstração tem")
     periodos_historico: list[str] = Field(
-        description="Meses carregados antes, por scripts/popular_demo_fechamento.py"
+        description="Meses com a planilha de fechamento carregada antes, pelo script de preparo"
     )
     periodo_ao_vivo: str = Field(description="Mês enviado durante a apresentação")
 
@@ -445,6 +445,9 @@ class ItemEngenharia(BaseModel):
     nome: str
     grupo: str
     subgrupo: str | None
+    categoria: str | None = Field(
+        default=None, description="Categoria de cardápio em que o item foi comparado"
+    )
     quantidade: float
     venda_liquida: float
     custo: float
@@ -463,9 +466,13 @@ class ItemEngenharia(BaseModel):
 
 
 class GrupoEngenharia(BaseModel):
-    """Os cortes de um grupo e quantos itens caem em cada quadrante."""
+    """Os cortes de uma categoria de cardápio e quantos itens caem em cada quadrante."""
 
     grupo: str
+    categoria: str | None = Field(
+        default=None,
+        description="Subgrupo do ERP; subgrupo com poucos itens no mês entra em OUTROS",
+    )
     itens: int
     unidades: float
     margem_total: float
@@ -475,7 +482,9 @@ class GrupoEngenharia(BaseModel):
     burro_de_carga: int
     quebra_cabeca: int
     cao: int
-    fora_da_matriz: int = Field(default=0, description="Itens vendidos com venda < venda_minima")
+    fora_da_matriz: int = Field(
+        default=0, description="Itens do GRUPO vendidos com venda < venda_minima"
+    )
 
 
 class EngenhariaCardapioResponse(BaseModel):

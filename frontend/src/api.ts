@@ -192,6 +192,8 @@ export interface ItemEngenharia {
   nome: string;
   grupo: string;
   subgrupo: string | null;
+  /** Categoria de cardápio em que o item foi comparado (subgrupo do ERP ou OUTROS). */
+  categoria?: string | null;
   quantidade: number;
   venda_liquida: number;
   custo: number;
@@ -208,6 +210,7 @@ export interface ItemEngenharia {
 
 export interface GrupoEngenharia {
   grupo: string;
+  categoria?: string | null;
   itens: number;
   unidades: number;
   margem_total: number;
@@ -348,11 +351,24 @@ export const api = {
     return pedido<MargemItens>(`/api/v1/metricas/margem-itens?${q}`);
   },
 
-  engenhariaCardapio: (casaId: number, periodo: string, grupo: string, limit = 200, offset = 0) =>
-    pedido<EngenhariaCardapio>(
-      `/api/v1/metricas/engenharia-cardapio?casa_id=${casaId}&periodo=${periodo}` +
-        `&grupo=${encodeURIComponent(grupo)}&limit=${limit}&offset=${offset}`,
-    ),
+  engenhariaCardapio: (
+    casaId: number,
+    periodo: string,
+    grupo: string,
+    categoria: string | null,
+    limit = 200,
+    offset = 0,
+  ) => {
+    const q = new URLSearchParams({
+      casa_id: String(casaId),
+      periodo,
+      grupo,
+      limit: String(limit),
+      offset: String(offset),
+    });
+    if (categoria) q.set("categoria", categoria);
+    return pedido<EngenhariaCardapio>(`/api/v1/metricas/engenharia-cardapio?${q}`);
+  },
 
   /** Só o resumo (grupos e itens abaixo do custo): a página de itens vem vazia. */
   engenhariaResumo: (casaId: number, periodo: string) =>
