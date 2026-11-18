@@ -125,14 +125,14 @@ def test_margem_aponta_os_itens_com_custo_subindo(client, casa_com_cardapio):
     dados = resposta.json()
     # sem o mesmo mês do ano anterior, compara com o mais antigo dos 12 meses
     assert dados["periodo_base"] == "2026-04"
-    assert dados["itens_comparados"] == 10
+    assert dados["itens_comparados"] == 12
     assert dados["itens_que_pioraram"] == 3
     assert dados["custo_extra_total"] > 0
     piores = [item["nome"] for item in dados["items"][:3]]
     assert set(piores) == {"GIN TONICA", "REFRIGERANTE LATA", "PICANHA NA CHAPA"}
     for item in dados["items"][:3]:
         assert item["variacao_custo_pct"] > 10
-        assert item["variacao_preco_pct"] == 0.0
+        assert abs(item["variacao_preco_pct"]) < 1  # preço parado (arredondamento)
         # série do mês-base ao mês, um ponto por mês
         assert [p["periodo"] for p in item["serie"]] == demo_fechamento.PERIODOS
 
@@ -150,8 +150,8 @@ def test_margem_e_paginada(client, casa_com_cardapio):
     params = {"casa_id": casa_com_cardapio, "periodo": "2026-09", "limit": 4, "offset": 8}
     dados = client.get(MARGEM, params=params).json()
 
-    assert dados["total"] == 10
-    assert len(dados["items"]) == 2
+    assert dados["total"] == 12
+    assert len(dados["items"]) == 4
     # o resumo é do mês inteiro, não da página
     assert dados["itens_que_pioraram"] == 3
 

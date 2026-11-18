@@ -55,8 +55,8 @@ mudaria alguma decisão de vocês?" — é a validação do RF15.
 | 1 | Casas | — | Piloto real + DEMO rotuladas. A tela só cria; editar/apagar é pela API (`/docs`) |
 | 2 | Fechar o mês → "Planilha de fechamento" | Boteco Exemplo (DEMO) · 09/2026 | "Baixar planilha da demonstração" → enviar → painel: **+1,61 pp, acima**, maior parte em BEBIDAS (+1,43 pp); balanço; acumulado 6 meses +0,64 pp |
 | 3 | Fechamento | mesma casa e mês (a seleção continua ao trocar de aba) → depois Pizzaria Bella e Distribuidora Horizonte (DEMO) | "O sócio lê aqui." **Só esta aba** tem evolução mensal (a real descola em setembro) e top itens. Depois: +2,91 pp (CMV 32%) × +6,84 pp (CMV 76%), mesmo cálculo, outro ramo |
-| 4 | Margem por item (RF15) | Boteco Exemplo (DEMO) · 09/2026, "Comparar com" vazio | "3 de 10 itens perderam margem", R$ 6.317; refrigerante, gin e picanha com custo subindo e preço parado. BEBIDAS na planilha é 25% todo mês: a categoria esconde o item |
-| 5 | Quanto comprar | **piloto** · 09/2026 (só leitura) | Alerta "35% abaixo da mediana"; 39 meses de histórico; confiança "Alta"; "Não é machine learning" |
+| 4 | Margem por item (RF15) | Boteco Exemplo (DEMO) · 09/2026, "Comparar com" vazio | "3 de 12 itens perderam margem", R$ 6.117; refrigerante, gin e picanha com custo subindo e preço parado. BEBIDAS na planilha é 25% todo mês: a categoria esconde o item |
+| 5 | Engenharia de cardápio (RF16) | **piloto** · 09/2026 (só leitura); depois a demo | Alerta de itens vendidos abaixo do custo (jarra de limão); em ALIMENTOS, Picanha Floriano e Costela do Pecado estrelas, Bolinho de costela burro de carga. Clicar nos quadrantes. Na demo: os quatro quadrantes e a LIMONADA JARRA abaixo do custo |
 | 6 | Upload | Boteco Exemplo (DEMO) · 09/2026 | "Envio direto, para histórico e arquivo avulso." Baixar o cardápio da demonstração, trocar o tipo para "Planilha de fechamento" e enviá-lo → 422 em português com as colunas que faltam |
 | — | Fechamento (opcional) | piloto · 09/2026 (só leitura) | −3,68 pp: compras × teórico, não conclusivo, um mês só |
 
@@ -91,7 +91,7 @@ real na máquina, dá para enviá-lo na casa de teste (nunca na piloto em 09/202
 | Fechamento: outros ramos (DEMO) | 3 |
 | Fechamento: lado real só compras, não conclusivo; categorias sem par | opcional (piloto) |
 | Margem por item — mês-base automático e escolhido | 4 |
-| Quanto comprar — alerta de dado, método, confiança, margem de segurança | 5 |
+| Engenharia de cardápio — quadrantes, ação de cada um, itens abaixo do custo, troca de grupo | 5 |
 | Upload direto e mensagem de erro em português (422) | 6 |
 | API: Swagger, `/health` | B4 · "Antes de começar" |
 
@@ -118,7 +118,7 @@ CI/CD, não para rodar a aplicação.
 |---|---|---|
 | 1 | A API está acordada | Abra https://app-projeto4-saints2026.azurewebsites.net/health — tem que responder `{"status":"ok", ..., "banco":"ok"}` **na hora** |
 | 2 | É o código mais recente | No mesmo `/health`, confira que `commit` bate com o último commit da `main` (`git rev-parse HEAD`) |
-| 3 | O frontend carrega, com 5 abas | Abra https://zealous-river-0b6019910.6.azurestaticapps.net — Casas, Upload, **Fechar o mês**, Fechamento e Quanto comprar |
+| 3 | O frontend carrega, com 6 abas | Abra https://zealous-river-0b6019910.6.azurestaticapps.net — Casas, Upload, Fechar o mês, Fechamento, Margem por item e Engenharia de cardápio |
 | 4 | As 5 unidades estão lá | Aba Casas: a piloto real + 4 de demonstração, com "(DEMO)" no nome |
 | 5 | O fechamento calcula | Abra [o fechamento de set/26](https://app-projeto4-saints2026.azurewebsites.net/api/v1/metricas/fechamento?casa_id=2&periodo=2026-09) e confirme `ajuste_pp: -3.68` |
 | 6 | **A explicação vem junto** | No mesmo JSON, o campo `explicacao` tem que existir, com `"situacao":"abaixo"`. Se vier `null` ou faltar, o backend no ar é anterior ao ciclo 07/11 |
@@ -383,6 +383,9 @@ Se o avaliador abrir o código, o argumento se sustenta em dois lugares:
 | `app/crud.py`, `grupos_comparaveis` | Antes era `GRUPOS_CMV = ("ALIMENTOS", "BEBIDAS")` cravado. Agora é deduzido: comparável é o grupo que os **dois** lados reportam — e na base real devolve exatamente ALIMENTOS e BEBIDAS |
 
 ### 4b. Quanto comprar — o passo que sai do relatório (2 min)
+
+> **Retirado em 18/11** (RF07 → Won't, motivo em `01-requisitos.md` §7). A aba
+> não existe mais; o lugar dela é a Engenharia de cardápio. Seção mantida como histórico.
 
 Aba **Quanto comprar**. Mesma casa, período **09/2026**, Calcular.
 

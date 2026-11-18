@@ -74,17 +74,24 @@ def linhas_demo(periodos: list[str]) -> list[tuple]:
 # 25% todo mês, e dentro dele gin e refrigerante perdem margem enquanto o chopp
 # compensa. Como o custo do grupo é fixo (vem da planilha), os outros itens do
 # grupo ficam um pouco mais baratos: a categoria esconde o item.
+#
+# CALDO DE FEIJAO e LIMONADA JARRA vendem pouco e deixam pouca margem: são os
+# "cães" da engenharia de cardápio. A limonada custa MAIS do que é vendida (CMV
+# da ficha acima de 100%), como a jarra de limão da casa piloto em set/26 — é o
+# item vendido abaixo do custo que a tela destaca.
 ITENS = [
     ("ALIMENTOS", "PETISCOS", "BOLINHO DE BACALHAU", 42.0, 0.30, 0.24, 0.00, 0.0),
     ("ALIMENTOS", "PETISCOS", "PASTEL DE CARNE", 28.0, 0.22, 0.18, -0.04, 0.0),
     ("ALIMENTOS", "PETISCOS", "MANDIOCA FRITA", 26.0, 0.18, 0.14, 0.02, 0.0),
     ("ALIMENTOS", "PRATOS", "FILE COM FRITAS", 89.0, 0.33, 0.26, 0.01, 0.0),
     ("ALIMENTOS", "PRATOS", "PICANHA NA CHAPA", 119.0, 0.31, 0.18, 0.03, 0.012),
+    ("ALIMENTOS", "PETISCOS", "CALDO DE FEIJAO", 16.0, 0.35, 0.03, 0.0, 0.0),
     ("BEBIDAS", "CHOPP", "CHOPP 300ML", 14.0, 0.24, 0.34, 0.00, 0.0),
     ("BEBIDAS", "CHOPP", "CHOPP 500ML", 21.0, 0.23, 0.22, 0.02, 0.0),
     ("BEBIDAS", "DESTILADOS", "CAIPIRINHA", 28.0, 0.28, 0.20, -0.02, 0.0),
     ("BEBIDAS", "DESTILADOS", "GIN TONICA", 36.0, 0.30, 0.12, 0.05, 0.016),
     ("BEBIDAS", "NAO ALCOOLICOS", "REFRIGERANTE LATA", 8.0, 0.30, 0.12, 0.00, 0.02),
+    ("BEBIDAS", "NAO ALCOOLICOS", "LIMONADA JARRA", 18.0, 1.45, 0.02, 0.0, 0.0),
 ]
 
 CABECALHO_CARDAPIO = ["grupo", "subgrupo", "item", "quantidade", "venda_liquida", "custo"]

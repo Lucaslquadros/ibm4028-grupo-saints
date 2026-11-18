@@ -5,14 +5,13 @@ import { Upload } from "./screens/Upload";
 import { FecharMes } from "./screens/FecharMes";
 import { Fechamento } from "./screens/Fechamento";
 import { MargemItens } from "./screens/MargemItens";
-import { Recomendacao } from "./screens/Recomendacao";
+import { Engenharia } from "./screens/Engenharia";
 import "./App.css";
 
-type Tela = "casas" | "upload" | "fecharmes" | "fechamento" | "margem" | "recomendacao";
+type Tela = "casas" | "upload" | "fecharmes" | "fechamento" | "margem" | "engenharia";
 
 // A ordem é o fluxo real de uso: cadastra a casa, sobe o export, confere o
-// fechamento e decide a compra do mês seguinte. "Quanto comprar" vem por último
-// porque depende do histórico que os passos anteriores carregaram.
+// fechamento e, item a item, decide o que mexer no cardápio.
 //
 // "Fechar o mês" (RF12) é o caminho guiado para quem está fechando pela
 // primeira vez; "Upload" continua como está para quem já sabe o que precisa
@@ -20,13 +19,17 @@ type Tela = "casas" | "upload" | "fecharmes" | "fechamento" | "margem" | "recome
 //
 // "Margem por item" vem depois do Fechamento: o fechamento diz QUE um grupo
 // saiu do previsto, a margem por item diz QUAL item e quanto custou em reais.
+// "Engenharia de cardápio" (RF16) fecha a sequência: onde cada item está hoje
+// (popularidade × margem) e a ação de cada quadrante. Substituiu "Quanto
+// comprar" (RF07) em 18/11 — a previsão não acertava mais que repetir o mês
+// passado (docs/01-requisitos.md). A rota da API continua, fora do menu.
 const TELAS: { id: Tela; rotulo: string }[] = [
   { id: "casas", rotulo: "Casas" },
   { id: "upload", rotulo: "Upload" },
   { id: "fecharmes", rotulo: "Fechar o mês" },
   { id: "fechamento", rotulo: "Fechamento" },
   { id: "margem", rotulo: "Margem por item" },
-  { id: "recomendacao", rotulo: "Quanto comprar" },
+  { id: "engenharia", rotulo: "Engenharia de cardápio" },
 ];
 
 export default function App() {
@@ -97,8 +100,8 @@ export default function App() {
             setPeriodo={setPeriodo}
           />
         )}
-        {tela === "recomendacao" && (
-          <Recomendacao
+        {tela === "engenharia" && (
+          <Engenharia
             casas={casas}
             casaId={casaId}
             setCasaId={setCasaId}

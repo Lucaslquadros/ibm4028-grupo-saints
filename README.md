@@ -89,7 +89,7 @@ O grupo inteiro deve usar **o mesmo** caminho. Misturar os dois gera divergênci
 │   └── services/
 │       ├── leitores.py     Tradutores → LinhaCusto (Everest ×2 + planilha genérica)
 │       └── storage.py      Blob Storage / disco local
-├── frontend/               React + Vite — Casas, Upload, Fechamento, Quanto comprar
+├── frontend/               React + Vite — Casas, Upload, Fechar o mês, Fechamento, Margem por item, Engenharia de cardápio
 ├── tests/                  pytest — 107 testes
 ├── exemplos/               CSV de 4 empresas fictícias (farmácia, padaria, pizzaria, atacado)
 ├── scripts/

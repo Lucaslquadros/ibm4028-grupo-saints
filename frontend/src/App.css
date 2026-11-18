@@ -750,3 +750,40 @@ select optgroup {
   opacity: 0.65;
   padding-left: 48px !important;
 }
+
+/* ---------------------------------------------- Engenharia de cardápio */
+/* Matriz 2×2: margem alta em cima, popular à direita. Cada quadrante é um
+   botão que filtra a tabela abaixo. */
+.matriz {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 18px 0 8px;
+  position: relative;
+}
+.matriz-eixo { font-size: 11.5px; color: var(--ink-soft); letter-spacing: 0.04em; }
+.matriz-eixo-y { grid-column: 1 / -1; }
+.matriz-eixo-x { grid-column: 1 / -1; text-align: right; }
+.quadrante {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  padding: 16px 18px;
+  cursor: pointer;
+  border-left: 4px solid transparent;
+  font: inherit;
+  color: inherit;
+}
+.quadrante-topo { display: flex; justify-content: space-between; align-items: baseline; }
+.quadrante-topo strong { font-size: 16px; }
+.quadrante-n { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.quadrante-regra { font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+.quadrante-acao { font-size: 13.5px; }
+.quadrante-itens { font-size: 12px; color: var(--ink-soft); }
+.quadrante-estrela { border-left-color: var(--good); }
+.quadrante-burro { border-left-color: var(--amber); }
+.quadrante-quebra { border-left-color: rgba(var(--amber-rgb), 0.45); }
+.quadrante-cao { border-left-color: var(--bad); }
+.quadrante-ativo { box-shadow: 0 0 0 2px rgba(var(--amber-rgb), 0.55); }
+.titulo-secao { margin: 22px 0 10px; font-size: 16px; }

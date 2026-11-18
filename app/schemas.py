@@ -433,3 +433,59 @@ class MargemItensResponse(BaseModel):
     limit: int
     offset: int
     items: list[MargemItem]
+
+
+# ------------------------------------------------- Engenharia de cardápio
+ClasseCardapio = Literal["estrela", "burro_de_carga", "quebra_cabeca", "cao"]
+
+
+class ItemEngenharia(BaseModel):
+    """Um item do cardápio no mês, no seu quadrante."""
+
+    nome: str
+    grupo: str
+    subgrupo: str | None
+    quantidade: float
+    venda_liquida: float
+    custo: float
+    preco_medio: float
+    custo_unitario: float
+    margem_unitaria: float = Field(description="Preço médio − custo da ficha, por unidade")
+    margem_total: float
+    cmv_pct: float
+    popularidade_pct: float = Field(description="Fatia das unidades vendidas no grupo")
+    classe: ClasseCardapio
+    abaixo_do_custo: bool = Field(description="Custo da ficha maior que a venda do item")
+
+
+class GrupoEngenharia(BaseModel):
+    """Os cortes de um grupo e quantos itens caem em cada quadrante."""
+
+    grupo: str
+    itens: int
+    unidades: float
+    margem_total: float
+    margem_media_unitaria: float = Field(description="Corte da margem: média ponderada")
+    limiar_popularidade_pct: float = Field(description="Corte da popularidade: 70% de 1/N")
+    estrela: int
+    burro_de_carga: int
+    quebra_cabeca: int
+    cao: int
+
+
+class EngenhariaCardapioResponse(BaseModel):
+    """Resposta paginada da engenharia de cardápio, com o resumo do mês."""
+
+    casa_id: int
+    casa_nome: str
+    periodo: str
+    grupos: list[GrupoEngenharia]
+    abaixo_do_custo: list[ItemEngenharia] = Field(
+        description="Itens vendidos abaixo do custo da ficha no mês (até 20)"
+    )
+    metodo: str
+    aviso: str
+    total: int
+    limit: int
+    offset: int
+    items: list[ItemEngenharia]

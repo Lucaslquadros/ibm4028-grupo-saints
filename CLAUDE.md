@@ -34,6 +34,7 @@ técnica e inventário mensal — o contrato de entrada está em
 - **Desde 10/11: a DRE é compras, não CMV real** (`docs/07`, "A DRE é compras, não consumo"). O −3,68 pp é compras × teórico de um mês, não conclusivo; o lado real tem `base_real` e o fechamento tem `acumulado`. Não há inventário do cliente.
 - **Desde 12/11: fechamento pela planilha-modelo** (`POST /api/v1/fechamentos`, tabelas `uploads_fechamento`/`movimentos_grupo`), ao lado do caminho do Everest. Com estoque por grupo, o lado real é CMV real. Casa com planilha é calculada só por ela (`crud._fechamentos_movimento`). Regra em `docs/07`, "Fechamento pela planilha-modelo".
 - **Desde 18/11: margem por item (RF15)** — `GET /api/v1/metricas/margem-itens` e aba "Margem por item". Item contra ele mesmo num mês-base, ordenado pelo custo extra em R$; só cardápio, sem estoque. Regra em `app/services/margem.py`. No ar desde 18/11 (PR #26).
+- **Desde 18/11: engenharia de cardápio (RF16)** no lugar de "Quanto comprar" (RF07 → Won't: não previa melhor que repetir o mês passado). `GET /api/v1/metricas/engenharia-cardapio`; matriz de Kasavana & Smith por grupo. Regra em `app/services/engenharia.py`.
 - Abaixo do grupo, só se compara subgrupo que existe nos dois lados. Não inventar granularidade.
 - Campos novos na API são **opcionais**: o frontend em produção não pode quebrar entre deploys. Backend primeiro, depois front.
 - Nunca usar a casa piloto em 09/2026 para testar envio: reenvio **substitui** o dado real.

@@ -185,39 +185,47 @@ export interface ItemCardapio {
   cmv_pct: number | null;
 }
 
-export interface PontoHistorico {
-  periodo: string;
-  quantidade: number;
-}
+export type ClasseCardapio = "estrela" | "burro_de_carga" | "quebra_cabeca" | "cao";
 
-export interface PrevisaoItem {
+/** Um item do cardápio no mês, no seu quadrante de popularidade × margem. */
+export interface ItemEngenharia {
   nome: string;
   grupo: string;
   subgrupo: string | null;
-  meses_com_dado: number;
-  media_recente: number;
-  tendencia_pct: number | null;
-  indice_sazonal: number | null;
-  demanda_prevista: number;
-  sugestao_compra: number;
-  confianca: "alta" | "media" | "baixa";
-  motivo_confianca: string;
-  historico: PontoHistorico[];
+  quantidade: number;
+  venda_liquida: number;
+  custo: number;
+  preco_medio: number;
+  custo_unitario: number;
+  margem_unitaria: number;
+  margem_total: number;
+  cmv_pct: number;
+  popularidade_pct: number;
+  classe: ClasseCardapio;
+  abaixo_do_custo: boolean;
 }
 
-export interface RecomendacaoCompra {
+export interface GrupoEngenharia {
+  grupo: string;
+  itens: number;
+  unidades: number;
+  margem_total: number;
+  margem_media_unitaria: number;
+  limiar_popularidade_pct: number;
+  estrela: number;
+  burro_de_carga: number;
+  quebra_cabeca: number;
+  cao: number;
+}
+
+export interface EngenhariaCardapio extends Pagina<ItemEngenharia> {
   casa_id: number;
   casa_nome: string;
-  periodo_base: string;
-  periodo_alvo: string;
-  margem_seguranca_pct: number;
-  /** Como o número foi calculado. A tela exibe — não é detalhe interno. */
+  periodo: string;
+  grupos: GrupoEngenharia[];
+  abaixo_do_custo: ItemEngenharia[];
   metodo: string;
-  /** Limite do cálculo. Precisa aparecer JUNTO do número, não escondido. */
   aviso: string;
-  /** Presente só quando o próprio dado de entrada é suspeito. */
-  alerta_dado: string | null;
-  itens: PrevisaoItem[];
 }
 
 /** Margem por item: o mesmo item do cardápio no mês e no mês-base. */
@@ -335,14 +343,15 @@ export const api = {
     return pedido<MargemItens>(`/api/v1/metricas/margem-itens?${q}`);
   },
 
-  recomendacaoCompra: (
-    casaId: number,
-    periodo: string,
-    margemPct = 10,
-    limit = 10,
-  ) =>
-    pedido<RecomendacaoCompra>(
-      `/api/v1/metricas/recomendacao-compra?casa_id=${casaId}&periodo=${periodo}` +
-        `&margem_seguranca_pct=${margemPct}&limit=${limit}`,
+  engenhariaCardapio: (casaId: number, periodo: string, grupo: string, limit = 200, offset = 0) =>
+    pedido<EngenhariaCardapio>(
+      `/api/v1/metricas/engenharia-cardapio?casa_id=${casaId}&periodo=${periodo}` +
+        `&grupo=${encodeURIComponent(grupo)}&limit=${limit}&offset=${offset}`,
+    ),
+
+  /** Só o resumo (grupos e itens abaixo do custo): a página de itens vem vazia. */
+  engenhariaResumo: (casaId: number, periodo: string) =>
+    pedido<EngenhariaCardapio>(
+      `/api/v1/metricas/engenharia-cardapio?casa_id=${casaId}&periodo=${periodo}&limit=1`,
     ),
 };
