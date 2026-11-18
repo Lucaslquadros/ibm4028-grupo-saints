@@ -16,6 +16,47 @@
 > ainda mostra a tabela larga de grupos. Confira o item 8 de "Antes de sair de
 > casa" — se o balanço não estiver lá, o deploy não aconteceu.
 
+## Apresentação ao cliente — 19/11/2026 (leia isto primeiro)
+
+> Ensaiado de ponta a ponta em 18/11/2026, contra a produção (commit
+> `438ef53`), com navegador automatizado. Os slides estão num artefato à parte;
+> as notas de cada slide dizem o que fazer na tela. O resto deste arquivo
+> continua valendo como referência e banco de respostas.
+
+**O que mudou desde o roteiro de 07/11:** o envio ao vivo agora é a **planilha
+de fechamento** na casa `Boteco Exemplo - Pinheiros (DEMO)` — o único caminho
+em que o lado real é CMV real (estoque inicial + compras − estoque final). A
+casa piloto passa a ser **só leitura** na demonstração.
+
+### Antes de começar (na manhã da apresentação)
+
+| # | Verificação | Esperado |
+|---|---|---|
+| 1 | `/health` | `"status":"ok"`, `"banco":"ok"`, `commit` = último da `main` |
+| 2 | Preparar a casa de demo: `uv run python scripts/popular_demo_fechamento.py --api https://app-projeto4-saints2026.azurewebsites.net` | "Casa criada: Boteco Exemplo - Pinheiros (DEMO)" + abr–ago enviados. **Rode de novo depois de cada ensaio** — ele apaga e recria só essa casa |
+| 3 | Aba Casas | 6 casas: a piloto + 5 "(DEMO)" |
+| 4 | Fechamento da piloto, 09/2026 | `ajuste_pp: -3.68`, selo "Abaixo do previsto" |
+| 5 | Fechamento da Boteco Exemplo, 09/2026 | **404 / "Nenhum relatório enviado"** — é o mês que será enviado ao vivo. Se já calcula, o ensaio não foi resetado: rode o item 2 |
+
+### A trilha (8–10 min de tela)
+
+| Passo | Tela | Casa · período | O que acontece |
+|---|---|---|---|
+| 1 | Casas | — | Piloto real + DEMO rotuladas. A tela só cria; editar/apagar é pela API (`/docs`) |
+| 2 | Fechar o mês → "Planilha de fechamento" | Boteco Exemplo (DEMO) · 09/2026 | "Baixar planilha da demonstração" → enviar → resultado + "Do primeiro envio ao resultado: X s" |
+| 3 | (resultado) | idem | **+1,61 pp, acima**, maior parte em BEBIDAS (+1,43 pp); acumulado 6 meses +0,64 pp; evolução descola em setembro; top itens |
+| 4 | Fechamento | Pizzaria Bella (DEMO) e Distribuidora Horizonte (DEMO) · 09/2026 | +2,91 pp (CMV 32%) × +6,84 pp (CMV 76%): mesmo cálculo, outro ramo; subgrupos nos dois lados |
+| 5 | Quanto comprar | **piloto** · 09/2026 (só leitura) | Alerta "35% abaixo da mediana"; 39 meses de histórico; confiança "Alta"; "Não é machine learning" |
+| 6 | Upload → Planilha de fechamento | Boteco Exemplo (DEMO) · 09/2026 | Enviar o arquivo errado (o cardápio da demonstração) → 422 em português com as colunas que faltam |
+| — | Fechamento (opcional) | piloto · 09/2026 (só leitura) | −3,68 pp: compras × teórico, não conclusivo, um mês só |
+
+> **Cronômetro do RF13 no fluxo da planilha:** até o commit `46131ee`
+> (branch `claude/loving-ptolemy-k9zbvu`) ele **não aparecia** nesse fluxo —
+> `calcular()` lia um estado capturado antes do envio. Sem esse commit em
+> produção, o resultado aparece normalmente, só sem a linha do tempo; nesse
+> caso, cite o tempo de relógio em voz alta ou mostre o RF13 pelo fluxo
+> "Relatórios do Everest" numa casa DEMO.
+
 ## Regra número um
 
 **Não instale nada, não clone nada, não abra terminal.** Se a demonstração
