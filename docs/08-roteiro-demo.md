@@ -60,6 +60,41 @@ mudaria alguma decisão de vocês?" — é a validação do RF15.
 | 6 | Upload | Boteco Exemplo (DEMO) · 09/2026 | "Envio direto, para histórico e arquivo avulso." Baixar o cardápio da demonstração, trocar o tipo para "Planilha de fechamento" e enviá-lo → 422 em português com as colunas que faltam |
 | — | Fechamento (opcional) | piloto · 09/2026 (só leitura) | −3,68 pp: compras × teórico, não conclusivo, um mês só |
 
+### Bloco complementar (3–4 min, se houver tempo ou pergunta)
+
+Cobre o que a trilha principal não mostra. Ensaiado em produção em 18/11, com a
+casa apagada no fim.
+
+| Passo | Tela | O que fazer | O que mostra |
+|---|---|---|---|
+| B1 | Casas → **Nova casa** | Nome `Teste ao vivo (DEMO)`, marca `Teste`, cidade `Sao Paulo` | Cadastro (RF08). Marca com 1 letra é recusada (validação) |
+| B2 | Fechar o mês → **Relatórios do Everest** | Essa casa, **10/2026**. Em cada passo, "Baixar planilha-modelo" e enviar o arquivo baixado (teórico, depois real) | O fluxo de dois arquivos, com a tabela de colunas de cada lado. Resultado com explicação (cerca de −3 pp, "abaixo"; dado sintético do modelo) |
+| B3 | Fechar outro mês → mesma casa e mês | Começar | "Usar o já enviado" é o padrão; "Enviar outro arquivo" mostra o aviso de que substituir não tem volta |
+| B4 | `/docs` (Swagger) | `DELETE /api/v1/casas/{id}` com o id da casa de teste | O contrato da API gerado do código; 204 ao apagar. **Apague a casa no fim** — não deixe lixo em produção |
+
+Se perguntarem por export real do Everest: o modo de dois arquivos lê o export
+como sai do ERP, mas dado do cliente não vai para o Git. Se tiver um export
+real na máquina, dá para enviá-lo na casa de teste (nunca na piloto em 09/2026).
+
+### Cobertura: todos os fluxos da aplicação
+
+| Fluxo | Onde aparece |
+|---|---|
+| Listar casas · criar casa | 1 · B1 |
+| Editar / apagar casa (só API) | B4 |
+| Fechar o mês — planilha de fechamento (um arquivo, com estoque) | 2 |
+| Fechar o mês — relatórios do Everest (dois arquivos) | B2 |
+| Planilha-modelo gerada pela API | B2 (modelo) · 2 (planilha da demo) |
+| Reenvio: "usar o já enviado" / substituir com aviso | B3 |
+| Fechamento: explicação, indicador, balanço, acumulado | 2 · 3 |
+| Fechamento: evolução mensal, top itens | 3 |
+| Fechamento: outros ramos (DEMO) | 3 |
+| Fechamento: lado real só compras, não conclusivo; categorias sem par | opcional (piloto) |
+| Margem por item — mês-base automático e escolhido | 4 |
+| Quanto comprar — alerta de dado, método, confiança, margem de segurança | 5 |
+| Upload direto e mensagem de erro em português (422) | 6 |
+| API: Swagger, `/health` | B4 · "Antes de começar" |
+
 **Por que duas abas de envio.** O Upload veio primeiro. O Fechar o mês (RF12)
 usa os mesmos envios, em passos, e termina no resultado — existe porque quem
 mandava só um dos lados via um painel aparentemente completo e sem ajuste. O
